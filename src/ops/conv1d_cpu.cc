@@ -138,7 +138,7 @@ namespace ctranslate2 {
                               dim_t output_length,
                               dim_t in_channels,
                               dim_t out_channels,
-                              dim_t kernel_size,
+                              dim_t kernel_size, // 3
                               dim_t stride,
                               dim_t padding) {
       cpu::parallel_for(0, batch_size * out_channels, 1, [&](dim_t begin, dim_t end) {
@@ -177,6 +177,7 @@ namespace ctranslate2 {
             if (bias)
               value += bias[c_out];
             
+//            printf("c_out: %u output_length: %u  t_out: %u result: %u\n", c_out, output_length, t_out, c_out * output_length + t_out);
             y[c_out * output_length + t_out] = value;
           }
         }

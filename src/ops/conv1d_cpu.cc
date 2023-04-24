@@ -129,8 +129,8 @@ namespace ctranslate2 {
 namespace ctranslate2 {
   namespace ops {
 
-    static void conv1d_kernel(const float* input,
-                              const float* weight,
+    static void conv1d_kernel(const int8_t* input,
+                              const int8_t* weight,
                               const float* bias,
                               float* output,
                               dim_t batch_size,
@@ -146,8 +146,8 @@ namespace ctranslate2 {
           const dim_t b = i / out_channels;
           const dim_t c_out = i % out_channels;
 
-          const float* filter = weight + (c_out * in_channels * kernel_size);
-          const float* x = input + b * (in_channels * input_length);
+          const int8_t* filter = weight + (c_out * in_channels * kernel_size);
+          const int8_t* x = input + b * (in_channels * input_length);
           float* y = output + b * (out_channels * output_length);
 
           for (dim_t t_out = 0; t_out < output_length; ++t_out) {
@@ -158,16 +158,16 @@ namespace ctranslate2 {
             const dim_t window_size = window_end - window_offset;
             const dim_t filter_offset = window_offset - t_in;
 
-            const float* window = x + (window_offset * in_channels);
-            const float* kernel = filter + (filter_offset * in_channels);
+            const int8_t* window = x + (window_offset * in_channels);
+            const int8_t* kernel = filter + (filter_offset * in_channels);
 
-#ifdef CT2_NO_BLAS
+//#ifdef CT2_NO_BLAS
             float value = 0;
             for (dim_t j = 0; j < window_size * in_channels; ++j)
               value += window[j] * kernel[j];
-#else
-            float value = cblas_sdot(window_size * in_channels, window, 1, kernel, 1);
-#endif
+//#else
+//            float value = cblas_sdot(window_size * in_channels, window, 1, kernel, 1);
+//#endif
 
             if (bias)
               value += bias[c_out];
@@ -179,7 +179,7 @@ namespace ctranslate2 {
     }
 
     template<>
-    void Conv1D::compute<Device::CPU, float>(const StorageView& input,
+    void Conv1D::compute<Device::CPU, int8_t>(const StorageView& input,
                                              const StorageView& weight,
                                              const StorageView* bias,
                                              StorageView& output) const {
@@ -200,8 +200,8 @@ namespace ctranslate2 {
       transpose_op(input, input_t);
       transpose_op(weight, weight_t);
 
-      conv1d_kernel(input_t.data<float>(),
-                    weight_t.data<float>(),
+      conv1d_kernel(input_t.data<int8_t>(),
+                    weight_t.data<int8_t>(),
                     bias ? bias->data<float>() : nullptr,
                     output.data<float>(),
                     batch_size,

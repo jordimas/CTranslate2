@@ -35,8 +35,8 @@ namespace ctranslate2 {
     }
 
     bool WhisperModel::is_quantizable(const std::string& variable_name) const {
-      return (Model::is_quantizable(variable_name)
-              && variable_name.find("conv") == std::string::npos);
+      return Model::is_quantizable(variable_name);
+//              && variable_name.find("conv") == std::string::npos);
     }
 
     bool WhisperModel::is_linear_weight(const std::string& variable_name) const {

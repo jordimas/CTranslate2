@@ -195,8 +195,9 @@ namespace ctranslate2 {
 
       // Transpose input and weight to apply the kernel with a single contiguous dot.
       const Transpose transpose_op({0, 2, 1});
-      StorageView input_t;
-      StorageView weight_t;
+      const auto device = output.device();
+      StorageView input_t(weight.dtype(), device);
+      StorageView weight_t(weight.dtype(), device);
       transpose_op(input, input_t);
       transpose_op(weight, weight_t);
 

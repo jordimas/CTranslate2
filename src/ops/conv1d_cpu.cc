@@ -149,7 +149,7 @@ namespace ctranslate2 {
           // y = points to weights
           const int8_t* filter = weight + (c_out * in_channels * kernel_size);
           
-          // y = points to input          
+          // x = points to input          
           const int8_t* x = input + b * (in_channels * input_length);
           
           // y = points to output
@@ -163,7 +163,10 @@ namespace ctranslate2 {
             const dim_t window_size = window_end - window_offset;
             const dim_t filter_offset = window_offset - t_in;
 
+            // window = points to input
             const int8_t* window = x + (window_offset * in_channels);
+            
+            // kernel = points to weights
             const int8_t* kernel = filter + (filter_offset * in_channels);
 
 //#ifdef CT2_NO_BLAS

@@ -403,10 +403,12 @@ namespace ctranslate2 {
     }
 
     void Conv1D::operator()(const StorageView& input, StorageView& output) const {
-      if (_bias)
+      if (_bias) {
         _conv_op(input, _weight, *_bias, output);
-      else
-        _conv_op(input, _weight, output);
+      }
+      else {
+        throw std::invalid_argument("Conv1D::operator() bias");
+      }
     }
 
   }

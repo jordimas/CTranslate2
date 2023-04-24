@@ -146,8 +146,13 @@ namespace ctranslate2 {
           const dim_t b = i / out_channels;
           const dim_t c_out = i % out_channels;
 
+          // y = points to weights
           const int8_t* filter = weight + (c_out * in_channels * kernel_size);
+          
+          // y = points to input          
           const int8_t* x = input + b * (in_channels * input_length);
+          
+          // y = points to output
           float* y = output + b * (out_channels * output_length);
 
           for (dim_t t_out = 0; t_out < output_length; ++t_out) {
@@ -192,6 +197,7 @@ namespace ctranslate2 {
       const dim_t output_length = output.dim(2);
       const dim_t out_channels = weight.dim(0);
       const dim_t kernel_size = weight.dim(2);
+      printf("kernel_size: %lu\n", kernel_size);
 
       // Transpose input and weight to apply the kernel with a single contiguous dot.
       const Transpose transpose_op({0, 2, 1});

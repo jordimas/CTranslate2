@@ -50,6 +50,10 @@ namespace ctranslate2 {
       case DataType::FLOAT32: {
         DEVICE_DISPATCH(input.device(), (compute<D, float>(input, weight, bias, output)));
         break;
+      case DataType::INT8: {
+        DEVICE_DISPATCH(input.device(), (compute<D, int8_t>(input, weight, bias, output)));
+        break;
+        
       }
 #ifdef CT2_WITH_CUDA
       case DataType::FLOAT16: {

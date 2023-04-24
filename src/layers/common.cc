@@ -404,7 +404,15 @@ namespace ctranslate2 {
 
     void Conv1D::operator()(const StorageView& input, StorageView& output) const {
       if (_bias) {
-        _conv_op(input, _weight, *_bias, output);
+      
+          const auto device = output.device();
+          StorageView input_int8(_weight.dtype(), device);
+          StorageView scale;
+          ops::Quantize()(input, input_int8, scale);
+          
+          _conv_op(input_int8, _weight, *_bias, output);
+
+//          const int8_t * input_int8_t_p =  input.data<int8_t>();
       }
       else {
         throw std::invalid_argument("Conv1D::operator() bias");

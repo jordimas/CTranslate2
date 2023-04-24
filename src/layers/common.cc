@@ -408,8 +408,12 @@ namespace ctranslate2 {
           const auto device = output.device();
           StorageView input_int8(_weight.dtype(), device);
           StorageView scale;
-          ops::Quantize()(input, input_int8, scale);
-          
+ //         ops::Quantize()(input, input_int8, scale);
+         const ops::Quantize quantize_op(/*int16_scale_type=*/ops::Quantize::ScaleType::PER_LAYER,
+                                      /*shift_to_uint8=*/false,
+                                      /*round_before_cast=*/true);
+
+          quantize_op(input, input_int8, scale);
           _conv_op(input_int8, _weight, *_bias, output);
 
 //          const int8_t * input_int8_t_p =  input.data<int8_t>();

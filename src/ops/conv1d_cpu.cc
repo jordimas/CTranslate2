@@ -176,7 +176,7 @@ namespace ctranslate2 {
 
             if (bias)
               value += bias[c_out];
-
+            
             y[c_out * output_length + t_out] = value;
           }
         }
@@ -206,6 +206,9 @@ namespace ctranslate2 {
       StorageView weight_t(weight.dtype(), device);
       transpose_op(input, input_t);
       transpose_op(weight, weight_t);
+
+      printf("batch_size: %lu, input_length %lu, output_length: %lu\n", batch_size, input_length, output_length);
+      printf("in_channels: %lu, out_channels %lu, kernel_size: %lu\n", in_channels, out_channels, kernel_size);          
 
       conv1d_kernel(input_t.data<int8_t>(),
                     weight_t.data<int8_t>(),

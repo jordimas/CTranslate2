@@ -25,14 +25,16 @@ else
     # error mirrorlist.centos.org doesn't exists anymore.
     sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
     sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
-    sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+    sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo    
     yum install --setopt=obsoletes=0 -y \
         cuda-nvcc-12-2-12.2.140-1 \
         cuda-cudart-devel-12-2-12.2.140-1 \
         libcurand-devel-12-2-10.3.3.141-1 \
-        libcudnn9-devel-cuda-12-9.1.0.70-1 \
         libcublas-devel-12-2-12.2.5.6-1 \
-        libnccl-devel-2.19.3-1+cuda12.2
+        libnccl-devel-2.19.3-1+cuda12.2 \
+        libcudnn9-cuda-12 \
+        libcudnn9-devel-cuda-12
+        
     ln -s cuda-12.2 /usr/local/cuda
 
     ONEAPI_VERSION=2023.2.0

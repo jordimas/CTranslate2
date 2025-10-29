@@ -26,14 +26,14 @@ else
     sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
     sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
     sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo    
-    yum install --setopt=obsoletes=0 -y \
-        cuda-nvcc-12-2-12.2.140-1 \
-        cuda-cudart-devel-12-2-12.2.140-1 \
-        libcurand-devel-12-2-10.3.3.141-1 \
-        libcublas-devel-12-2-12.2.5.6-1 \
+    yum install -y \
+        cuda-nvcc-12-2 \
+        cuda-cudart-devel-12-2 \
+        libcublas-devel-12-2 \
+        libcurand-devel-12-2 \
         libnccl-devel-2.19.3-1+cuda12.2 \
-        libcudnn9-cuda-12 \
-        libcudnn9-devel-cuda-12
+        libcudnn9-cuda-12.2 \
+        libcudnn9-devel-cuda-12.2
         
     ln -s cuda-12.2 /usr/local/cuda
 

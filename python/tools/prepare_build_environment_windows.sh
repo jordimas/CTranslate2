@@ -30,9 +30,8 @@ cp -r "$CUDNN_ROOT"/* "$CUDA_ROOT"
 rm cudnn.exe
 
 # See https://github.com/oneapi-src/oneapi-ci for installer URLs
-df -h
-find .
-curl --netrc-optional -L -C - --retry 5 --retry-delay 15 --fail -o webimage.exe https://registrationcenter-download.intel.com/akdlm/irc_nas/19078/w_BaseKit_p_2023.0.0.25940_offline.exe
+#curl --netrc-optional -L -nv -o webimage.exe https://registrationcenter-download.intel.com/akdlm/irc_nas/19078/w_BaseKit_p_2023.0.0.25940_offline.exe
+curl --netrc-optional -L -nv -o webimage.exe https://registrationcenter-download.intel.com/akdlm/IRC_NAS/1f18901e-877d-469d-a41a-a10f11b39336/intel-oneapi-base-toolkit-2025.3.0.372_offline.exe
 
 ./webimage.exe -s -x -f webimage_extracted --log extract.log
 rm webimage.exe

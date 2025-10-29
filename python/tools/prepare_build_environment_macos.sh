@@ -3,7 +3,7 @@
 set -e
 set -x
 
-pip install "cmake>=3.27.0"
+pip install "cmake==3.27"
 
 mkdir build-release && cd build-release
 

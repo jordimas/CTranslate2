@@ -35,7 +35,6 @@ else
 
 fi
 
-cmake --version
 cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_CLI=OFF -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON $CMAKE_EXTRA_OPTIONS ..
 VERBOSE=1 make -j$(sysctl -n hw.physicalcpu_max) install
 cd ..

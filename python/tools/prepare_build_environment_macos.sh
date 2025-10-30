@@ -8,18 +8,18 @@ cmake --version
 
 brew install llvm libomp
 
-# Explicitly point to Homebrew LLVM
-export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
-export CC="/opt/homebrew/opt/llvm/bin/clang"
-export CXX="/opt/homebrew/opt/llvm/bin/clang++"
+# Detect correct LLVM prefix dynamically
+LLVM_PREFIX=$(brew --prefix llvm)
 
-# Add include and lib flags for OpenMP and LLVM
-export LDFLAGS="-L/opt/homebrew/opt/llvm/lib -L/opt/homebrew/opt/libomp/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/libomp/include"
+export PATH="$LLVM_PREFIX/bin:$PATH"
+export CC="$LLVM_PREFIX/bin/clang"
+export CXX="$LLVM_PREFIX/bin/clang++"
+export LDFLAGS="-L$LLVM_PREFIX/lib -L$(brew --prefix libomp)/lib"
+export CPPFLAGS="-I$LLVM_PREFIX/include -I$(brew --prefix libomp)/include"
 export CFLAGS="$CPPFLAGS"
 export CXXFLAGS="$CPPFLAGS -fopenmp"
 export CMAKE_CXX_FLAGS="-fopenmp"
-export CMAKE_EXE_LINKER_FLAGS="-L/opt/homebrew/opt/libomp/lib -lomp"
+export CMAKE_EXE_LINKER_FLAGS="-L$(brew --prefix libomp)/lib -lomp"
 
 mkdir build-release && cd build-release
 

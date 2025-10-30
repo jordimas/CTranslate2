@@ -33,7 +33,7 @@ else
     cd ..
     rm -r oneDNN-*
 
-    CMAKE_EXTRA_OPTIONS='-DWITH_DNNL=ON'
+    CMAKE_EXTRA_OPTIONS='-DWITH_DNNL=ON  -DOPENMP_RUNTIME=NONE'
 
 fi
 

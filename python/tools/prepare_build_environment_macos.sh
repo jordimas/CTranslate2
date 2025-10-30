@@ -6,6 +6,14 @@ set -x
 pip install "cmake==3.18.4"
 cmake --version
 
+brew install llvm
+export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+export CXXFLAGS="-I/opt/homebrew/opt/llvm/include"
+export CFLAGS="-I/opt/homebrew/opt/llvm/include"
+
+
 
 mkdir build-release && cd build-release
 
@@ -28,12 +36,12 @@ else
     wget -q https://github.com/oneapi-src/oneDNN/archive/refs/tags/v${ONEDNN_VERSION}.tar.gz
     tar xf *.tar.gz && rm *.tar.gz
     cd oneDNN-*
-    cmake  -DCMAKE_POLICY_VERSION_MINIMUM=3.5  -DCMAKE_BUILD_TYPE=Release -DONEDNN_LIBRARY_TYPE=STATIC -DONEDNN_BUILD_EXAMPLES=OFF -DONEDNN_BUILD_TESTS=OFF -DONEDNN_ENABLE_WORKLOAD=INFERENCE -DONEDNN_ENABLE_PRIMITIVE="CONVOLUTION;REORDER" -DONEDNN_BUILD_GRAPH=OFF -DOPENMP_RUNTIME=NONE  .
+    cmake  -DCMAKE_POLICY_VERSION_MINIMUM=3.5  -DCMAKE_BUILD_TYPE=Release -DONEDNN_LIBRARY_TYPE=STATIC -DONEDNN_BUILD_EXAMPLES=OFF -DONEDNN_BUILD_TESTS=OFF -DONEDNN_ENABLE_WORKLOAD=INFERENCE -DONEDNN_ENABLE_PRIMITIVE="CONVOLUTION;REORDER" -DONEDNN_BUILD_GRAPH=OFF  .
     make -j$(sysctl -n hw.physicalcpu_max) install
     cd ..
     rm -r oneDNN-*
 
-    CMAKE_EXTRA_OPTIONS='-DWITH_DNNL=ON  -DOPENMP_RUNTIME=NONE'
+    CMAKE_EXTRA_OPTIONS='-DWITH_DNNL=ON'
 
 fi
 

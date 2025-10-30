@@ -4,6 +4,10 @@ set -e
 set -x
 
 pip install "cmake==3.18.4"
+brew install libomp
+export LDFLAGS="-L/opt/homebrew/opt/libomp/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/libomp/include"
+export CMAKE_PREFIX_PATH="/opt/homebrew/opt/libomp"
 
 mkdir build-release && cd build-release
 

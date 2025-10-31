@@ -36,7 +36,19 @@ else
     wget -q https://github.com/oneapi-src/oneDNN/archive/refs/tags/v${ONEDNN_VERSION}.tar.gz
     tar xf *.tar.gz && rm *.tar.gz
     cd oneDNN-*
-    cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DONEDNN_LIBRARY_TYPE=STATIC -DONEDNN_BUILD_EXAMPLES=OFF -DONEDNN_BUILD_TESTS=OFF -DONEDNN_ENABLE_WORKLOAD=INFERENCE -DONEDNN_ENABLE_PRIMITIVE="CONVOLUTION;REORDER" -DONEDNN_BUILD_GRAPH=OFF .
+    cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DONEDNN_LIBRARY_TYPE=STATIC \
+          -DONEDNN_BUILD_EXAMPLES=OFF \
+          -DONEDNN_BUILD_TESTS=OFF \
+          -DONEDNN_ENABLE_WORKLOAD=INFERENCE \
+          -DONEDNN_ENABLE_PRIMITIVE="CONVOLUTION;REORDER" \
+          -DONEDNN_BUILD_GRAPH=OFF \
+          -DOpenMP_C_FLAGS="${OpenMP_C_FLAGS}" \
+          -DOpenMP_CXX_FLAGS="${OpenMP_CXX_FLAGS}" \
+          -DOpenMP_omp_LIBRARY="${OpenMP_omp_LIBRARY}" \
+          -DCMAKE_C_FLAGS="${CPPFLAGS}" \
+          -DCMAKE_CXX_FLAGS="${CPPFLAGS}" .
     make -j$(sysctl -n hw.physicalcpu_max) install
     cd ..
     rm -r oneDNN-*

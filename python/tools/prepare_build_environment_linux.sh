@@ -19,7 +19,7 @@ if [ "$CIBW_ARCHS" == "aarch64" ]; then
     rm -r OpenBLAS-*
 
 else
-    # Install CUDA 12.4:
+    # Install CUDA 12.9:
     yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
     #yum-config-manager --setopt="exclude=cuda-13*,libcudnn*13*,libnccl*13*,*cuda12.9*" --save
    # error mirrorlist.centos.org doesn't exists anymore.
@@ -27,14 +27,14 @@ else
     sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
     sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
     yum install --setopt=obsoletes=0 -y \
-        cuda-nvcc-12-4-12.4.99-1 \
-        cuda-cudart-devel-12-4-12.4.99-1 \
-        libcurand-devel-12-4-10.3.5.119-1 \
-        libcudnn9-devel-cuda-12-9.1.0.70-1 \
-        libcublas-devel-12-4-12.4.2.65-1 \
-        libnccl-2.20.5-1+cuda12.4 \
-        libnccl-devel-2.20.5-1+cuda12.4
-    ln -s cuda-12.4 /usr/local/cuda
+        cuda-nvcc-12-9-12.9.86-1.x86_64 \
+        cuda-cudart-devel-12-9-12.9.79-1 \
+        libcurand-devel-12-9-10.3.10.19-1 \
+        libcudnn9-devel-cuda-12-9.14.0.64-1 \
+        libcublas-devel-12-9-12.9.1.4-1 \
+        libnccl-2.28.7-1+cuda12.9 \
+        libnccl-devel-2.28.7-1+cuda12.9
+    ln -s cuda-12.9 /usr/local/cuda
 
     ONEAPI_VERSION=2023.2.0
     yum-config-manager --add-repo https://yum.repos.intel.com/oneapi

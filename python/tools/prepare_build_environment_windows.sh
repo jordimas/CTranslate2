@@ -59,7 +59,7 @@ cp $CTRANSLATE2_ROOT/bin/ctranslate2.dll python/ctranslate2/
 echo Jordi!
 ls -lR "C:/Program Files (x86)/Intel/oneAPI/"*
 #cp "C:/Program Files (x86)/Intel/oneAPI/compiler/latest/windows/redist/intel64_win/compiler/lib*.dll" python/ctranslate2/
-cp "C:/Program Files (x86)/Intel/oneAPI/compiler/latest/windows/redist/intel64_win/compiler/lib*.dll" python/ctranslate2/
+cp "C:/Program Files (x86)/Intel/oneAPI/compiler/2024.0/bin/libiomp5md.dll" python/ctranslate2/
 # C:/Program Files (x86)/Intel/oneAPI/compiler/latest/lib/libiomp5md.lib
  
 cp "$CUDA_ROOT/bin/cudnn64_9.dll" python/ctranslate2/

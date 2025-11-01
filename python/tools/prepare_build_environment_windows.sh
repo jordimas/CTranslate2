@@ -4,9 +4,9 @@ set -e
 set -x
 
 CUDA_ROOT="C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.9"
-https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda_12.9.1_576.57_windows.exe
-./cuda.exe -s nvcc_12.9 cudart_12.9 cublas_dev_12.9 curand_dev_12.9
 
+curl --netrc-optional -L -nv -o cuda.exe https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda_12.9.1_576.57_windows.exe
+./cuda.exe -s nvcc_12.9 cudart_12.9 cublas_dev_12.9 curand_dev_12.9
 rm cuda.exe
 
 CUDNN_ROOT="C:/Program Files/NVIDIA/CUDNN/v9.1"

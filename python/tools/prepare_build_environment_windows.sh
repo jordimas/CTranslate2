@@ -31,8 +31,7 @@ cp -r "$CUDNN_ROOT"/* "$CUDA_ROOT"
 rm cudnn.exe
 
 # See https://github.com/oneapi-src/oneapi-ci for installer URLs
-#curl --netrc-optional -L -nv -o webimage.exe https://registrationcenter-download.intel.com/akdlm/irc_nas/19078/w_BaseKit_p_2023.0.0.25940_offline.exe
-curl --netrc-optional -L -nv -o webimage.exe  https://registrationcenter-download.intel.com/akdlm/IRC_NAS/62641e01-1e8d-4ace-91d6-ae03f7f8a71f/w_BaseKit_p_2024.0.0.49563_offline.exe
+curl --netrc-optional -L -nv -o webimage.exe https://registrationcenter-download.intel.com/akdlm/IRC_NAS/62641e01-1e8d-4ace-91d6-ae03f7f8a71f/w_BaseKit_p_2024.0.0.49563_offline.exe
 
 ./webimage.exe -s -x -f webimage_extracted --log extract.log
 rm webimage.exe
@@ -56,11 +55,7 @@ rm -r build
 
 cp README.md python/
 cp $CTRANSLATE2_ROOT/bin/ctranslate2.dll python/ctranslate2/
-echo Jordi!
-ls -lR "C:/Program Files (x86)/Intel/oneAPI/"*
-#cp "C:/Program Files (x86)/Intel/oneAPI/compiler/latest/windows/redist/intel64_win/compiler/lib*.dll" python/ctranslate2/
 cp "C:/Program Files (x86)/Intel/oneAPI/compiler/2024.0/bin/libiomp5md.dll" python/ctranslate2/
-# C:/Program Files (x86)/Intel/oneAPI/compiler/latest/lib/libiomp5md.lib
  
 cp "$CUDA_ROOT/bin/cudnn64_9.dll" python/ctranslate2/
 ls -l python/ctranslate2/

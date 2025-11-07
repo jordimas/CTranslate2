@@ -183,7 +183,26 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022]
+        include:
+          - os: ubuntu-22.04
+            artifact_pattern: python-wheels-Linux-auto64
+            wheel_pattern: "*manylinux*x86_64.whl"
+
+          - os: ubuntu-22.04
+            artifact_pattern: python-wheels-Linux-aarch64
+            wheel_pattern: "*manylinux*aarch64.whl"
+
+          - os: windows-2022
+            artifact_pattern: python-wheels-Windows-auto64
+            wheel_pattern: "*win*.whl"
+
+          - os: macos-15-intel
+            artifact_pattern: python-wheels-macOS-x86_64
+            wheel_pattern: "*macosx*x86_64.whl"
+
+          - os: macos-15
+            artifact_pattern: python-wheels-macOS-arm64
+            wheel_pattern: "*macosx*arm64.whl"
 
     steps:
       - name: Set up Python 3.10.11
@@ -201,20 +220,14 @@ jobs:
       - name: Download Python wheels
         uses: actions/download-artifact@v4
         with:
-          pattern: python-wheels-${{ runner.os }}-*
+          pattern: ${{ matrix.artifact_pattern }}
           merge-multiple: true
           path: .
 
       - name: Install wheel
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          pip install *cp310*manylinux*x86_64.whl
-
-      - name: Install wheel
-        if: startsWith(matrix.os, 'windows')
         shell: bash
         run: |
-          pip install *cp310*win*.whl
+          pip install ${{ matrix.wheel_pattern }}
 
       - name: Run tests
         shell: bash

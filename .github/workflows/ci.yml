@@ -189,12 +189,10 @@ jobs:
             artifact_pattern: python-wheels-Linux-auto64
             wheel_pattern: "*cp310*manylinux*x86_64.whl"
 
-          - os: ubuntu-22.04
-            arch: aarch64
+          - os: ubuntu-22.04-arm64
             artifact_pattern: python-wheels-Linux-aarch64
             wheel_pattern: "*cp310*manylinux*aarch64.whl"
-            container: quay.io/pypa/manylinux_2_28_aarch64
-
+            
           - os: windows-2022
             artifact_pattern: python-wheels-Windows-auto64
             wheel_pattern: "*cp310*win*.whl"

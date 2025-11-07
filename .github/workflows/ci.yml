@@ -196,9 +196,9 @@ jobs:
             artifact_pattern: python-wheels-Windows-auto64
             wheel_pattern: "*win*.whl"
 
-          - os: macos-15-intel
-            artifact_pattern: python-wheels-macOS-x86_64
-            wheel_pattern: "*macosx*x86_64.whl"
+#          - os: macos-15-intel
+#            artifact_pattern: python-wheels-macOS-x86_64
+#            wheel_pattern: "*macosx*x86_64.whl"
 
           - os: macos-15
             artifact_pattern: python-wheels-macOS-arm64

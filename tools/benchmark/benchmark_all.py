@@ -85,28 +85,28 @@ ct2_default_runs = [
 ]
 
 images = [
-    Image(
-        "opennmt_ende_wmt14/opennmt_tf",
-        [
-            ("cpu", {}),
-            ("gpu", {}),
-        ],
-    ),
-    Image(
-        "opennmt_ende_wmt14/opennmt_py",
-        [
-            ("cpu", {"INT8": "0"}),
-            ("cpu", {"INT8": "1"}),
-            ("gpu", {}),
-        ],
-    ),
-    Image(
-        "opennmt_ende_wmt14/fastertransformer",
-        [
-            ("gpu", {"FP16": "0"}),
-            ("gpu", {"FP16": "1"}),
-        ],
-    ),
+#    Image(
+#        "opennmt_ende_wmt14/opennmt_tf",
+#        [
+#            ("cpu", {}),
+#            ("gpu", {}),
+#        ],
+#    ),
+#    Image(
+#        "opennmt_ende_wmt14/opennmt_py",
+#        [
+#            ("cpu", {"INT8": "0"}),
+#            ("cpu", {"INT8": "1"}),
+#            ("gpu", {}),
+#        ],
+#    ),
+#    Image(
+#        "opennmt_ende_wmt14/fastertransformer",
+#        [
+#            ("gpu", {"FP16": "0"}),
+#            ("gpu", {"FP16": "1"}),
+#        ],
+#    ),
     Image(
         "opennmt_ende_wmt14/ctranslate2",
         [
@@ -121,16 +121,16 @@ images = [
             ("gpu", {}),
         ],
     ),
-    Image(
-        "opus_mt_ende/marian",
-        [
-            ("cpu", {"GEMM_TYPE": "float32"}),
-            ("cpu", {"GEMM_TYPE": "intgemm16"}),
-            ("cpu", {"GEMM_TYPE": "intgemm8"}),
-            ("gpu", {"GEMM_TYPE": "float32"}),
-            ("gpu", {"GEMM_TYPE": "float16"}),
-        ],
-    ),
+#    Image(
+#        "opus_mt_ende/marian",
+#        [
+#            ("cpu", {"GEMM_TYPE": "float32"}),
+#            ("cpu", {"GEMM_TYPE": "intgemm16"}),
+#            ("cpu", {"GEMM_TYPE": "intgemm8"}),
+#            ("gpu", {"GEMM_TYPE": "float32"}),
+#            ("gpu", {"GEMM_TYPE": "float16"}),
+#        ],
+#    ),
     Image(
         "opus_mt_ende/ctranslate2",
         ct2_default_runs,

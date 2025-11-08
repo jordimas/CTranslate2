@@ -9,7 +9,7 @@ audio_duration = len(audio) / sr
 
 # --- Initialize processor & model ---
 processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-tiny")
-model = ctranslate2.models.Whisper("whisper-tiny-ct2")
+model = ctranslate2.models.Whisper("whisper-medium-ct2", device="cpu")
 
 # --- Feature extraction ---
 start_feat = time.time()

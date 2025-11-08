@@ -229,12 +229,19 @@ jobs:
         shell: bash
         run: |
           pip install ${{ matrix.wheel_pattern }}
-          
-      - name: Run tests
-        shell: bash
+                
+      - name: Test Python wheel
         run: |
-          pytest -v python/tests/ --ignore=python/tests/test_opennmt_tf.py
-
+          if [[ "${{ matrix.arch }}" == "aarch64" ]] || [[ "${{ matrix.identifier }}" == *"aarch64"* ]]; then
+            docker run --rm -v $PWD:/workspace -w /workspace \
+              --platform linux/arm64 \
+              python:3.10 \
+              bash -c "pip install /workspace/*cp310*manylinux*aarch64.whl && pytest python/tests"
+          else
+            pip install *cp310*manylinux*.whl
+            pytest python/tests
+          fi
+          
   check-python-style:
     runs-on: ubuntu-latest
 

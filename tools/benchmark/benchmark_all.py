@@ -107,20 +107,20 @@ images = [
 #            ("gpu", {"FP16": "1"}),
 #        ],
 #    ),
-    Image(
-        "opennmt_ende_wmt14/ctranslate2",
-        [
-            *ct2_default_runs,
-            ("cpu", {"COMPUTE_TYPE": "int8", "USE_VMAP": "1"}),
-        ],
-    ),
-    Image(
-        "opus_mt_ende/transformers",
-        [
-            ("cpu", {}),
-            ("gpu", {}),
-        ],
-    ),
+#    Image(
+#        "opennmt_ende_wmt14/ctranslate2",
+#        [
+#            *ct2_default_runs,
+#            ("cpu", {"COMPUTE_TYPE": "int8", "USE_VMAP": "1"}),
+#        ],
+#    ),
+#    Image(
+#        "opus_mt_ende/transformers",
+#        [
+#            ("cpu", {}),
+#            ("gpu", {}),
+#        ],
+#    ),
 #    Image(
 #        "opus_mt_ende/marian",
 #        [

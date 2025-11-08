@@ -1,4 +1,4 @@
-FROM opennmt/ctranslate2:3.6.0-ubuntu22.04-cuda11.2
+FROM ghcr.io/opennmt/ctranslate2:4.6.1-ubuntu22.04-cuda12.2
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \

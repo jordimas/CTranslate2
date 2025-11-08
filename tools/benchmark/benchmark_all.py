@@ -133,7 +133,15 @@ images = [
 #    ),
     Image(
         "opus_mt_ende/ctranslate2",
-        ct2_default_runs,
+        [
+          ("cpu", {"COMPUTE_TYPE": "float"}),
+          ("cpu", {"COMPUTE_TYPE": "int16"}),
+          ("cpu", {"COMPUTE_TYPE": "int8"}),
+          ("gpu", {"COMPUTE_TYPE": "float32"}),
+          ("gpu", {"COMPUTE_TYPE": "int8"}),
+#          ("gpu", {"COMPUTE_TYPE": "float16"}),
+          #("gpu", {"COMPUTE_TYPE": "int8_float16"}),
+        ],
     ),
 ]
 

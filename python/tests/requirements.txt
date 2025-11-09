@@ -3,4 +3,4 @@ fairseq==0.12.2;platform_system=='Linux' or platform_system=='Darwin'
 OpenNMT-py==2.2.*;platform_system=='Linux' or platform_system=='Darwin'
 pytest
 wurlitzer==3.0.*;platform_system=='Linux'
-torch==2.4.1
+torch

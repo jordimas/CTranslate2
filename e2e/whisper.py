@@ -4,7 +4,7 @@ import librosa
 import transformers
 
 # --- Load audio ---
-audio, sr = librosa.load("e2e/dosparlants.mp3", sr=16000, mono=True)
+audio, sr = librosa.load("dosparlants.mp3", sr=16000, mono=True)
 audio_duration = len(audio) / sr
 
 # --- Initialize processor & model ---

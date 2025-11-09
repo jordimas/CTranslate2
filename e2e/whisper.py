@@ -9,10 +9,10 @@ audio_duration = len(audio) / sr
 
 # --- Initialize processor & model ---
 processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-tiny")
-model = ctranslate2.models.Whisper("whisper-medium-ct2", device="cpu")
+model = ctranslate2.models.Whisper("whisper-medium-ct2", device="cpu", compute_type="auto")
 
 # --- Feature extraction ---
-start_feat = time.time()
+start_gen = time.time()
 features = ctranslate2.StorageView.from_array(
     processor(audio, return_tensors="np", sampling_rate=sr).input_features
 )
@@ -24,7 +24,6 @@ print(f"Detected language: {language}")
 prompt = processor.tokenizer.convert_tokens_to_ids(
     ["<|startoftranscript|>", language, "<|transcribe|>", "<|notimestamps|>"]
 )
-start_gen = time.time()
 seq_ids = model.generate(features, [prompt])[0].sequences_ids[0]
 gen_duration = time.time() - start_gen
 

@@ -225,7 +225,10 @@ jobs:
           pattern: ${{ matrix.artifact_pattern }}
           merge-multiple: true
           path: .
-
+          
+      - name: List files (non-Windows only)
+        if: runner.os != 'Windows'
+        run: ls -lh
       # Artifacts
       #   python-wheels-macOS-arm64
       #   python-wheels-macOS-x86_64 
@@ -236,7 +239,6 @@ jobs:
       #*cp310*macosx*x86_64.whl is not a valid wheel filename.          
       - name: List downloaded files
         run: |
-          ls -lh
           echo pattern: -${{ matrix.artifact_pattern }}-
           echo pip: pip install ${{ matrix.wheel_pattern }}
           

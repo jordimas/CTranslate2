@@ -4,4 +4,5 @@ fairseq==0.12.2;platform_system=='Linux' or platform_system=='Darwin'
 OpenNMT-py==2.2.*;platform_system=='Linux' or platform_system=='Darwin'
 pytest
 wurlitzer==3.0.*;platform_system=='Linux'
-torch
+torch==2.4.1; sys_platform == 'linux' or sys_platform == 'win32'
+torch; sys_platform == 'darwin'

@@ -205,7 +205,7 @@ jobs:
           - os: macos-15-intel
             artifact_pattern: python-wheels-macOS-x86_64
             wheel_pattern: "*cp310*macosx*x86_64.whl"
-            
+
     steps:
       - name: Set up Python 3.10.11
         uses: actions/setup-python@v5
@@ -225,6 +225,20 @@ jobs:
           pattern: ${{ matrix.artifact_pattern }}
           merge-multiple: true
           path: .
+
+      # Artifacts
+      #   python-wheels-macOS-arm64
+      #   python-wheels-macOS-x86_64 
+      #
+      #Error seen
+      #Run pip install *cp310*macosx*x86_64.whl
+      #Requirement '*cp310*macosx*x86_64.whl' looks like a filename, but the file does not exist
+      #*cp310*macosx*x86_64.whl is not a valid wheel filename.          
+      - name: List downloaded files
+        run: |
+          ls -lh
+          echo pattern: -${{ matrix.artifact_pattern }}-
+          echo pip: pip install ${{ matrix.wheel_pattern }}
           
       - name: Install wheel
         shell: bash

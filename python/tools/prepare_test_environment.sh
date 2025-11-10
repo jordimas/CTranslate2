@@ -8,7 +8,8 @@ python -m pip install 'pip<24.1'
 
 # Install test rquirements
 pip cache purge
-pip --no-cache-dir install -r python/tests/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+#pip --no-cache-dir install -r python/tests/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+pip --no-cache-dir install -r python/tests/requirements.txt
 pip uninstall -y ctranslate2
 
 # Download test data

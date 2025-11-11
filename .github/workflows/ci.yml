@@ -248,9 +248,12 @@ jobs:
           pip install ${{ matrix.wheel_pattern }}
                 
       - name: Test Python wheel
+        env:
+          TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD: 1        
         run: |
-          TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1 pytest -v python/tests/ --ignore=python/tests/test_opennmt_tf.py
-         
+          pytest -v python/tests/ --ignore=python/tests/test_opennmt_tf.py
+
+             
   check-python-style:
     runs-on: ubuntu-latest
 

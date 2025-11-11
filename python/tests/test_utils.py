@@ -39,6 +39,11 @@ only_on_linux = pytest.mark.skipif(
     sys.platform != "linux", reason="Test case only running on Linux"
 )
 
+only_on_linux_intel = pytest.mark.skipif(
+    sys.platform != "linux" or "intel" not in platform.processor().lower(),
+    reason="Test case only runs on Linux with Intel CPU"
+)
+
 require_cuda = pytest.mark.skipif(
     ctranslate2.get_cuda_device_count() == 0, reason="Test case requires a CUDA device"
 )

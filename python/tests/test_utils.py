@@ -1,6 +1,6 @@
 import os
-import sys
 import platform
+import sys
 
 import numpy as np
 import pytest

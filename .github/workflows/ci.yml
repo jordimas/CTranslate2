@@ -189,6 +189,10 @@ jobs:
           - os: macos-15
             artifact_pattern: python-wheels-macOS-arm64
             wheel_pattern: "*cp310*macosx*arm64.whl"
+            
+          - os: macos-15-intel
+            artifact_pattern: python-wheels-macOS-x86_64
+            wheel_pattern: "*cp310*macosx*x86_64.whl"
        
     steps:
       - name: Set up Python 3.10.11

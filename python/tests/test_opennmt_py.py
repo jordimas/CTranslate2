@@ -66,7 +66,7 @@ def test_opennmt_py_relative_transformer_return_alternatives(tmp_dir):
     )
 
 
-@test_utils.skip_on_windows
+@test_utils.only_on_linux
 @pytest.mark.parametrize(
     "filename", ["aren_features_concat_10000.pt", "aren_features_sum_10000.pt"]
 )
@@ -123,7 +123,7 @@ def test_opennmt_py_source_features(tmp_dir, filename):
             assert line.strip().split() == expected_hypothesis
 
 
-@test_utils.skip_on_windows
+@test_opennmt_py_source_features
 def test_opennmt_py_transformer_lm(tmp_dir):
     model_path = os.path.join(test_utils.get_data_dir(), "models", "pi_lm_step_5000.pt")
     if not os.path.exists(model_path):

@@ -23,7 +23,7 @@ def test_opennmt_py_model_conversion(tmp_dir):
     assert output[0].hypotheses[0] == ["a", "t", "z", "u", "m", "o", "n"]
 
 
-@test_utils.skip_on_windows
+@test_utils.only_on_linux
 def test_opennmt_py_relative_transformer(tmp_dir):
     model_path = os.path.join(
         test_utils.get_data_dir(),
@@ -43,7 +43,7 @@ def test_opennmt_py_relative_transformer(tmp_dir):
     assert output[1].hypotheses[0] == ["a", "r", "t", "h", "e", "r"]
 
 
-@test_utils.skip_on_windows
+@test_utils.only_on_linux
 def test_opennmt_py_relative_transformer_return_alternatives(tmp_dir):
     # Test for issue https://github.com/OpenNMT/CTranslate2/issues/1394
     model_path = os.path.join(

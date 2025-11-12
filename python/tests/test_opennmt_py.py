@@ -123,7 +123,7 @@ def test_opennmt_py_source_features(tmp_dir, filename):
             assert line.strip().split() == expected_hypothesis
 
 
-@test_opennmt_py_source_features
+@test_utils.only_on_linux
 def test_opennmt_py_transformer_lm(tmp_dir):
     model_path = os.path.join(test_utils.get_data_dir(), "models", "pi_lm_step_5000.pt")
     if not os.path.exists(model_path):

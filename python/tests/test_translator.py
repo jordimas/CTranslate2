@@ -30,6 +30,7 @@ def _get_transliterator():
     return ctranslate2.Translator(_get_model_path())
 
 
+@test_utils.only_on_linux
 def test_invalid_model_path():
     with pytest.raises(RuntimeError, match="open file"):
         ctranslate2.Translator("xxx")

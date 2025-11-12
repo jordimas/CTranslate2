@@ -41,7 +41,7 @@ def test_fairseq_model_conversion(tmp_dir):
     assert output[0].log_probs == pytest.approx(expected_log_probs, 1e-5)
 
 
-@test_utils.skip_on_windows
+@test_utils.only_on_linux
 def test_fairseq_user_start_token(tmp_dir):
     data_dir = os.path.join(
         test_utils.get_data_dir(),

@@ -6,7 +6,7 @@ import test_utils
 import ctranslate2
 
 
-@test_utils.skip_on_windows
+@test_utils.only_on_linux
 def test_opennmt_py_model_conversion(tmp_dir):
     model_path = os.path.join(
         test_utils.get_data_dir(),

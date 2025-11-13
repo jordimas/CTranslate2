@@ -91,7 +91,7 @@ RUN apt-get update && \
         libgomp1 \
         python3-pip \
         && \
-#    apt-get purge -y cuda-compat-12-4 && \
+    apt-get purge -y cuda-compat-12-4 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

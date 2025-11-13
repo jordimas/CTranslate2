@@ -102,9 +102,4 @@ COPY --from=builder $CTRANSLATE2_ROOT $CTRANSLATE2_ROOT
 RUN python3 -m pip --no-cache-dir install $CTRANSLATE2_ROOT/*.whl && \
     rm $CTRANSLATE2_ROOT/*.whl
 
-COPY inaguracio2011.mp3 $CTRANSLATE2_ROOT
-#RUN pip install whisper-ctranslate2 
-WORKDIR $CTRANSLATE2_ROOT
-ENTRYPOINT nvidia-smi
-#ENTRYPOINT ["bash", "-c", "whisper-ctranslate2 inaguracio2011.mp3 --device=cuda"]
-
+ENTRYPOINT ["/opt/ctranslate2/bin/ct2-translator"]

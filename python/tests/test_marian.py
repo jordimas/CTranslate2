@@ -6,6 +6,7 @@ import ctranslate2
 
 from ctranslate2.converters.marian import load_vocab
 
+
 @test_utils.only_on_linux
 def test_marian_model_conversion(tmp_dir):
     model_dir = os.path.join(test_utils.get_data_dir(), "models", "opus-mt-ende")

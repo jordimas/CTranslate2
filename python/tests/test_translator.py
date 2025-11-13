@@ -35,19 +35,19 @@ def test_invalid_model_path():
     with pytest.raises(RuntimeError, match="open file"):
         ctranslate2.Translator("xxx")
 
-
+@test_utils.only_on_linux
 def test_unicode_path(tmp_dir):
     src = _get_model_path()
     dst = str(tmp_dir.join("测试").join("model"))
     shutil.copytree(src, dst)
     ctranslate2.Translator(dst)
 
-
+@test_utils.only_on_linux
 def test_invalid_model_type():
     with pytest.raises(RuntimeError, match="cannot be used"):
         ctranslate2.Generator(_get_model_path())
 
-
+@test_utils.only_on_linux
 def test_invalid_device_settings():
     model_path = _get_model_path()
     with pytest.raises(ValueError, match="device index"):
@@ -55,7 +55,7 @@ def test_invalid_device_settings():
     with pytest.raises(ValueError, match="device index"):
         ctranslate2.Translator(model_path, device_index=[0, 1])
 
-
+@test_utils.only_on_linux
 def test_contains_model(tmp_dir):
     assert ctranslate2.contains_model(_get_model_path())
 
@@ -65,14 +65,14 @@ def test_contains_model(tmp_dir):
     model_dir.join("model.bin").ensure(file=1)
     assert ctranslate2.contains_model(str(model_dir))
 
-
+@test_utils.only_on_linux
 def test_get_supported_compute_types():
     compute_types = ctranslate2.get_supported_compute_types("cpu")
     assert "float32" in compute_types
     assert "int8" in compute_types
     assert "int8_float32" in compute_types
 
-
+@test_utils.only_on_linux
 def test_translator_properties():
     translator = ctranslate2.Translator(_get_model_path(), inter_threads=2)
     assert translator.model_is_loaded
@@ -98,6 +98,7 @@ def test_compute_type():
     assert translator.compute_type == "int8_float32"
 
 
+@test_utils.only_on_linux
 @pytest.mark.parametrize("max_batch_size", [0, 1])
 def test_batch_translation(max_batch_size):
     translator = _get_transliterator()
@@ -129,7 +130,7 @@ def test_batch_translation(max_batch_size):
     assert "attention" not in output[0][0]
     assert output[1][0]["tokens"] == ["a", "c", "h", "i", "s", "o", "n"]
 
-
+@test_utils.only_on_linux
 def test_batch_translation_async():
     translator = _get_transliterator()
     output = translator.translate_batch(
@@ -143,6 +144,7 @@ def test_batch_translation_async():
     assert output[1].done()
 
 
+@test_utils.only_on_linux
 def test_iterable_translation():
     source = [["آ", "ت", "ز", "م", "و", "ن"], ["آ", "ت", "ش", "ي", "س", "و", "ن"]]
     translator = _get_transliterator()
@@ -201,6 +203,7 @@ def test_token_streaming(return_log_prob):
         )
 
 
+@test_utils.only_on_linux
 def test_token_streaming_exception():
     source = ["آ", "ت", "ز", "م", "و", "ن"]
     translator = _get_transliterator()
@@ -211,7 +214,7 @@ def test_token_streaming_exception():
     with pytest.raises(ValueError, match="decoding length"):
         step_results = list(step_results)
 
-
+@test_utils.only_on_linux
 def test_callback_hypothesis_id():
     hypotheses = collections.defaultdict(list)
 
@@ -232,6 +235,7 @@ def test_callback_hypothesis_id():
     assert len(hypotheses) == 3
 
 
+@test_utils.only_on_linux
 def test_callback_batch_id():
     # The method will internally sort the input from longest to shortest,
     # but we check that the returned batch ids match the user input.
@@ -262,6 +266,7 @@ def test_callback_batch_id():
     )
 
 
+@test_utils.only_on_linux
 def test_file_translation(tmp_dir):
     input_path = str(tmp_dir.join("input.txt"))
     output_path = str(tmp_dir.join("output.txt"))
@@ -287,6 +292,7 @@ def test_file_translation(tmp_dir):
     assert repr(stats) == expected_repr
 
 
+@test_utils.only_on_linux
 def test_raw_file_translation(tmp_dir):
     input_path = str(tmp_dir.join("input.txt"))
     output_path = str(tmp_dir.join("output.txt"))
@@ -322,6 +328,7 @@ def test_raw_file_translation(tmp_dir):
         assert lines[1].strip() == "achison"
 
 
+@test_utils.only_on_linux
 def test_file_translation_with_prefix(tmp_dir):
     source_path = str(tmp_dir.join("input.txt"))
     target_path = str(tmp_dir.join("target.txt"))
@@ -358,7 +365,7 @@ def test_file_translation_with_prefix(tmp_dir):
         assert lines[0].strip() == "a t s u m o n"
         assert lines[1].strip() == "a c h i s o n"
 
-
+@test_utils.only_on_linux
 def test_raw_file_translation_with_prefix(tmp_dir):
     source_path = str(tmp_dir.join("input.txt"))
     target_path = str(tmp_dir.join("target.txt"))
@@ -402,12 +409,13 @@ def test_raw_file_translation_with_prefix(tmp_dir):
         assert lines[0].strip() == "atsumon"
         assert lines[1].strip() == "achison"
 
-
+@test_utils.only_on_linux
 def test_empty_translation():
     translator = _get_transliterator()
     assert translator.translate_batch([]) == []
 
 
+@test_utils.only_on_linux
 def test_invalid_translation_options():
     translator = _get_transliterator()
     with pytest.raises(ValueError, match="is greater than"):
@@ -417,7 +425,7 @@ def test_invalid_translation_options():
             max_decoding_length=5,
         )
 
-
+@test_utils.only_on_linux
 def test_invalid_translation_options_async():
     translator = _get_transliterator()
     outputs = translator.translate_batch(
@@ -433,7 +441,7 @@ def test_invalid_translation_options_async():
             outputs[0].result()
         assert outputs[0].done()
 
-
+@test_utils.only_on_linux
 def test_hard_target_prefix():
     translator = _get_transliterator()
     output = translator.translate_batch(
@@ -444,6 +452,7 @@ def test_hard_target_prefix():
     assert output[1].hypotheses[0] == ["a", "c", "h", "i", "s", "o", "n"]
 
 
+@test_utils.only_on_linux
 @pytest.mark.parametrize("beam_size", [1, 2])
 def test_hard_target_prefix_with_vmap(tmp_dir, beam_size):
     model_dir = _get_model_path_with_vmap(tmp_dir, ["t", "z", "m", "o", "n"])
@@ -469,7 +478,7 @@ def test_strongly_biased_target_prefix(beam_size):
     assert output[0].hypotheses[0][:3] == ["a", "t", "s"]
     assert output[1].hypotheses[0] == ["a", "c", "h", "i", "s", "o", "n"]
 
-
+@test_utils.only_on_linux
 @pytest.mark.parametrize("beam_size", [1, 2])
 def test_weakly_biased_target_prefix(beam_size):
     translator = _get_transliterator()
@@ -501,7 +510,7 @@ def test_weakly_biased_target_prefix(beam_size):
         < 0.00001
     )
 
-
+@test_utils.only_on_linux
 @pytest.mark.parametrize("beam_size", [1, 2])
 def test_repetition_penalty_with_vmap(tmp_dir, beam_size):
     model_dir = _get_model_path_with_vmap(tmp_dir, ["a", "t", "z", "m", "o", "n"])
@@ -516,7 +525,7 @@ def test_repetition_penalty_with_vmap(tmp_dir, beam_size):
     tokens = output[0].hypotheses[0]
     assert len(tokens) == len(set(tokens))
 
-
+@test_utils.only_on_linux
 @pytest.mark.parametrize("beam_size", [1, 2])
 def test_no_repeat_ngram_size_with_vmap(tmp_dir, beam_size):
     model_dir = _get_model_path_with_vmap(tmp_dir, ["a", "t", "z", "m", "o", "n"])
@@ -550,7 +559,7 @@ def test_suppress_sequences_with_vmap(tmp_dir, beam_size):
     )
     assert output[0].hypotheses[0] == ["a", "t", "z", "u", "m", "u", "n"]
 
-
+@test_utils.only_on_linux
 def test_num_hypotheses():
     translator = _get_transliterator()
     output = translator.translate_batch(
@@ -558,7 +567,7 @@ def test_num_hypotheses():
     )
     assert len(output[0].hypotheses) == 2
 
-
+@test_utils.only_on_linux
 def test_max_decoding_length():
     translator = _get_transliterator()
     output = translator.translate_batch(
@@ -566,7 +575,7 @@ def test_max_decoding_length():
     )
     assert output[0].hypotheses[0] == ["a", "t"]
 
-
+@test_utils.only_on_linux
 def test_min_decoding_length():
     translator = _get_transliterator()
     output = translator.translate_batch(
@@ -574,7 +583,7 @@ def test_min_decoding_length():
     )
     assert len(output[0].hypotheses[0]) > 6  # 6 is the expected target length.
 
-
+@test_utils.only_on_linux
 @pytest.mark.parametrize("beam_size", [1, 2])
 def test_min_decoding_length_with_vmap(tmp_dir, beam_size):
     model_dir = _get_model_path_with_vmap(tmp_dir, ["a", "t", "z", "m", "o", "n"])
@@ -599,7 +608,7 @@ def test_return_attention():
         assert len(vector) == 6  # Source length.
         assert all(isinstance(value, float) for value in vector)
 
-
+@test_utils.only_on_linux
 def test_ignore_scores():
     translator = _get_transliterator()
     output = translator.translate_batch(
@@ -607,7 +616,7 @@ def test_ignore_scores():
     )
     assert not output[0].scores
 
-
+@test_utils.only_on_linux
 def test_return_alternatives():
     translator = _get_transliterator()
     output = translator.translate_batch(
@@ -620,7 +629,7 @@ def test_return_alternatives():
     assert output[0].hypotheses[0] == ["a", "t", "z", "m", "o", "n"]
     assert output[0].hypotheses[1] == ["a", "t", "s", "u", "m", "o", "n"]
 
-
+@test_utils.only_on_linux
 def test_return_alternatives_with_vmap(tmp_dir):
     model_dir = _get_model_path_with_vmap(tmp_dir, ["z", "s", "u", "m", "o", "n"])
     translator = ctranslate2.Translator(model_dir)
@@ -635,7 +644,7 @@ def test_return_alternatives_with_vmap(tmp_dir):
     assert output[0].hypotheses[0] == ["a", "t", "z", "m", "o", "n"]
     assert output[0].hypotheses[1] == ["a", "t", "s", "u", "m", "o", "n"]
 
-
+@test_utils.only_on_linux
 def test_random_sampling():
     ctranslate2.set_random_seed(46)
     translator = _get_transliterator()
@@ -654,7 +663,7 @@ def test_random_sampling():
     assert len(output[0].scores) == 5
     assert output[0].scores == list(sorted(output[0].scores, reverse=True))
 
-
+@test_utils.only_on_linux
 def test_score_api(tmp_dir):
     source = [
         ["آ", "ت", "ز", "م", "و", "ن"],
@@ -765,7 +774,7 @@ def test_model_unload(to_cpu):
     assert len(output) == 1
     assert output[0].hypotheses[0] == ["a", "t", "z", "m", "o", "n"]
 
-
+@test_utils.only_on_linux
 def test_model_unload_while_async_translation():
     translator = _get_transliterator()
     outputs = translator.translate_batch(

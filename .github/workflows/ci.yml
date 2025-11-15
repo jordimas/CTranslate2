@@ -88,13 +88,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      
-      - name: Build with OpenBLAS (Linux ARM64)
+
+
+      - name: Build with OpenBLAS and Ruy
         if: matrix.backend == 'openblas'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libopenblas-dev gfortran
+          wget https://github.com/xianyi/OpenBLAS/archive/v0.3.13.tar.gz
+          tar xzvf v0.3.13.tar.gz
+          cd OpenBLAS-0.3.13
+          make TARGET=ARMV8 CC=aarch64-linux-gnu-gcc FC=aarch64-linux-gnu-gfortran HOSTCC=gcc NO_LAPACK=1 -j $(nproc)
+          sudo make PREFIX=/usr/aarch64-linux-gnu install
+          cd ..
+
           cmake \
+            -DOPENMP_RUNTIME=COMP \
             -DCMAKE_INSTALL_PREFIX=$PWD/install \
             -DWITH_MKL=OFF \
             -DWITH_OPENBLAS=ON \
@@ -208,7 +215,7 @@ jobs:
       - name: Set up Python 3.10.11
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ runner.os == 'macOS' && '3.12' || '3.10.11' }}
+          python-version: ${{ runner.os == 'macOS' && '3.11' || '3.10.11' }}
           
       - uses: actions/checkout@v4
       

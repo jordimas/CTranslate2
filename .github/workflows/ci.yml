@@ -74,12 +74,16 @@ jobs:
 
 
   build-and-test-cpp-aarch64:
-    runs-on: ubuntu-22.04
+    runs-on: [ubuntu-22.04, macos-15]
     env:
       CT2_VERBOSE: 1
     strategy:
       matrix:
-        backend: [openblas]
+      include:
+        - os: ubuntu-22.04
+          backend: openblas
+        - os: macos-15
+          backend: ruy
 
     steps:
       - uses: actions/checkout@v4
@@ -87,6 +91,7 @@ jobs:
           submodules: recursive
 
       - name: Install cross compiler and emulator
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-aarch64-linux-gnu gfortran-aarch64-linux-gnu qemu-user-static
@@ -113,6 +118,20 @@ jobs:
             -DWITH_OPENBLAS=ON \
             -DWITH_RUY=ON \
             -DBUILD_TESTS=ON \
+            .
+          make -j $(nproc) install
+
+
+      - name: Build Ruy
+        if: matrix.backend == 'ruy'
+        run: |
+          CMAKE_EXTRA_OPTIONS='-DCMAKE_OSX_ARCHITECTURES=arm64 -DWITH_ACCELERATE=ON -DWITH_MKL=OFF -DOPENMP_RUNTIME=NONE -DWITH_RUY=ON'
+          cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_CLI=OFF \
+            -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/install \
+            $CMAKE_EXTRA_OPTIONS \
             .
           make -j $(nproc) install
 

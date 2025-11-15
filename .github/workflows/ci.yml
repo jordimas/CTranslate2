@@ -208,7 +208,7 @@ jobs:
       - name: Set up Python 3.10.11
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ runner.os == 'macOS' && '3.11' || '3.10.11' }}
+          python-version: ${{ runner.os == 'macOS' && '3.12' || '3.10.11' }}
           
       - uses: actions/checkout@v4
       

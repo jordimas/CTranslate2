@@ -1118,6 +1118,22 @@ namespace ctranslate2 {
       break;
     }
 #endif
+    case cpu::GemmBackend::ACCELERATE: {
+      // For small batch sizes (typical in attention heads), direct loop is fastest
+      // Accelerate's BLAS is so fast that overhead of batching APIs isn't worth it
+      CBLAS_TRANSPOSE trans_a = transpose_a ? CblasTrans : CblasNoTrans;
+      CBLAS_TRANSPOSE trans_b = transpose_b ? CblasTrans : CblasNoTrans;
+
+      // No parallel_for - let BLAS handle threading internally
+      for (dim_t i = 0; i < batch_size; ++i) {
+        cblas_sgemm(CblasRowMajor, trans_a, trans_b,
+                    m, n, k, alpha,
+                    a + i * stridea, lda,
+                    b + i * strideb, ldb,
+                    beta, c + i * stridec, ldc);
+      }
+      break;
+    }
 
     default: {
       cpu::parallel_for(0, batch_size, 1, [&](dim_t begin, dim_t end) {

@@ -79,11 +79,11 @@ jobs:
       CT2_VERBOSE: 1
     strategy:
       matrix:
-      include:
-        - os: ubuntu-22.04
-          backend: openblas
-        - os: macos-15
-          backend: ruy
+        include:
+          - os: ubuntu-22.04
+            backend: openblas
+          - os: macos-15
+            backend: ruy
 
     steps:
       - uses: actions/checkout@v4

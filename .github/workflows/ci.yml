@@ -73,7 +73,7 @@ jobs:
           tests/ctranslate2_test tests/data
 
 
-  build-and-test-cpp-aarch64:
+  build-and-test-cpp-arm64:
     runs-on: ${{ matrix.os }}
     env:
       CT2_VERBOSE: 1
@@ -84,6 +84,8 @@ jobs:
             backend: openblas
           - os: macos-15
             backend: ruy
+          - os: ubuntu-22.04-arm
+            backend: openblas
 
     steps:
       - uses: actions/checkout@v4

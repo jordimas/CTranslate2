@@ -80,41 +80,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-22.04-arm
             backend: openblas
           - os: macos-15
             backend: ruy
-          - os: ubuntu-22.04-arm
-            backend: openblas
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Install cross compiler and emulator
-        if: startsWith(matrix.os, 'ubuntu') && !contains(matrix.os, 'arm')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-aarch64-linux-gnu gfortran-aarch64-linux-gnu qemu-user-static
-
-      - name: Build with OpenBLAS and Ruy
+      
+      - name: Build with OpenBLAS (Linux ARM64)
         if: matrix.backend == 'openblas'
         run: |
-          wget https://github.com/xianyi/OpenBLAS/archive/v0.3.13.tar.gz
-          tar xzvf v0.3.13.tar.gz
-          cd OpenBLAS-0.3.13
-          make TARGET=ARMV8 CC=aarch64-linux-gnu-gcc FC=aarch64-linux-gnu-gfortran HOSTCC=gcc NO_LAPACK=1 -j $(nproc)
-          sudo make PREFIX=/usr/aarch64-linux-gnu install
-          cd ..
-
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev gfortran
           cmake \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-            -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu \
-            -DOPENMP_RUNTIME=COMP \
             -DCMAKE_INSTALL_PREFIX=$PWD/install \
             -DWITH_MKL=OFF \
             -DWITH_OPENBLAS=ON \
@@ -122,31 +102,29 @@ jobs:
             -DBUILD_TESTS=ON \
             .
           make -j $(nproc) install
-
-
-      - name: Build Ruy
+      
+      - name: Build with Ruy (macOS ARM64)
         if: matrix.backend == 'ruy'
         run: |
-          CMAKE_EXTRA_OPTIONS='-DCMAKE_OSX_ARCHITECTURES=arm64 -DWITH_ACCELERATE=ON -DWITH_MKL=OFF -DOPENMP_RUNTIME=NONE -DWITH_RUY=ON'
-          cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+          cmake \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_INSTALL_PREFIX=$PWD/install \
+            -DWITH_ACCELERATE=ON \
+            -DWITH_MKL=OFF \
+            -DOPENMP_RUNTIME=NONE \
+            -DWITH_RUY=ON \
             -DBUILD_TESTS=ON \
-            $CMAKE_EXTRA_OPTIONS \
             .
           make -j $(nproc) install
-
+      
       - name: Download test data
         run: |
           wget https://opennmt-models.s3.amazonaws.com/transliteration-aren-all.tar.gz
           tar xf transliteration-aren-all.tar.gz -C tests/data/models/
-
+      
       - name: Test
         run: |
           tests/ctranslate2_test tests/data
-        env:
-          QEMU_LD_PREFIX: /usr/aarch64-linux-gnu
-
 
   build-python-wheels:
     runs-on: ${{ matrix.os }}

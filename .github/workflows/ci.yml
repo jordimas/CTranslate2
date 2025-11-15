@@ -127,10 +127,9 @@ jobs:
         run: |
           CMAKE_EXTRA_OPTIONS='-DCMAKE_OSX_ARCHITECTURES=arm64 -DWITH_ACCELERATE=ON -DWITH_MKL=OFF -DOPENMP_RUNTIME=NONE -DWITH_RUY=ON'
           cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_CLI=OFF \
             -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
             -DCMAKE_INSTALL_PREFIX=$PWD/install \
+            -DBUILD_TESTS=ON \
             $CMAKE_EXTRA_OPTIONS \
             .
           make -j $(nproc) install

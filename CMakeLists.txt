@@ -5,6 +5,7 @@ if(POLICY CMP0091)
   cmake_policy(SET CMP0091 NEW)
 endif()
 
+
 project(ctranslate2)
 
 option(WITH_MKL "Compile with Intel MKL backend" ON)
@@ -115,6 +116,7 @@ set(SOURCES
   src/cpu/kernels.cc
   src/cpu/parallel.cc
   src/cpu/primitives.cc
+  src/cpu/metal_sgemm.mm
   src/decoding.cc
   src/decoding_utils.cc
   src/devices.cc
@@ -663,6 +665,15 @@ elseif(WITH_CUDNN)
 else()
   add_library(${PROJECT_NAME} ${SOURCES})
 endif()
+
+if(APPLE)
+  target_link_libraries(${PROJECT_NAME} PRIVATE
+    "-framework Metal"
+    "-framework MetalPerformanceShaders"
+    "-framework Foundation"
+  )
+endif()
+
 
 include(GenerateExportHeader)
 generate_export_header(${PROJECT_NAME})

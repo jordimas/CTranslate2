@@ -1,4 +1,5 @@
 #include "ctranslate2/primitives.h"
+#include "metal_sgemm.h"
 
 #include <cmath>
 #include <functional>
@@ -629,6 +630,7 @@ namespace ctranslate2 {
 
   template<>
   template<>
+  // SGEMM backend: Accelerate
   void primitives<Device::CPU>::gemm(bool a_is_packed, bool b_is_packed,
                                      bool transpose_a, bool transpose_b,
                                      dim_t m, dim_t n, dim_t k,
@@ -637,7 +639,32 @@ namespace ctranslate2 {
                                      const float* b, dim_t ldb,
                                      float beta,
                                      float* c, dim_t ldc,
-                                     const float*) {
+                                     const float* a_shift_compensation) {
+
+
+
+/*void metal_sgemm(bool a_is_packed, bool b_is_packed,
+                 bool transpose_a, bool transpose_b,
+                 dim_t m, dim_t n, dim_t k,
+                 float alpha,
+                 const float* a, dim_t lda,
+                 const float* b, dim_t ldb,
+                 float beta,
+                 float* c, dim_t ldc,
+                 const float* a_shift_compensation)*/
+
+ metal_sgemm(a_is_packed, b_is_packed,
+                transpose_a, transpose_b,
+                m, n, k,
+                alpha,
+                a, lda,
+                b, ldb,
+                beta,
+                c, ldc,
+                a_shift_compensation);
+
+ return;
+
 #ifndef CT2_WITH_MKL
     (void)a_is_packed;
     (void)b_is_packed;

@@ -93,7 +93,7 @@ jobs:
           submodules: recursive
 
       - name: Install cross compiler and emulator
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && !contains(matrix.os, 'arm')
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-aarch64-linux-gnu gfortran-aarch64-linux-gnu qemu-user-static

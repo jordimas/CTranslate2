@@ -1118,6 +1118,7 @@ namespace ctranslate2 {
       break;
     }
 #endif
+#ifdef CT2_WITH_ACCELERATE
     case cpu::GemmBackend::ACCELERATE: {
       // For small batch sizes (typical in attention heads), direct loop is fastest
       // Accelerate's BLAS is so fast that overhead of batching APIs isn't worth it
@@ -1134,7 +1135,7 @@ namespace ctranslate2 {
       }
       break;
     }
-
+#endif
     default: {
       cpu::parallel_for(0, batch_size, 1, [&](dim_t begin, dim_t end) {
         for (dim_t i = begin; i < end; ++i) {

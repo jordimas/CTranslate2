@@ -644,21 +644,22 @@ namespace ctranslate2 {
                                      const float* a_shift_compensation) {
 
 
+    constexpr dim_t METAL_THRESHOLD = 64*64*64;
 
+    if (m*n*k >= METAL_THRESHOLD) {
+      metal_sgemm(a_is_packed, b_is_packed,
+                    transpose_a, transpose_b,
+                    m, n, k,
+                    alpha,
+                    a, lda,
+                    b, ldb,
+                    beta,
+                    c, ldc,
+                    a_shift_compensation);
+      return;
+    }
 
-
- metal_sgemm(a_is_packed, b_is_packed,
-                transpose_a, transpose_b,
-                m, n, k,
-                alpha,
-                a, lda,
-                b, ldb,
-                beta,
-                c, ldc,
-                a_shift_compensation);
-
- return;
-
+ 
 #ifndef CT2_WITH_MKL
     (void)a_is_packed;
     (void)b_is_packed;

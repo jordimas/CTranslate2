@@ -32,7 +32,7 @@ class MultiHeadAttentionSpec(model_spec.LayerSpec):
         num_heads_kv=None,
         head_dim=None,
         sliding_window=None,
-        qk_norm=False,
+        qk_norm=True,
         qk_norm_rms=True,
 
     ):
@@ -42,7 +42,7 @@ class MultiHeadAttentionSpec(model_spec.LayerSpec):
         self.linear = [
             common_spec.LinearSpec() for _ in range(2 if self_attention else 3)
         ]
-        
+
         if qk_norm:
             self.q_norm = common_spec.LayerNormSpec(rms_norm=qk_norm_rms)
             self.k_norm = common_spec.LayerNormSpec(rms_norm=qk_norm_rms)

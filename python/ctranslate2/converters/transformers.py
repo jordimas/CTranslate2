@@ -1658,7 +1658,19 @@ class Gemma2Loader(ModelLoader):
             delattr(layer, "mlp")
             gc.collect()
 
+@register_loader("LlamaConfig")
+class LlamaLoader(ModelLoader):
+    @property
+    def architecture_name(self):
+        return "LlamaForCausalLM"
 
+    def get_model_spec(self, model):
+        num_layers = model.config.num_hidden_layers
+
+        num_heads = model.config.num_attention_heads
+        num_heads_kv = getattr(model.config, "num_key_value_heads", num_heads)
+        if num_heads_kv == num_heads:
+            num_heads_kv = None
 
         rope_scaling = getattr(model.config, "rope_scaling", None)
         if rope_scaling:
@@ -1925,10 +1937,12 @@ class Gemma3Loader(ModelLoader):
 
             # Gemma 3 uses QK-norm instead of soft-capping
             # Handle q_norm and k_norm if they exist
+            #print(layer.self_attn)
             if hasattr(layer.self_attn, "q_norm") and hasattr(layer.self_attn, "k_norm"):
                 # Store the normalization layers for q and k
                 # Note: This assumes CTranslate2 has support for QK-norm
                 # If not, this will need to be added to the CTranslate2 spec
+                #print(layer_spec.self_attention)
                 if hasattr(layer_spec.self_attention, "q_norm"):
                     print("Set q_norm")
                     self.set_layer_norm(

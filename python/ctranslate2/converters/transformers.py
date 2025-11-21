@@ -1833,44 +1833,12 @@ class Gemma3Loader(ModelLoader):
         # Get layer types list if available
         layer_types = getattr(model.config, "layer_types", None)
 
-        # Handle rope_scaling for extended context
-        rope_scaling = getattr(model.config, "rope_scaling", None)
-        if rope_scaling:
-            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
-            rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
-            rotary_scaling_factor = rope_scaling.get("factor", 1)
-
-            if rotary_scaling_type is None:
-                raise NotImplementedError(
-                    "RoPE scaling type '%s' is not yet implemented. "
-                    "The following RoPE scaling types are currently supported: %s"
-                    % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
-                )
-        else:
-            rotary_scaling_type = None
-            rotary_scaling_factor = 1
-
-        # Handle quantization
-        quantization_config = getattr(model.config, "quantization_config", None)
-        if quantization_config:
-            quant_type = None
-            if quantization_config.quant_method == "awq":
-                quant_type = _SUPPORTED_QUANTIZATION.get(quantization_config.version)
-            if quant_type is None:
-                raise NotImplementedError(
-                    "Quantization type '%s' is not yet implemented. "
-                    "The following Quantization types are currently supported: %s"
-                    % (
-                        quantization_config.quant_method,
-                        ", ".join(_SUPPORTED_QUANTIZATION.keys()),
-                    )
-                )
-            quant_group_size = quantization_config.group_size
-            quant_bits = quantization_config.bits
-        else:
-            quant_type = common_spec.Quantization.CT2
-            quant_group_size = None
-            quant_bits = None
+       
+        rotary_scaling_type = None
+        rotary_scaling_factor = 1
+        quant_type = common_spec.Quantization.CT2
+        quant_group_size = None
+        quant_bits = None
 
         spec = transformer_spec.TransformerDecoderModelSpec.from_config(
             num_layers,

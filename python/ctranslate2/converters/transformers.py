@@ -1659,19 +1659,6 @@ class Gemma2Loader(ModelLoader):
             gc.collect()
 
 
-@register_loader("LlamaConfig")
-class LlamaLoader(ModelLoader):
-    @property
-    def architecture_name(self):
-        return "LlamaForCausalLM"
-
-    def get_model_spec(self, model):
-        num_layers = model.config.num_hidden_layers
-
-        num_heads = model.config.num_attention_heads
-        num_heads_kv = getattr(model.config, "num_key_value_heads", num_heads)
-        if num_heads_kv == num_heads:
-            num_heads_kv = None
 
         rope_scaling = getattr(model.config, "rope_scaling", None)
         if rope_scaling:
@@ -1813,6 +1800,246 @@ class LlamaLoader(ModelLoader):
             self.set_linear(
                 layer_spec.ffn.linear_1, layer.mlp.down_proj, quant_type=quant_type
             )
+
+            delattr(layer, "self_attn")
+            delattr(layer, "mlp")
+            gc.collect()
+
+@register_loader("Gemma3TextConfig")
+class Gemma3Loader(ModelLoader):
+    @property
+    def architecture_name(self):
+        return "Gemma3ForCausalLM"
+
+    def get_model_spec(self, model):
+        num_layers = model.config.num_hidden_layers
+        num_heads = model.config.num_attention_heads
+        num_heads_kv = getattr(model.config, "num_key_value_heads", num_heads)
+        if num_heads_kv == num_heads:
+            num_heads_kv = None
+
+        activation_config = getattr(
+            model.config, "hidden_activation", "gelu_pytorch_tanh"
+        )
+
+        # Get RoPE parameters - Gemma 3 uses different base frequencies for local vs global layers
+        rope_theta = getattr(model.config, "rope_theta", 1_000_000)  # Global layers use 1M
+        rope_local_base_freq = getattr(model.config, "rope_local_base_freq", 10_000)  # Local layers use 10k
+        
+        # Get sliding window configuration
+        #sliding_window = 1024
+        #sliding_window_pattern = 6
+        sliding_window = getattr(model.config, "sliding_window", 1024)  # Reduced from 4096 in Gemma 2
+        sliding_window_pattern = getattr(model.config, "sliding_window_pattern", 6)  # 5:1 ratio = pattern of 6
+        
+        # Get layer types list if available
+        layer_types = getattr(model.config, "layer_types", None)
+
+        # Handle rope_scaling for extended context
+        rope_scaling = getattr(model.config, "rope_scaling", None)
+        if rope_scaling:
+            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
+            rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
+            rotary_scaling_factor = rope_scaling.get("factor", 1)
+
+            if rotary_scaling_type is None:
+                raise NotImplementedError(
+                    "RoPE scaling type '%s' is not yet implemented. "
+                    "The following RoPE scaling types are currently supported: %s"
+                    % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
+                )
+        else:
+            rotary_scaling_type = None
+            rotary_scaling_factor = 1
+
+        # Handle quantization
+        quantization_config = getattr(model.config, "quantization_config", None)
+        if quantization_config:
+            quant_type = None
+            if quantization_config.quant_method == "awq":
+                quant_type = _SUPPORTED_QUANTIZATION.get(quantization_config.version)
+            if quant_type is None:
+                raise NotImplementedError(
+                    "Quantization type '%s' is not yet implemented. "
+                    "The following Quantization types are currently supported: %s"
+                    % (
+                        quantization_config.quant_method,
+                        ", ".join(_SUPPORTED_QUANTIZATION.keys()),
+                    )
+                )
+            quant_group_size = quantization_config.group_size
+            quant_bits = quantization_config.bits
+        else:
+            quant_type = common_spec.Quantization.CT2
+            quant_group_size = None
+            quant_bits = None
+
+        spec = transformer_spec.TransformerDecoderModelSpec.from_config(
+            num_layers,
+            num_heads,
+            activation=(
+                common_spec.Activation.GELU
+                if activation_config == "gelu"
+                else common_spec.Activation.GELUTanh
+            ),
+            pre_norm=True,
+            ffn_glu=True,
+            rms_norm=True,
+            rotary_dim=0,
+            rotary_interleave=False,
+            rotary_scaling_type=rotary_scaling_type,
+            rotary_scaling_factor=rotary_scaling_factor,
+            rotary_base=rope_theta,  # Use global base frequency
+            num_heads_kv=num_heads_kv,
+            head_dim=model.config.head_dim,
+            quant_type=quant_type,
+            quant_group_size=quant_group_size,
+            quant_bits=quant_bits,
+        )
+
+        self.set_decoder(spec.decoder, model.model, quant_type)
+        self.set_linear(spec.decoder.projection, model.lm_head)
+
+        # Set extra RoPE parameters for Gemma 3
+        # Note: In Gemma 3, local attention layers use 10k base freq while global use 1M
+        # This needs to be handled per-layer based on the sliding_window_pattern
+        if layer_types is not None:
+            # If explicit layer types are provided, use them
+            for i, (layer, layer_type) in enumerate(zip(spec.decoder.layer, layer_types)):
+                if layer_type == "global":
+                    # Global attention layer
+                    layer.self_attention.rotary_base = rope_theta
+                    #layer.self_attention.sliding_window = None  # No sliding window
+                else:
+                    # Local attention layer
+                    layer.self_attention.rotary_base = rope_local_base_freq
+                    layer.self_attention.sliding_window = sliding_window
+        else:
+            # Use sliding_window_pattern (default 6 means 5 local + 1 global)
+            # Pattern starts with local layer (0-indexed)
+            for i, layer in enumerate(spec.decoder.layer):
+                layer_index_in_pattern = i % sliding_window_pattern
+                if layer_index_in_pattern == (sliding_window_pattern - 1):
+                    # This is a global attention layer (last in pattern)
+                    layer.self_attention.rotary_base = rope_theta
+                    #layer.self_attention.sliding_window = None
+                else:
+                    # This is a local attention layer
+                    layer.self_attention.rotary_base = rope_local_base_freq
+                    layer.self_attention.sliding_window = sliding_window
+
+        # Set Llama3-style rope parameters if applicable
+        if rotary_scaling_type == attention_spec.RotaryScalingType.Llama3:
+            for layer in spec.decoder.layer:
+                layer.self_attention.rotary_low_freq_factor = rope_scaling[
+                    "low_freq_factor"
+                ]
+                layer.self_attention.rotary_high_freq_factor = rope_scaling[
+                    "high_freq_factor"
+                ]
+
+        return spec
+
+    def get_vocabulary(self, model, tokenizer):
+        tokens = super().get_vocabulary(model, tokenizer)
+
+        extra_ids = model.config.vocab_size - len(tokens)
+        for i in range(extra_ids):
+            tokens.append("<extra_id_%d>" % i)
+        if model.config.vocab_size < len(tokens):
+            tokens = tokens[: model.config.vocab_size]
+
+        return tokens
+
+    def set_vocabulary(self, spec, tokens):
+        spec.register_vocabulary(tokens)
+
+    def set_config(self, config, model, tokenizer):
+        config.bos_token = tokenizer.bos_token
+        config.eos_token = tokenizer.eos_token
+        config.unk_token = (
+            tokenizer.unk_token if tokenizer.unk_token is not None else ""
+        )
+        config.layer_norm_epsilon = model.config.rms_norm_eps
+
+    def set_layer_norm(self, spec, layer_norm):
+        spec.gamma = layer_norm.weight
+
+    def set_decoder(self, spec, module, quant_type=common_spec.Quantization.CT2):
+        spec.scale_embeddings = False
+        self.set_embeddings(spec.embeddings, module.embed_tokens)
+        self.set_layer_norm(spec.layer_norm, module.norm)
+
+        for layer_spec, layer in zip(spec.layer, module.layers):
+            self.set_layer_norm(
+                layer_spec.self_attention.layer_norm, layer.input_layernorm
+            )
+            self.set_layer_norm(
+                layer_spec.ffn.layer_norm, layer.post_attention_layernorm
+            )
+
+            # Gemma 3 uses QK-norm instead of soft-capping
+            # Handle q_norm and k_norm if they exist
+            if hasattr(layer.self_attn, "q_norm") and hasattr(layer.self_attn, "k_norm"):
+                # Store the normalization layers for q and k
+                # Note: This assumes CTranslate2 has support for QK-norm
+                # If not, this will need to be added to the CTranslate2 spec
+                if hasattr(layer_spec.self_attention, "q_norm"):
+                    self.set_layer_norm(
+                        layer_spec.self_attention.q_norm, layer.self_attn.q_norm
+                    )
+                if hasattr(layer_spec.self_attention, "k_norm"):
+                    self.set_layer_norm(
+                        layer_spec.self_attention.k_norm, layer.self_attn.k_norm
+                    )
+
+            split_layers = [common_spec.LinearSpec() for _ in range(3)]
+            self.set_linear(
+                split_layers[0], layer.self_attn.q_proj, quant_type=quant_type
+            )
+            self.set_linear(
+                split_layers[1], layer.self_attn.k_proj, quant_type=quant_type
+            )
+            self.set_linear(
+                split_layers[2], layer.self_attn.v_proj, quant_type=quant_type
+            )
+
+            if quant_type == common_spec.Quantization.CT2:
+                utils.fuse_linear(layer_spec.self_attention.linear[0], split_layers)
+            else:
+                cc_dim = 1 if quant_type == common_spec.Quantization.AWQ_GEMM else 0
+                utils.fuse_linear_prequant(
+                    layer_spec.self_attention.linear[0], split_layers, cc_dim
+                )
+            self.set_linear(
+                layer_spec.self_attention.linear[1],
+                layer.self_attn.o_proj,
+                quant_type=quant_type,
+            )
+
+            self.set_linear(
+                layer_spec.ffn.linear_0, layer.mlp.gate_proj, quant_type=quant_type
+            )
+            self.set_linear(
+                layer_spec.ffn.linear_0_noact, layer.mlp.up_proj, quant_type=quant_type
+            )
+            self.set_linear(
+                layer_spec.ffn.linear_1, layer.mlp.down_proj, quant_type=quant_type
+            )
+
+            # Handle additional layer norms if they exist (pre/post feedforward)
+            if hasattr(layer, "pre_feedforward_layernorm"):
+                if hasattr(layer_spec, "pre_feedforward_layer_norm"):
+                    self.set_layer_norm(
+                        layer_spec.pre_feedforward_layer_norm,
+                        layer.pre_feedforward_layernorm,
+                    )
+            if hasattr(layer, "post_feedforward_layernorm"):
+                if hasattr(layer_spec, "post_feedforward_layer_norm"):
+                    self.set_layer_norm(
+                        layer_spec.post_feedforward_layer_norm,
+                        layer.post_feedforward_layernorm,
+                    )
 
             delattr(layer, "self_attn")
             delattr(layer, "mlp")

@@ -1827,8 +1827,6 @@ class Gemma3Loader(ModelLoader):
         rope_local_base_freq = getattr(model.config, "rope_local_base_freq", 10_000)  # Local layers use 10k
         
         # Get sliding window configuration
-        #sliding_window = 1024
-        #sliding_window_pattern = 6
         sliding_window = getattr(model.config, "sliding_window", 1024)  # Reduced from 4096 in Gemma 2
         sliding_window_pattern = getattr(model.config, "sliding_window_pattern", 6)  # 5:1 ratio = pattern of 6
         

@@ -1911,7 +1911,11 @@ class Gemma3Loader(ModelLoader):
                 else:
                     # Local attention layer
                     layer.self_attention.rotary_base = rope_local_base_freq
-                    layer.self_attention.sliding_window = sliding_window
+
+                    # TODO: This will not be fixed somehow then it can be done at construction
+                    _sliding_window = np.dtype("int32").type(sliding_window)
+                    object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
+
       
         # Set Llama3-style rope parameters if applicable
         if rotary_scaling_type == attention_spec.RotaryScalingType.Llama3:

@@ -32,7 +32,7 @@ class MultiHeadAttentionSpec(model_spec.LayerSpec):
         num_heads_kv=None,
         head_dim=None,
         sliding_window=None,
-        qk_norm=True,
+        qk_norm=False, # TODO: Temporary disabled
         qk_norm_rms=True,
 
     ):

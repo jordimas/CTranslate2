@@ -1916,17 +1916,6 @@ class Gemma3Loader(ModelLoader):
                     _sliding_window = np.dtype("int32").type(sliding_window)
                     object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
 
-      
-        # Set Llama3-style rope parameters if applicable
-        if rotary_scaling_type == attention_spec.RotaryScalingType.Llama3:
-            for layer in spec.decoder.layer:
-                layer.self_attention.rotary_low_freq_factor = rope_scaling[
-                    "low_freq_factor"
-                ]
-                layer.self_attention.rotary_high_freq_factor = rope_scaling[
-                    "high_freq_factor"
-                ]
-
         return spec
 
     def get_vocabulary(self, model, tokenizer):

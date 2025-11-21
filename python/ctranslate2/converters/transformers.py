@@ -1914,20 +1914,7 @@ class Gemma3Loader(ModelLoader):
                     # Local attention layer
                     layer.self_attention.rotary_base = rope_local_base_freq
                     layer.self_attention.sliding_window = sliding_window
-        else:
-            # Use sliding_window_pattern (default 6 means 5 local + 1 global)
-            # Pattern starts with local layer (0-indexed)
-            for i, layer in enumerate(spec.decoder.layer):
-                layer_index_in_pattern = i % sliding_window_pattern
-                if layer_index_in_pattern == (sliding_window_pattern - 1):
-                    # This is a global attention layer (last in pattern)
-                    layer.self_attention.rotary_base = rope_theta
-                    #layer.self_attention.sliding_window = None
-                else:
-                    # This is a local attention layer
-                    layer.self_attention.rotary_base = rope_local_base_freq
-                    layer.self_attention.sliding_window = sliding_window
-
+      
         # Set Llama3-style rope parameters if applicable
         if rotary_scaling_type == attention_spec.RotaryScalingType.Llama3:
             for layer in spec.decoder.layer:

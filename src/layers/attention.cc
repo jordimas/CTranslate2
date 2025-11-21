@@ -310,6 +310,8 @@ namespace ctranslate2 {
                                   && !_relative_position_keys
                                   && !_relative_position_values)
       ,_cache_time_dim(_merge_time_and_head_dims ? 1 : 2)
+      , _q_norm(build_optional_layer<LayerNorm>(model, scope + "/q_norm"))
+      , _k_norm(build_optional_layer<LayerNorm>(model, scope + "/k_norm"))
     {
       if (_relative_position_keys)
         _maximum_relative_position = (_relative_position_keys->dim(0) - 1) / 2;
@@ -379,12 +381,23 @@ namespace ctranslate2 {
           } else {
             split_heads(fused_proj, 2 * _num_heads, values_padder);
             ops::Split(1)(fused_proj, keys_proj, values_proj);
+            if (_k_norm) {
+              StorageView keys_normed(keys_proj.dtype(), keys_proj.device());
+              (*_k_norm)(keys_proj, keys_normed);
+              keys_proj = std::move(keys_normed);
+            }
           }
 
           if (cached_keys != nullptr) {
             *cached_keys = std::move(keys_proj);
             *cached_values = std::move(values_proj);
           }
+        }
+
+        if (_q_norm) {
+          StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
+          (*_q_norm)(queries_proj, queries_normed);
+          queries_proj = std::move(queries_normed);
         }
 
         if (queries_proj.dim(1) == 1 && cached_keys)
@@ -414,6 +427,18 @@ namespace ctranslate2 {
             split_heads(keys_proj, _num_heads_kv);
             split_heads(values_proj, _num_heads_kv);
 
+            if (_q_norm) {
+              StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
+              (*_q_norm)(queries_proj, queries_normed);
+              queries_proj = std::move(queries_normed);
+            }
+            
+            if (_k_norm) {
+              StorageView keys_normed(keys_proj.dtype(), keys_proj.device());
+              (*_k_norm)(keys_proj, keys_normed);
+              keys_proj = std::move(keys_normed);
+            }
+
             replicate_heads(keys_proj, _num_heads / _num_heads_kv);
             replicate_heads(values_proj, _num_heads / _num_heads_kv);
           }
@@ -421,6 +446,18 @@ namespace ctranslate2 {
         } else {
           split_heads(fused_proj, 3 * _num_heads, queries_padder);
           ops::Split(1)(fused_proj, queries_proj, keys_proj, values_proj);
+
+          if (_q_norm) {
+            StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
+            (*_q_norm)(queries_proj, queries_normed);
+            queries_proj = std::move(queries_normed);
+          }
+          
+          if (_k_norm) {
+            StorageView keys_normed(keys_proj.dtype(), keys_proj.device());
+            (*_k_norm)(keys_proj, keys_normed);
+            keys_proj = std::move(keys_normed);
+          }
         }
 
         if (_rotary_embeddings) {

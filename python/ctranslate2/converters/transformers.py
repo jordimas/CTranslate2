@@ -1832,7 +1832,6 @@ class Gemma3Loader(ModelLoader):
         
         # Get layer types list if available
         layer_types = getattr(model.config, "layer_types", None)
-
        
         rotary_scaling_type = None
         rotary_scaling_factor = 1
@@ -1931,10 +1930,12 @@ class Gemma3Loader(ModelLoader):
                 # Note: This assumes CTranslate2 has support for QK-norm
                 # If not, this will need to be added to the CTranslate2 spec
                 if hasattr(layer_spec.self_attention, "q_norm"):
+                    print("Set q_norm")
                     self.set_layer_norm(
                         layer_spec.self_attention.q_norm, layer.self_attn.q_norm
                     )
                 if hasattr(layer_spec.self_attention, "k_norm"):
+                    print("Set k_norm")
                     self.set_layer_norm(
                         layer_spec.self_attention.k_norm, layer.self_attn.k_norm
                     )

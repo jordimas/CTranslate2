@@ -1847,15 +1847,6 @@ class Gemma3Loader(ModelLoader):
 
         # Get layer types - derive from pattern if not explicitly provided
         layer_types = getattr(model.config, "layer_types", None)
-        if layer_types is None:
-            # Derive layer types from sliding_window_pattern
-            # Pattern of 6 means: 5 local + 1 global (indices 0-4 local, 5 global, etc.)
-            layer_types = []
-            for i in range(num_layers):
-                if (i + 1) % sliding_window_pattern == 0:
-                    layer_types.append("global")
-                else:
-                    layer_types.append("local")
 
         print(f"Gemma 3 Config:")
         print(f"  num_layers: {num_layers}")

@@ -1937,7 +1937,7 @@ class Gemma3Loader(ModelLoader):
         config.layer_norm_epsilon = model.config.rms_norm_eps
 
     def set_layer_norm(self, spec, layer_norm):
-        spec.gamma = layer_norm.weight
+        spec.gamma = layer_norm.weight + 1.0
 
     def set_decoder(self, spec, module, quant_type=common_spec.Quantization.CT2):
         spec.scale_embeddings = True
@@ -2016,7 +2016,6 @@ class Gemma3Loader(ModelLoader):
                 layer_spec.ffn.linear_1, layer.mlp.down_proj, quant_type=quant_type
             )
 
-      
             delattr(layer, "self_attn")
             delattr(layer, "mlp")
             gc.collect()

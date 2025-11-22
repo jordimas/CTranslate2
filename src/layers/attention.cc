@@ -13,6 +13,45 @@
 namespace ctranslate2 {
   namespace layers {
 
+    void verify_normalization_effect(const StorageView& input, 
+                                const StorageView& output,
+                                const std::string& norm_name) {
+
+    printf("verify_normalization_effect");
+    assert(input.shape() == output.shape() && 
+         "Normalization changed shape");
+    
+    // For RMSNorm, check that RMS is close to 1.0
+    // RMS should be computed along last dimension (head_dim)
+    const dim_t batch = output.dim(0);
+    const dim_t heads = output.dim(1);
+    const dim_t seq_len = output.dim(2);
+    const dim_t head_dim = output.dim(3);
+    
+    const float* data = output.data<float>();
+    
+    // Check a few samples
+    for (dim_t b = 0; b < std::min(batch, dim_t(2)); ++b) {
+      for (dim_t h = 0; h < std::min(heads, dim_t(2)); ++h) {
+        for (dim_t s = 0; s < std::min(seq_len, dim_t(2)); ++s) {
+          // Compute RMS for this position
+          float sum_sq = 0.0f;
+          for (dim_t d = 0; d < head_dim; ++d) {
+            dim_t idx = b * heads * seq_len * head_dim + 
+                       h * seq_len * head_dim + 
+                       s * head_dim + d;
+            sum_sq += data[idx] * data[idx];
+          }
+          float rms = std::sqrt(sum_sq / head_dim);
+          
+          // RMS should be approximately 1.0 after normalization (within tolerance)
+          assert(std::abs(rms - 1.0f) < 0.2f && 
+                 (norm_name + " RMS not close to 1.0: " + std::to_string(rms)).c_str());
+        }
+      }
+    }
+  }
+
     StorageView make_relative_positions(dim_t queries_length,
                                         dim_t keys_length,
                                         dim_t max_position) {
@@ -395,10 +434,14 @@ namespace ctranslate2 {
         }
 
         if (_q_norm) {
+          StorageView q_before = queries_proj.sync_copy(); // debug
           StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
           (*_q_norm)(queries_proj, queries_normed);
           queries_proj = std::move(queries_normed);
+
+          verify_normalization_effect(q_before, queries_proj, "q_norm");
         }
+
 
         if (queries_proj.dim(1) == 1 && cached_keys)
           beam_size = queries_proj.dim(0) / cached_keys->dim(0);
@@ -421,9 +464,12 @@ namespace ctranslate2 {
           split_op(fused_proj, queries_proj, keys_proj, values_proj);
 
           if (_q_norm) {
+            StorageView q_before = queries_proj.sync_copy(); // debug
             StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
             (*_q_norm)(queries_proj, queries_normed);
             queries_proj = std::move(queries_normed);
+
+            verify_normalization_effect(q_before, queries_proj, "q_norm");
           }
           
           if (_k_norm) {
@@ -448,9 +494,12 @@ namespace ctranslate2 {
           ops::Split(1)(fused_proj, queries_proj, keys_proj, values_proj);
 
           if (_q_norm) {
+            StorageView q_before = queries_proj.sync_copy(); // debug
             StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
             (*_q_norm)(queries_proj, queries_normed);
             queries_proj = std::move(queries_normed);
+
+            verify_normalization_effect(q_before, queries_proj, "q_norm");
           }
           
           if (_k_norm) {

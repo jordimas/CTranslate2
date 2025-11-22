@@ -1845,9 +1845,31 @@ class Gemma3Loader(ModelLoader):
         
         # Get layer types list if available
         layer_types = getattr(model.config, "layer_types", None)
-       
+
         rotary_scaling_type = None
         rotary_scaling_factor = 1
+
+        quantization_config = getattr(model.config, "quantization_config", None)
+        print(f"quantization_config: {quantization_config}")
+        if quantization_config:
+            if quantization_config.quant_method == "awq":
+                quant_type = _SUPPORTED_QUANTIZATION.get(quantization_config.version)
+            if quant_type is None:
+                raise NotImplementedError(
+                    "Quantization type '%s' is not yet implemented. "
+                    "The following Quantization types are currently supported: %s"
+                    % (
+                        quantization_config.quant_method,
+                        ", ".join(_SUPPORTED_QUANTIZATION.keys()),
+                    )
+                )
+            quant_group_size = quantization_config.group_size
+            quant_bits = quantization_config.bits
+        else:
+            quant_type = common_spec.Quantization.CT2
+            quant_group_size = None
+            quant_bits = None
+
         spec = transformer_spec.TransformerDecoderModelSpec.from_config(
             num_layers,
             num_heads,

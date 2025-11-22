@@ -1915,11 +1915,7 @@ class Gemma3Loader(ModelLoader):
                 layer.self_attention.sliding_window = np.dtype("int32").type(sliding_window)
             else:
                 print(f"Unknown layer type {layer_type}")
-
-            # Add QK-norm specs to each layer (Gemma 3 uses QK-norm)
-            layer.self_attention.q_norm = common_spec.LayerNormSpec(rms_norm=True)
-            layer.self_attention.k_norm = common_spec.LayerNormSpec(rms_norm=True)
-
+        
         self.set_decoder(spec.decoder, model.model, quant_type)
         self.set_linear(spec.decoder.projection, model.lm_head)
 
@@ -2017,23 +2013,7 @@ class Gemma3Loader(ModelLoader):
                 layer_spec.ffn.linear_1, layer.mlp.down_proj, quant_type=quant_type
             )
 
-            # Handle pre/post feedforward layer norms if they exist
-            if hasattr(layer, "pre_feedforward_layernorm"):
-                if hasattr(layer_spec, "pre_feedforward_layer_norm"):
-                    self.set_layer_norm(
-                        layer_spec.pre_feedforward_layer_norm,
-                        layer.pre_feedforward_layernorm,
-                    )
-                else:
-                    print(f"layer spec ({type(layer_spec)}) has no pre_feedforward_layer_norm")
-            if hasattr(layer, "post_feedforward_layernorm"):
-                if hasattr(layer_spec, "post_feedforward_layer_norm"):
-                    self.set_layer_norm(
-                        layer_spec.post_feedforward_layer_norm,
-                        layer.post_feedforward_layernorm,
-                    )
-                else:
-                    print(f"layer spec ({type(layer_spec)}) has no post_feedforward_layer_norm")
+      
             delattr(layer, "self_attn")
             delattr(layer, "mlp")
             gc.collect()

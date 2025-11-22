@@ -1888,7 +1888,7 @@ class Gemma3Loader(ModelLoader):
             num_heads_kv=num_heads_kv,
             head_dim=head_dim,
             sliding_window=sliding_window,  # Default to local sliding window
-            pre_post_layer_norm=False,
+            pre_post_layer_norm=True,
         )
 
         # Store layer_types for use in set_decoder
@@ -1948,13 +1948,37 @@ class Gemma3Loader(ModelLoader):
 
         # This is a loop for the 18 layers (size 18)
         for layer_spec, layer in zip(spec.layer, module.layers):
+            #self.set_layer_norm(
+            #    layer_spec.self_attention.layer_norm, layer.input_layernorm
+            #)
+            #self.set_layer_norm(
+            #    layer_spec.ffn.layer_norm, layer.post_attention_layernorm
+            #)
+
+            # Set attention layer norms
+
+            #self.input_layer_norm = common_spec.LayerNormSpec(rms_norm=rms_norm)
+            #self.post_attention_layer_norm = common_spec.LayerNormSpec(
+            #self.post_feedforward_layer_norm = common_spec.LayerNormSpec(
+            #self.pre_feedforward_layer_norm = common_spec.LayerNormSpec(
+            #self.post_feedforward_layer_norm = common_spec.LayerNormSpec(
+
+            self.set_layer_norm(layer_spec.input_layer_norm, layer.input_layernorm)
+
             self.set_layer_norm(
-                layer_spec.self_attention.layer_norm, layer.input_layernorm
-            )
-            self.set_layer_norm(
-                layer_spec.ffn.layer_norm, layer.post_attention_layernorm
+                layer_spec.post_attention_layer_norm, layer.post_attention_layernorm
             )
 
+            self.set_layer_norm(
+                layer_spec.pre_feedforward_layer_norm, layer.pre_feedforward_layernorm
+            )
+
+            self.set_layer_norm(
+                layer_spec.post_feedforward_layer_norm, layer.post_feedforward_layernorm
+            )
+
+
+            
             # Set QK-norm weights (Gemma 3 uses this instead of soft-capping)
             if hasattr(layer.self_attn, "q_norm"):
                 if hasattr(layer_spec.self_attention, "q_norm"):

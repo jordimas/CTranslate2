@@ -1848,10 +1848,6 @@ class Gemma3Loader(ModelLoader):
        
         rotary_scaling_type = None
         rotary_scaling_factor = 1
-        quant_type = common_spec.Quantization.CT2
-        quant_group_size = None
-        quant_bits = None
-
         spec = transformer_spec.TransformerDecoderModelSpec.from_config(
             num_layers,
             num_heads,
@@ -1870,9 +1866,6 @@ class Gemma3Loader(ModelLoader):
             rotary_base=rope_theta,  # Use global base frequency
             num_heads_kv=num_heads_kv,
             head_dim=model.config.head_dim,
-            quant_type=quant_type,
-            quant_group_size=quant_group_size,
-            quant_bits=quant_bits,
         )
 
         self.set_decoder(spec.decoder, model.model, quant_type)

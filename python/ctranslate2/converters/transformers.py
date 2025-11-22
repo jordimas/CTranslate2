@@ -1831,45 +1831,55 @@ class Gemma3Loader(ModelLoader):
         if num_heads_kv == num_heads:
             num_heads_kv = None
 
+        head_dim = model.config.head_dim
+
         activation_config = getattr(
             model.config, "hidden_activation", "gelu_pytorch_tanh"
         )
 
-        # Get RoPE parameters - Gemma 3 uses different base frequencies for local vs global layers
-        rope_theta = getattr(model.config, "rope_theta", 1_000_000)  # Global layers use 1M
-        rope_local_base_freq = getattr(model.config, "rope_local_base_freq", 10_000)  # Local layers use 10k
-        
-        # Get sliding window configuration
-        sliding_window = getattr(model.config, "sliding_window", 1024)  # Reduced from 4096 in Gemma 2
-        sliding_window_pattern = getattr(model.config, "sliding_window_pattern", 6)  # 5:1 ratio = pattern of 6
-        
-        # Get layer types list if available
-        layer_types = getattr(model.config, "layer_types", None)
+        # Get RoPE parameters
+        rope_theta = getattr(model.config, "rope_theta", 1_000_000)  # Global: 1M
+        rope_local_base_freq = getattr(model.config, "rope_local_base_freq", 10_000)  # Local: 10k
 
-        rotary_scaling_type = None
-        rotary_scaling_factor = 1
+        # Get sliding window configuration
+        sliding_window = getattr(model.config, "sliding_window", 1024)
+        sliding_window_pattern = getattr(model.config, "sliding_window_pattern", 6)
+
+        # Get layer types - derive from pattern if not explicitly provided
+        layer_types = getattr(model.config, "layer_types", None)
+        if layer_types is None:
+            # Derive layer types from sliding_window_pattern
+            # Pattern of 6 means: 5 local + 1 global (indices 0-4 local, 5 global, etc.)
+            layer_types = []
+            for i in range(num_layers):
+                if (i + 1) % sliding_window_pattern == 0:
+                    layer_types.append("global")
+                else:
+                    layer_types.append("local")
+
+        print(f"Gemma 3 Config:")
+        print(f"  num_layers: {num_layers}")
+        print(f"  num_heads: {num_heads}")
+        print(f"  num_heads_kv: {num_heads_kv}")
+        print(f"  head_dim: {head_dim}")
+        print(f"  rope_theta (global): {rope_theta}")
+        print(f"  rope_local_base_freq: {rope_local_base_freq}")
+        print(f"  sliding_window: {sliding_window}")
+        print(f"  layer_types: {layer_types}")
 
         quantization_config = getattr(model.config, "quantization_config", None)
-        print(f"quantization_config: {quantization_config}")
         if quantization_config:
             if quantization_config.quant_method == "awq":
                 quant_type = _SUPPORTED_QUANTIZATION.get(quantization_config.version)
             if quant_type is None:
                 raise NotImplementedError(
-                    "Quantization type '%s' is not yet implemented. "
-                    "The following Quantization types are currently supported: %s"
-                    % (
-                        quantization_config.quant_method,
-                        ", ".join(_SUPPORTED_QUANTIZATION.keys()),
-                    )
+                    "Quantization type '%s' is not yet implemented."
+                    % quantization_config.quant_method
                 )
-            quant_group_size = quantization_config.group_size
-            quant_bits = quantization_config.bits
         else:
             quant_type = common_spec.Quantization.CT2
-            quant_group_size = None
-            quant_bits = None
 
+        # Create base spec using from_config
         spec = transformer_spec.TransformerDecoderModelSpec.from_config(
             num_layers,
             num_heads,
@@ -1881,35 +1891,43 @@ class Gemma3Loader(ModelLoader):
             pre_norm=True,
             ffn_glu=True,
             rms_norm=True,
-            rotary_dim=0,
+            rotary_dim=head_dim,  # Full rotary embedding on head_dim
             rotary_interleave=False,
-            rotary_scaling_type=rotary_scaling_type,
-            rotary_scaling_factor=rotary_scaling_factor,
-            rotary_base=rope_theta,  # Use global base frequency
+            rotary_base=rope_local_base_freq,  # Default to local base freq
             num_heads_kv=num_heads_kv,
-            head_dim=model.config.head_dim,
+            head_dim=head_dim,
+            sliding_window=sliding_window,  # Default to local sliding window
         )
 
-        self.set_decoder(spec.decoder, model.model)
-        self.set_linear(spec.decoder.projection, model.lm_head)
+        # Store layer_types for use in set_decoder
+        self._layer_types = layer_types
 
-        # Set extra RoPE parameters for Gemma 3
-        # Note: In Gemma 3, local attention layers use 10k base freq while global use 1M
-        # This needs to be handled per-layer based on the sliding_window_pattern
-        # If explicit layer types are provided, use them
-        for i, (layer, layer_type) in enumerate(zip(spec.decoder.layer, layer_types)):
+        # Override per-layer settings for global vs local attention
+        for i, layer_type in enumerate(layer_types):
+            layer = spec.decoder.layer[i]
+            
             if layer_type == "global":
-                # Global attention layer
-                layer.self_attention.rotary_base = rope_theta
-                _sliding_window = None
-                object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
+                # Global attention: different rotary base, no sliding window
+                layer.self_attention.rotary_base = np.dtype("float32").type(rope_theta)
+                # Remove sliding window for global layers by setting to 0 or deleting
+                if hasattr(layer.self_attention, "sliding_window"):
+                    # Set to 0 to indicate no sliding window, or delete if supported
+                    try:
+                        delattr(layer.self_attention, "sliding_window")
+                    except AttributeError:
+                        # If can't delete, set to a very large value
+                        layer.self_attention.sliding_window = np.dtype("int32").type(0)
             else:
-                # Local attention layer
-                layer.self_attention.rotary_base = rope_local_base_freq
+                # Local attention: local rotary base, with sliding window
+                layer.self_attention.rotary_base = np.dtype("float32").type(rope_local_base_freq)
+                layer.self_attention.sliding_window = np.dtype("int32").type(sliding_window)
 
-                # TODO: This will not be fixed somehow then it can be done at construction
-                _sliding_window = np.dtype("int32").type(sliding_window)
-                object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
+            # Add QK-norm specs to each layer (Gemma 3 uses QK-norm)
+            layer.self_attention.q_norm = common_spec.LayerNormSpec(rms_norm=True)
+            layer.self_attention.k_norm = common_spec.LayerNormSpec(rms_norm=True)
+
+        self.set_decoder(spec.decoder, model.model, quant_type)
+        self.set_linear(spec.decoder.projection, model.lm_head)
 
         return spec
 
@@ -1951,17 +1969,24 @@ class Gemma3Loader(ModelLoader):
                 layer_spec.ffn.layer_norm, layer.post_attention_layernorm
             )
 
-            # Gemma 3 uses QK-norm instead of soft-capping
-            if hasattr(layer.self_attn, "q_norm") and hasattr(layer.self_attn, "k_norm"):
+            # Set QK-norm weights (Gemma 3 uses this instead of soft-capping)
+            if hasattr(layer.self_attn, "q_norm"):
                 if hasattr(layer_spec.self_attention, "q_norm"):
                     self.set_layer_norm(
                         layer_spec.self_attention.q_norm, layer.self_attn.q_norm
                     )
+                else:
+                    print(f"Warning: Model has q_norm but spec doesn't support it")
+                    
+            if hasattr(layer.self_attn, "k_norm"):
                 if hasattr(layer_spec.self_attention, "k_norm"):
                     self.set_layer_norm(
                         layer_spec.self_attention.k_norm, layer.self_attn.k_norm
                     )
+                else:
+                    print(f"Warning: Model has k_norm but spec doesn't support it")
 
+            # Set attention projections
             split_layers = [common_spec.LinearSpec() for _ in range(3)]
             self.set_linear(
                 split_layers[0], layer.self_attn.q_proj, quant_type=quant_type
@@ -1980,12 +2005,14 @@ class Gemma3Loader(ModelLoader):
                 utils.fuse_linear_prequant(
                     layer_spec.self_attention.linear[0], split_layers, cc_dim
                 )
+            
             self.set_linear(
                 layer_spec.self_attention.linear[1],
                 layer.self_attn.o_proj,
                 quant_type=quant_type,
             )
 
+            # Set FFN weights
             self.set_linear(
                 layer_spec.ffn.linear_0, layer.mlp.gate_proj, quant_type=quant_type
             )
@@ -1996,7 +2023,7 @@ class Gemma3Loader(ModelLoader):
                 layer_spec.ffn.linear_1, layer.mlp.down_proj, quant_type=quant_type
             )
 
-            # Handle additional layer norms if they exist (pre/post feedforward)
+            # Handle pre/post feedforward layer norms if they exist
             if hasattr(layer, "pre_feedforward_layernorm"):
                 if hasattr(layer_spec, "pre_feedforward_layer_norm"):
                     self.set_layer_norm(
@@ -2013,7 +2040,6 @@ class Gemma3Loader(ModelLoader):
             delattr(layer, "self_attn")
             delattr(layer, "mlp")
             gc.collect()
-
 
 @register_loader("MistralConfig")
 class MistralLoader(ModelLoader):

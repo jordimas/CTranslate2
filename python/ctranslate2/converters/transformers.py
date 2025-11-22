@@ -1915,6 +1915,9 @@ class Gemma3Loader(ModelLoader):
                 layer.self_attention.sliding_window = np.dtype("int32").type(sliding_window)
             else:
                 print(f"Unknown layer type {layer_type}")
+      
+        spec.decoder.scale_embeddings = True
+        spec.decoder.embeddings.multiply_by_sqrt_depth = model.config.hidden_size**0.5
         
         self.set_decoder(spec.decoder, model.model, quant_type)
         self.set_linear(spec.decoder.projection, model.lm_head)
@@ -1947,7 +1950,6 @@ class Gemma3Loader(ModelLoader):
         spec.gamma = layer_norm.weight
 
     def set_decoder(self, spec, module, quant_type=common_spec.Quantization.CT2):
-        spec.scale_embeddings = False
         self.set_embeddings(spec.embeddings, module.embed_tokens)
         self.set_layer_norm(spec.layer_norm, module.norm)
 

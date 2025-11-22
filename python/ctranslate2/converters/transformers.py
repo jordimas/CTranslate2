@@ -1889,6 +1889,7 @@ class Gemma3Loader(ModelLoader):
             head_dim=head_dim,
             sliding_window=sliding_window,  # Default to local sliding window
             pre_post_layer_norm=True,
+            qk_norm = True,
         )
 
         # Store layer_types for use in set_decoder

@@ -1998,6 +1998,8 @@ class LlamaLoader(ModelLoader):
             delattr(layer, "self_attn")
             delattr(layer, "mlp")
             gc.collect()
+
+
 @register_loader("MistralConfig")
 class MistralLoader(ModelLoader):
     @property

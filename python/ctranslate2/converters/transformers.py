@@ -2021,13 +2021,16 @@ class Gemma3Loader(ModelLoader):
                         layer_spec.pre_feedforward_layer_norm,
                         layer.pre_feedforward_layernorm,
                     )
+                else:
+                    print(f"layer spec ({type(layer_spec)}) has no pre_feedforward_layer_norm")
             if hasattr(layer, "post_feedforward_layernorm"):
                 if hasattr(layer_spec, "post_feedforward_layer_norm"):
                     self.set_layer_norm(
                         layer_spec.post_feedforward_layer_norm,
                         layer.post_feedforward_layernorm,
                     )
-
+                else:
+                    print(f"layer spec ({type(layer_spec)}) has no post_feedforward_layer_norm")
             delattr(layer, "self_attn")
             delattr(layer, "mlp")
             gc.collect()

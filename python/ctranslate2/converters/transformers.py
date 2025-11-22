@@ -1901,14 +1901,7 @@ class Gemma3Loader(ModelLoader):
             if layer_type == "full_attention":
                 # Global attention: different rotary base, no sliding window
                 layer.self_attention.rotary_base = np.dtype("float32").type(rope_theta)
-                # Remove sliding window for global layers by setting to 0 or deleting
-                if hasattr(layer.self_attention, "sliding_window"):
-                    # Set to 0 to indicate no sliding window, or delete if supported
-                    try:
-                        delattr(layer.self_attention, "sliding_window")
-                    except AttributeError:
-                        # If can't delete, set to a very large value
-                        layer.self_attention.sliding_window = np.dtype("int32").type(0)
+                layer.self_attention.sliding_window = np.dtype("int32").type(0)
             elif layer_type == "sliding_attention":
                 # Local attention: local rotary base, with sliding window
                 layer.self_attention.rotary_base = np.dtype("float32").type(rope_local_base_freq)
@@ -1950,9 +1943,10 @@ class Gemma3Loader(ModelLoader):
         spec.gamma = layer_norm.weight
 
     def set_decoder(self, spec, module, quant_type=common_spec.Quantization.CT2):
-        self.set_embeddings(spec.embeddings, module.embed_tokens)
-        self.set_layer_norm(spec.layer_norm, module.norm)
+        self.set_embeddings(spec.embeddings, module.embed_tokens) # Input 
+        self.set_layer_norm(spec.layer_norm, module.norm) # Output
 
+        # This is a loop for the 18 layers (size 18)
         for layer_spec, layer in zip(spec.layer, module.layers):
             self.set_layer_norm(
                 layer_spec.self_attention.layer_norm, layer.input_layernorm

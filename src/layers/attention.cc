@@ -17,7 +17,6 @@ namespace ctranslate2 {
                                 const StorageView& output,
                                 const std::string& norm_name) {
 
-    printf("verify_normalization_effect");
     assert(input.shape() == output.shape() && 
          "Normalization changed shape");
     
@@ -463,27 +462,45 @@ namespace ctranslate2 {
           const ops::Split split_op(2, {_num_heads * _d_head, _num_heads_kv * _d_head, _num_heads_kv * _d_head});
           split_op(fused_proj, queries_proj, keys_proj, values_proj);
 
-          if (_q_norm) {
-            StorageView q_before = queries_proj.sync_copy(); // debug
-            StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
-            (*_q_norm)(queries_proj, queries_normed);
-            queries_proj = std::move(queries_normed);
-
-            verify_normalization_effect(q_before, queries_proj, "q_norm");
-          }
-          
-          if (_k_norm) {
-            StorageView keys_normed(keys_proj.dtype(), keys_proj.device());
-            (*_k_norm)(keys_proj, keys_normed);
-            keys_proj = std::move(keys_normed);
-          }
-
           if (_merge_time_and_head_dims) {
             queries_proj.reshape({queries_proj.dim(0), -1, _d_head});
+
+
+            if (_q_norm) {
+              StorageView q_before = queries_proj.sync_copy(); // debug
+              StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
+              (*_q_norm)(queries_proj, queries_normed);
+              queries_proj = std::move(queries_normed);
+
+              verify_normalization_effect(q_before, queries_proj, "q_norm");
+            }
+            
+            if (_k_norm) {
+              StorageView keys_normed(keys_proj.dtype(), keys_proj.device());
+              (*_k_norm)(keys_proj, keys_normed);
+              keys_proj = std::move(keys_normed);
+             }
+
           } else {
             split_heads(queries_proj, _num_heads);
             split_heads(keys_proj, _num_heads_kv);
             split_heads(values_proj, _num_heads_kv);
+
+
+            if (_q_norm) {
+              StorageView q_before = queries_proj.sync_copy(); // debug
+              StorageView queries_normed(queries_proj.dtype(), queries_proj.device());
+              (*_q_norm)(queries_proj, queries_normed);
+              queries_proj = std::move(queries_normed);
+
+              verify_normalization_effect(q_before, queries_proj, "q_norm");
+            }
+            
+            if (_k_norm) {
+              StorageView keys_normed(keys_proj.dtype(), keys_proj.device());
+              (*_k_norm)(keys_proj, keys_normed);
+              keys_proj = std::move(keys_normed);
+             }
 
             replicate_heads(keys_proj, _num_heads / _num_heads_kv);
             replicate_heads(values_proj, _num_heads / _num_heads_kv);

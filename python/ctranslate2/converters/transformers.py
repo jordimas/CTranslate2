@@ -1734,7 +1734,7 @@ class Gemma3Loader(ModelLoader):
         self.set_linear(spec.decoder.projection, model.lm_head)
         
         # Gemma 3 scales embeddings by sqrt(hidden_size)
-        spec.decoder.embeddings.multiply_by_sqrt_depth = model.config.hidden_size ** 0.5
+        #spec.decoder.embeddings.multiply_by_sqrt_depth = model.config.hidden_size ** 0.5
         
         return spec
 
@@ -1787,6 +1787,8 @@ class Gemma3Loader(ModelLoader):
                 # Pattern starts with local layer at index 0
                 is_local_attention = ((layer_idx + 1) % 6) != 0
 
+            #print(f"is_local_attention: {is_local_attention}")
+
             # Set layer-specific RoPE base frequency
             if is_local_attention:
                 layer_spec.self_attention.rotary_base = rope_local_base
@@ -1795,10 +1797,12 @@ class Gemma3Loader(ModelLoader):
                 # TODO: This will not be fixed somehow then it can be done at construction
                 _sliding_window = np.dtype("int32").type(sliding_window)
                 object.__setattr__(layer_spec.self_attention, "sliding_window", _sliding_window)
-            #else:
+            else:
+                #layer_spec.self_attention.rotary_base = rope_local_base
                 # Global attention uses the main rope_theta (set in spec creation)
-                #layer_spec.self_attention.sliding_window = 0  # No sliding window
-            
+                _sliding_window = np.dtype("int32").type(0)
+                object.__setattr__(layer_spec.self_attention, "sliding_window", _sliding_window)
+
             # Set query pre-attention scalar for QK-norm
             #layer_spec.self_attention.query_pre_attn_scalar = query_pre_attn_scalar
 

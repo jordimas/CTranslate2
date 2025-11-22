@@ -1818,6 +1818,7 @@ class LlamaLoader(ModelLoader):
             delattr(layer, "mlp")
             gc.collect()
 
+
 @register_loader("Gemma3TextConfig")
 class Gemma3Loader(ModelLoader):
     @property
@@ -1839,7 +1840,9 @@ class Gemma3Loader(ModelLoader):
 
         # Get RoPE parameters
         rope_theta = getattr(model.config, "rope_theta", 1_000_000)  # Global: 1M
-        rope_local_base_freq = getattr(model.config, "rope_local_base_freq", 10_000)  # Local: 10k
+        rope_local_base_freq = getattr(
+            model.config, "rope_local_base_freq", 10_000
+        )  # Local: 10k
 
         # Get sliding window configuration
         sliding_window = getattr(model.config, "sliding_window", 1024)
@@ -1889,7 +1892,7 @@ class Gemma3Loader(ModelLoader):
             head_dim=head_dim,
             sliding_window=sliding_window,  # Default to local sliding window
             pre_post_layer_norm=True,
-            qk_norm = True,
+            qk_norm=True,
         )
 
         # Store layer_types for use in set_decoder
@@ -1905,11 +1908,15 @@ class Gemma3Loader(ModelLoader):
                 layer.self_attention.sliding_window = np.dtype("int32").type(0)
             elif layer_type == "sliding_attention":
                 # Local attention: local rotary base, with sliding window
-                layer.self_attention.rotary_base = np.dtype("float32").type(rope_local_base_freq)
-                layer.self_attention.sliding_window = np.dtype("int32").type(sliding_window)
+                layer.self_attention.rotary_base = np.dtype("float32").type(
+                    rope_local_base_freq
+                )
+                layer.self_attention.sliding_window = np.dtype("int32").type(
+                    sliding_window
+                )
             else:
                 print(f"Unknown layer type {layer_type}")
-      
+
         self.set_decoder(spec.decoder, model.model, quant_type)
         self.set_linear(spec.decoder.projection, model.lm_head)
 
@@ -1943,8 +1950,8 @@ class Gemma3Loader(ModelLoader):
     def set_decoder(self, spec, module, quant_type=common_spec.Quantization.CT2):
         spec.scale_embeddings = True
         spec.start_from_zero_embedding = False
-        self.set_embeddings(spec.embeddings, module.embed_tokens) # Input 
-        self.set_layer_norm(spec.layer_norm, module.norm) # Output
+        self.set_embeddings(spec.embeddings, module.embed_tokens)  # Input
+        self.set_layer_norm(spec.layer_norm, module.norm)  # Output
 
         # This is a loop for the 18 layers (size 18)
         for layer_spec, layer in zip(spec.layer, module.layers):
@@ -1962,7 +1969,7 @@ class Gemma3Loader(ModelLoader):
             self.set_layer_norm(
                 layer_spec.post_feedforward_layer_norm, layer.post_feedforward_layernorm
             )
-            
+
             # Set QK-norm weights (Gemma 3 uses this instead of soft-capping)
             if hasattr(layer.self_attn, "q_norm"):
                 if hasattr(layer_spec.self_attention, "q_norm"):
@@ -1971,7 +1978,7 @@ class Gemma3Loader(ModelLoader):
                     )
                 else:
                     print(f"Warning: Model has q_norm but spec doesn't support it")
-                    
+
             if hasattr(layer.self_attn, "k_norm"):
                 if hasattr(layer_spec.self_attention, "k_norm"):
                     self.set_layer_norm(
@@ -1999,7 +2006,7 @@ class Gemma3Loader(ModelLoader):
                 utils.fuse_linear_prequant(
                     layer_spec.self_attention.linear[0], split_layers, cc_dim
                 )
-            
+
             self.set_linear(
                 layer_spec.self_attention.linear[1],
                 layer.self_attn.o_proj,
@@ -2020,6 +2027,7 @@ class Gemma3Loader(ModelLoader):
             delattr(layer, "self_attn")
             delattr(layer, "mlp")
             gc.collect()
+
 
 @register_loader("MistralConfig")
 class MistralLoader(ModelLoader):

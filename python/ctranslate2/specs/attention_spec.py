@@ -34,7 +34,6 @@ class MultiHeadAttentionSpec(model_spec.LayerSpec):
         sliding_window=None,
         qk_norm=False,
         qk_norm_rms=True,
-
     ):
         self.queries_scale = model_spec.OPTIONAL
 

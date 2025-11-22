@@ -1897,9 +1897,8 @@ class Gemma3Loader(ModelLoader):
         # Override per-layer settings for global vs local attention
         for i, layer_type in enumerate(layer_types):
             layer = spec.decoder.layer[i]
-            
-            print(layer_type)
-            if layer_type == "global":
+
+            if layer_type == "full_attention":
                 # Global attention: different rotary base, no sliding window
                 layer.self_attention.rotary_base = np.dtype("float32").type(rope_theta)
                 # Remove sliding window for global layers by setting to 0 or deleting
@@ -1910,10 +1909,12 @@ class Gemma3Loader(ModelLoader):
                     except AttributeError:
                         # If can't delete, set to a very large value
                         layer.self_attention.sliding_window = np.dtype("int32").type(0)
-            else:
+            elif layer_type == "sliding_attention":
                 # Local attention: local rotary base, with sliding window
                 layer.self_attention.rotary_base = np.dtype("float32").type(rope_local_base_freq)
                 layer.self_attention.sliding_window = np.dtype("int32").type(sliding_window)
+            else:
+                print(f"Unknown layer type {layer_type}")
 
             # Add QK-norm specs to each layer (Gemma 3 uses QK-norm)
             layer.self_attention.q_norm = common_spec.LayerNormSpec(rms_norm=True)

@@ -1868,7 +1868,7 @@ class Gemma3Loader(ModelLoader):
             head_dim=model.config.head_dim,
         )
 
-        self.set_decoder(spec.decoder, model.model, quant_type)
+        self.set_decoder(spec.decoder, model.model)
         self.set_linear(spec.decoder.projection, model.lm_head)
 
         # Set extra RoPE parameters for Gemma 3
@@ -1880,7 +1880,8 @@ class Gemma3Loader(ModelLoader):
                 if layer_type == "global":
                     # Global attention layer
                     layer.self_attention.rotary_base = rope_theta
-                    #layer.self_attention.sliding_window = None  # No sliding window
+                    _sliding_window = None
+                    object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
                 else:
                     # Local attention layer
                     layer.self_attention.rotary_base = rope_local_base_freq

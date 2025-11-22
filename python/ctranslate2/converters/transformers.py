@@ -1952,20 +1952,12 @@ class Gemma3Loader(ModelLoader):
             )
 
             # Gemma 3 uses QK-norm instead of soft-capping
-            # Handle q_norm and k_norm if they exist
-            #print(layer.self_attn)
             if hasattr(layer.self_attn, "q_norm") and hasattr(layer.self_attn, "k_norm"):
-                # Store the normalization layers for q and k
-                # Note: This assumes CTranslate2 has support for QK-norm
-                # If not, this will need to be added to the CTranslate2 spec
-                #print(layer_spec.self_attention)
                 if hasattr(layer_spec.self_attention, "q_norm"):
-                    print("Set q_norm")
                     self.set_layer_norm(
                         layer_spec.self_attention.q_norm, layer.self_attn.q_norm
                     )
                 if hasattr(layer_spec.self_attention, "k_norm"):
-                    print("Set k_norm")
                     self.set_layer_norm(
                         layer_spec.self_attention.k_norm, layer.self_attn.k_norm
                     )

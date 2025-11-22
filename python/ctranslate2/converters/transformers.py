@@ -1874,21 +1874,20 @@ class Gemma3Loader(ModelLoader):
         # Set extra RoPE parameters for Gemma 3
         # Note: In Gemma 3, local attention layers use 10k base freq while global use 1M
         # This needs to be handled per-layer based on the sliding_window_pattern
-        if layer_types is not None:
-            # If explicit layer types are provided, use them
-            for i, (layer, layer_type) in enumerate(zip(spec.decoder.layer, layer_types)):
-                if layer_type == "global":
-                    # Global attention layer
-                    layer.self_attention.rotary_base = rope_theta
-                    _sliding_window = None
-                    object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
-                else:
-                    # Local attention layer
-                    layer.self_attention.rotary_base = rope_local_base_freq
+        # If explicit layer types are provided, use them
+        for i, (layer, layer_type) in enumerate(zip(spec.decoder.layer, layer_types)):
+            if layer_type == "global":
+                # Global attention layer
+                layer.self_attention.rotary_base = rope_theta
+                _sliding_window = None
+                object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
+            else:
+                # Local attention layer
+                layer.self_attention.rotary_base = rope_local_base_freq
 
-                    # TODO: This will not be fixed somehow then it can be done at construction
-                    _sliding_window = np.dtype("int32").type(sliding_window)
-                    object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
+                # TODO: This will not be fixed somehow then it can be done at construction
+                _sliding_window = np.dtype("int32").type(sliding_window)
+                object.__setattr__(layer.self_attention, "sliding_window", _sliding_window)
 
         return spec
 

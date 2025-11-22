@@ -1888,6 +1888,7 @@ class Gemma3Loader(ModelLoader):
             num_heads_kv=num_heads_kv,
             head_dim=head_dim,
             sliding_window=sliding_window,  # Default to local sliding window
+            pre_post_layer_norm=False,
         )
 
         # Store layer_types for use in set_decoder
@@ -1897,6 +1898,7 @@ class Gemma3Loader(ModelLoader):
         for i, layer_type in enumerate(layer_types):
             layer = spec.decoder.layer[i]
             
+            print(layer_type)
             if layer_type == "global":
                 # Global attention: different rotary base, no sliding window
                 layer.self_attention.rotary_base = np.dtype("float32").type(rope_theta)

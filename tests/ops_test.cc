@@ -994,11 +994,7 @@ TEST_P(OpDeviceTest, Max) {
   });
 }
 
-#ifndef CT2_WITH_CUDNN
-#  define GUARD_CONV1D_GPU_TEST GTEST_SKIP() << "Conv1D tests on GPU require cuDNN"
-#else
 #  define GUARD_CONV1D_GPU_TEST do {} while (0)
-#endif
 
 static const StorageView conv_input({2, 2, 3}, std::vector<float>{
     0.5728129f, 0.8784890f, 0.2029965f, 0.3689166f, 0.6570600f, 0.9202735f,

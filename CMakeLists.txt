@@ -13,7 +13,6 @@ option(WITH_ACCELERATE "Compile with Accelerate backend" OFF)
 option(WITH_OPENBLAS "Compile with OpenBLAS backend" OFF)
 option(WITH_RUY "Compile with Ruy backend" OFF)
 option(WITH_CUDA "Compile with CUDA backend" OFF)
-option(WITH_CUDNN "Compile with cuDNN backend" OFF)
 option(CUDA_DYNAMIC_LOADING "Dynamically load CUDA libraries at runtime" OFF)
 option(ENABLE_CPU_DISPATCH "Compile CPU kernels for multiple ISA and dispatch at runtime" ON)
 option(ENABLE_PROFILING "Compile with profiling support" OFF)
@@ -517,38 +516,6 @@ if (WITH_CUDA)
   cuda_include_directories(${CUTLASS_INCLUDE_DIRS})
   list(APPEND PRIVATE_INCLUDE_DIRECTORIES ${CUTLASS_INCLUDE_DIRS})
 
-  if(WITH_CUDNN)
-    # Find cuDNN includes.
-    find_path(CUDNN_INCLUDE_DIR NAMES cudnn.h HINTS ${CUDA_TOOLKIT_ROOT_DIR}/include)
-    if(CUDNN_INCLUDE_DIR)
-      message(STATUS "Found cuDNN include directory: ${CUDNN_INCLUDE_DIR}")
-    else()
-      message(FATAL_ERROR "cuDNN include directory not found")
-    endif()
-
-    # Find cuDNN libraries.
-    find_library(CUDNN_LIBRARIES
-      NAMES cudnn
-      HINTS
-      ${CUDA_TOOLKIT_ROOT_DIR}/lib
-      ${CUDA_TOOLKIT_ROOT_DIR}/lib64
-      ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-    )
-    if(CUDNN_LIBRARIES)
-      message(STATUS "Found cuDNN libraries: ${CUDNN_LIBRARIES}")
-    else()
-      message(FATAL_ERROR "cuDNN libraries not found")
-    endif()
-
-    # libcudnn.so is a shim layer that dynamically loads the correct library at runtime,
-    # so we explictly link against it even with CUDA_DYNAMIC_LOADING.
-    list(APPEND PRIVATE_INCLUDE_DIRECTORIES ${CUDNN_INCLUDE_DIR})
-    list(APPEND LIBRARIES ${CUDNN_LIBRARIES})
-    add_definitions(-DCT2_WITH_CUDNN)
-  else()
-    message(WARNING "cuDNN library is not enabled: convolution layers will not be supported on GPU")
-  endif()
-
   if(CUDA_DYNAMIC_LOADING)
     list(APPEND SOURCES src/cuda/cublas_stub.cc)
   else()
@@ -658,8 +625,6 @@ if (WITH_CUDA)
   )
 
 
-elseif(WITH_CUDNN)
-  message(FATAL_ERROR "WITH_CUDNN=ON requires WITH_CUDA=ON")
 else()
   add_library(${PROJECT_NAME} ${SOURCES})
 endif()

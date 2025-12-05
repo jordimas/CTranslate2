@@ -164,15 +164,18 @@ namespace ctranslate2 {
       __half alpha = __float2half(1.0f);
       __half beta = __float2half(0.0f);
       
-      CUBLAS_CHECK(cublasHgemm(
-          handle,
-          CUBLAS_OP_N, CUBLAS_OP_N,
-          n, m, k,
-          &alpha,
-          b, n,
-          a, k,
-          &beta,
-          c, n));
+
+    CUBLAS_CHECK(cublasGemmEx(
+        handle,
+        CUBLAS_OP_N, CUBLAS_OP_N,
+        n, m, k,
+        &alpha,
+        b, CUDA_R_16F, n,
+        a, CUDA_R_16F, k,
+        &beta,
+        c, CUDA_R_16F, n,
+        CUBLAS_COMPUTE_32F,
+        CUBLAS_GEMM_DEFAULT_TENSOR_OP));        
     }
 
     template <>

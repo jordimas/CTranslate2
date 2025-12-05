@@ -4,52 +4,27 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Helper to get zero value for different types
+    // Unified arithmetic operations
     template <typename T>
-    __device__ __forceinline__ T get_zero() {
-      return T(0);
-    }
+    struct ArithOps {
+      __device__ static T zero() { return T(0); }
+      __device__ static T add(T a, T b) { return a + b; }
+      __device__ static T mul(T a, T b) { return a * b; }
+    };
 
     template <>
-    __device__ __forceinline__ __half get_zero<__half>() {
-      return __float2half(0.0f);
-    }
+    struct ArithOps<__half> {
+      __device__ static __half zero() { return __float2half(0.0f); }
+      __device__ static __half add(__half a, __half b) { return __hadd(a, b); }
+      __device__ static __half mul(__half a, __half b) { return __hmul(a, b); }
+    };
 
     template <>
-    __device__ __forceinline__ __nv_bfloat16 get_zero<__nv_bfloat16>() {
-      return __float2bfloat16(0.0f);
-    }
-
-    // Half-precision arithmetic helpers
-    template <typename T>
-    __device__ __forceinline__ T add(T a, T b) {
-      return a + b;
-    }
-
-    template <>
-    __device__ __forceinline__ __half add<__half>(__half a, __half b) {
-      return __hadd(a, b);
-    }
-
-    template <>
-    __device__ __forceinline__ __nv_bfloat16 add<__nv_bfloat16>(__nv_bfloat16 a, __nv_bfloat16 b) {
-      return __hadd(a, b);
-    }
-
-    template <typename T>
-    __device__ __forceinline__ T mul(T a, T b) {
-      return a * b;
-    }
-
-    template <>
-    __device__ __forceinline__ __half mul<__half>(__half a, __half b) {
-      return __hmul(a, b);
-    }
-
-    template <>
-    __device__ __forceinline__ __nv_bfloat16 mul<__nv_bfloat16>(__nv_bfloat16 a, __nv_bfloat16 b) {
-      return __hmul(a, b);
-    }
+    struct ArithOps<__nv_bfloat16> {
+      __device__ static __nv_bfloat16 zero() { return __float2bfloat16(0.0f); }
+      __device__ static __nv_bfloat16 add(__nv_bfloat16 a, __nv_bfloat16 b) { return __hadd(a, b); }
+      __device__ static __nv_bfloat16 mul(__nv_bfloat16 a, __nv_bfloat16 b) { return __hmul(a, b); }
+    };
 
     // Optimized im2col kernel - produces column-major output for cuBLAS
     template <typename T>
@@ -85,7 +60,7 @@ namespace ctranslate2 {
             int input_idx = (b * in_channels + ic) * input_length + w_in;
             col_buffer[col_idx] = input[input_idx];
           } else {
-            col_buffer[col_idx] = get_zero<T>();
+            col_buffer[col_idx] = ArithOps<T>::zero();
           }
         }
       }
@@ -123,7 +98,7 @@ namespace ctranslate2 {
         int ic_start = group * in_channels_per_group;
         int ic_end = ic_start + in_channels_per_group;
         
-        T sum = bias ? bias[oc] : get_zero<T>();
+        T sum = bias ? bias[oc] : ArithOps<T>::zero();
         
         for (int ic = ic_start; ic < ic_end; ic++) {
           for (int k = 0; k < kernel_size; k++) {
@@ -132,7 +107,7 @@ namespace ctranslate2 {
             if (w_in >= 0 && w_in < input_length) {
               int input_idx = (b * in_channels + ic) * input_length + w_in;
               int weight_idx = (oc * in_channels_per_group + (ic - ic_start)) * kernel_size + k;
-              sum = add(sum, mul(input[input_idx], weight[weight_idx]));
+              sum = ArithOps<T>::add(sum, ArithOps<T>::mul(input[input_idx], weight[weight_idx]));
             }
           }
         }
@@ -155,7 +130,7 @@ namespace ctranslate2 {
       
       if (idx < total) {
         int oc = (idx / output_length) % out_channels;
-        output[idx] = add(output[idx], bias[oc]);
+        output[idx] = ArithOps<T>::add(output[idx], bias[oc]);
       }
     }
 

@@ -29,7 +29,6 @@ else
         cuda-nvcc-12-4-12.4.99-1 \
         cuda-cudart-devel-12-4-12.4.99-1 \
         libcurand-devel-12-4-10.3.5.119-1 \
-        libcudnn9-devel-cuda-12-9.1.0.70-1 \
         libcublas-devel-12-4-12.4.2.65-1 \
         libnccl-2.20.5-1+cuda12.4 \
         libnccl-devel-2.20.5-1+cuda12.4
@@ -65,7 +64,7 @@ mkdir build-release && cd build-release
 if [ "$CIBW_ARCHS" == "aarch64" ]; then
     cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_CLI=OFF -DWITH_MKL=OFF -DOPENMP_RUNTIME=COMP -DCMAKE_PREFIX_PATH="/opt/OpenBLAS" -DWITH_OPENBLAS=ON -DWITH_RUY=ON ..
 else
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-msse4.1" -DBUILD_CLI=OFF -DWITH_DNNL=ON -DOPENMP_RUNTIME=COMP -DWITH_CUDA=ON -DWITH_CUDNN=ON -DCUDA_DYNAMIC_LOADING=ON -DCUDA_NVCC_FLAGS="-Xfatbin=-compress-all" -DCUDA_ARCH_LIST="Common"  -DWITH_TENSOR_PARALLEL=ON ..
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-msse4.1" -DBUILD_CLI=OFF -DWITH_DNNL=ON -DOPENMP_RUNTIME=COMP -DWITH_CUDA=ON -DWITH_CUDNN=OFF -DCUDA_DYNAMIC_LOADING=ON -DCUDA_NVCC_FLAGS="-Xfatbin=-compress-all" -DCUDA_ARCH_LIST="Common"  -DWITH_TENSOR_PARALLEL=ON ..
 fi
 
 VERBOSE=1 make -j$(nproc) install

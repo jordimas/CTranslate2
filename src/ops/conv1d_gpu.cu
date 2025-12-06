@@ -5,28 +5,6 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Unified arithmetic operations for CUDA kernels
-    template <typename T>
-    struct ArithOps {
-      __device__ static T zero() { return T(0); }
-      __device__ static T add(T a, T b) { return a + b; }
-      __device__ static T mul(T a, T b) { return a * b; }
-    };
-
-    template <>
-    struct ArithOps<__half> {
-      __device__ static __half zero() { return __float2half(0.0f); }
-      __device__ static __half add(__half a, __half b) { return __hadd(a, b); }
-      __device__ static __half mul(__half a, __half b) { return __hmul(a, b); }
-    };
-
-    template <>
-    struct ArithOps<__nv_bfloat16> {
-      __device__ static __nv_bfloat16 zero() { return __float2bfloat16(0.0f); }
-      __device__ static __nv_bfloat16 add(__nv_bfloat16 a, __nv_bfloat16 b) { return __hadd(a, b); }
-      __device__ static __nv_bfloat16 mul(__nv_bfloat16 a, __nv_bfloat16 b) { return __hmul(a, b); }
-    };
-
     // Optimized im2col - parallel over all batches with coalesced memory access
     template <typename T>
     __global__ void im2col_1d_kernel_optimized(
@@ -63,7 +41,7 @@ namespace ctranslate2 {
           int input_idx = (b * in_channels + ic) * input_length + w_in;
           col_buffer[col_idx] = input[input_idx];
         } else {
-          col_buffer[col_idx] = ArithOps<T>::zero();
+          col_buffer[col_idx] = T(0);
         }
       }
     }

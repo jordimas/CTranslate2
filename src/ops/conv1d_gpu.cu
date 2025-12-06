@@ -5,57 +5,144 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Optimized im2col kernel with optional bias initialization
-    template <typename T>
-    __global__ void im2col_1d_kernel(
+    // Direct 1D convolution kernel using circular buffer in registers
+    // Optimized for small kernels (typical in SSM/Mamba: 3-4)
+    template <typename T, int KERNEL_SIZE>
+    __global__ void direct_conv1d_kernel(
         const T* __restrict__ input,
-        T* __restrict__ col_buffer,
-        T* __restrict__ output,
+        const T* __restrict__ weight,
         const T* __restrict__ bias,
+        T* __restrict__ output,
         int batch_size,
         int in_channels,
+        int out_channels,
         int input_length,
-        int kernel_size,
+        int output_length,
         int stride,
         int padding,
         int dilation,
-        int output_length,
-        int out_channels) {
+        int groups) {
       
-      int idx = blockIdx.x * blockDim.x + threadIdx.x;
-      int total = batch_size * in_channels * kernel_size * output_length;
+      const int tid = threadIdx.x;
+      const int out_ch_idx = blockIdx.x;  // Output channel
+      const int batch_idx = blockIdx.y;   // Batch
       
-      if (idx < total) {
-        // Unpack indices (innermost: output_length for coalesced writes)
-        int out_pos = idx % output_length;
-        int k = (idx / output_length) % kernel_size;
-        int ic = (idx / (output_length * kernel_size)) % in_channels;
-        int b = idx / (output_length * kernel_size * in_channels);
+      // Early exit for invalid threads
+      if (out_ch_idx >= out_channels) return;
+      
+      const int group = out_ch_idx / (out_channels / groups);
+      const int in_channels_per_group = in_channels / groups;
+      const int in_ch_start = group * in_channels_per_group;
+      
+      // Circular buffer for input values (stored in registers)
+      T x_buffer[KERNEL_SIZE];
+      T w_cache[KERNEL_SIZE];
+      
+      // Process each output position (strided by blockDim.x)
+      for (int out_pos = tid; out_pos < output_length; out_pos += blockDim.x) {
         
-        int w_in = out_pos * stride - padding + k * dilation;
-        int col_idx = b * in_channels * kernel_size * output_length + 
-                      (ic * kernel_size + k) * output_length + out_pos;
+        T result = bias ? bias[out_ch_idx] : T(0);
         
-        if (w_in >= 0 && w_in < input_length) {
-          int input_idx = (b * in_channels + ic) * input_length + w_in;
-          col_buffer[col_idx] = input[input_idx];
-        } else {
-          col_buffer[col_idx] = T(0);
+        // Convolve across input channels in this group
+        for (int ic = 0; ic < in_channels_per_group; ic++) {
+          int in_ch = in_ch_start + ic;
+          
+          // Weight layout: [out_channels, in_channels_per_group, kernel_size]
+          // Load weights for this (output_ch, input_ch) pair
+          #pragma unroll
+          for (int k = 0; k < KERNEL_SIZE; k++) {
+            int weight_idx = (out_ch_idx * in_channels_per_group + ic) * KERNEL_SIZE + k;
+            w_cache[k] = weight[weight_idx];
+          }
+          
+          // Load input values into buffer
+          #pragma unroll
+          for (int k = 0; k < KERNEL_SIZE; k++) {
+            int w_in = out_pos * stride - padding + k * dilation;
+            if (w_in >= 0 && w_in < input_length) {
+              int input_idx = (batch_idx * in_channels + in_ch) * input_length + w_in;
+              x_buffer[k] = input[input_idx];
+            } else {
+              x_buffer[k] = T(0);
+            }
+          }
+          
+          // Compute dot product
+          #pragma unroll
+          for (int k = 0; k < KERNEL_SIZE; k++) {
+            result += x_buffer[k] * w_cache[k];
+          }
         }
         
-        // Initialize output with bias (first thread per output position)
-        if (bias && ic == 0 && k == 0) {
-          for (int oc = 0; oc < out_channels; oc++) {
-            int out_idx = (b * out_channels + oc) * output_length + out_pos;
-            output[out_idx] = bias[oc];
-          }
+        // Write output
+        int out_idx = (batch_idx * out_channels + out_ch_idx) * output_length + out_pos;
+        output[out_idx] = result;
+      }
+    }
+
+    // Specialized kernel for causal convolution (like SSM)
+    // Uses rotating circular buffer for temporal locality
+    template <typename T, int KERNEL_SIZE>
+    __global__ void causal_conv1d_kernel(
+        const T* __restrict__ input,
+        const T* __restrict__ weight,
+        const T* __restrict__ bias,
+        T* __restrict__ output,
+        int batch_size,
+        int channels,
+        int seq_length) {
+      
+      const int ch = blockIdx.x * blockDim.x + threadIdx.x;
+      const int batch = blockIdx.y;
+      
+      if (ch >= channels) return;
+      
+      // Circular buffer in registers
+      T x_buffer[KERNEL_SIZE];
+      T w_cache[KERNEL_SIZE];
+      
+      // Load weights once - weight layout: [out_channels, in_channels_per_group, kernel_size]
+      // For causal conv: in_channels == out_channels and groups == 1
+      #pragma unroll
+      for (int k = 0; k < KERNEL_SIZE; k++) {
+        w_cache[k] = weight[ch * KERNEL_SIZE + k];
+      }
+      
+      const T* x_ptr = input + (batch * channels + ch) * seq_length;
+      T* y_ptr = output + (batch * channels + ch) * seq_length;
+      
+      // Initialize circular buffer with first KERNEL_SIZE inputs (with zero padding)
+      #pragma unroll
+      for (int k = 0; k < KERNEL_SIZE; k++) {
+        if (k < seq_length) {
+          x_buffer[k] = x_ptr[k];
+        } else {
+          x_buffer[k] = T(0);
+        }
+      }
+      
+      // Process sequence with rotating buffer
+      for (int t = 0; t < seq_length; t++) {
+        T sum = bias ? bias[ch] : T(0);
+        
+        // Compute convolution using circular indexing
+        #pragma unroll
+        for (int k = 0; k < KERNEL_SIZE; k++) {
+          sum += x_buffer[(t + k) % KERNEL_SIZE] * w_cache[k];
+        }
+        
+        y_ptr[t] = sum;
+        
+        // Rotate buffer: replace oldest with next input
+        if (t + KERNEL_SIZE < seq_length) {
+          x_buffer[t % KERNEL_SIZE] = x_ptr[t + KERNEL_SIZE];
         }
       }
     }
 
-    // Main convolution implementation
+    // Dispatcher based on kernel size
     template <typename CudaT, typename HostT>
-    void conv1d_compute_impl(
+    void conv1d_compute_impl_direct(
         const StorageView& input,
         const StorageView& weight,
         const StorageView* bias,
@@ -65,64 +152,123 @@ namespace ctranslate2 {
         int dilation,
         int groups) {
       
-      // Extract dimensions
       const int batch_size = input.dim(0);
       const int in_channels = input.dim(1);
       const int input_length = input.dim(2);
       const int output_length = output.dim(2);
       const int out_channels = weight.dim(0);
-      const int in_channels_per_group = weight.dim(1);
       const int kernel_size = weight.dim(2);
-      const int out_channels_per_group = out_channels / groups;
 
-      // Cast pointers
       const CudaT* input_ptr = reinterpret_cast<const CudaT*>(input.data<HostT>());
       const CudaT* weight_ptr = reinterpret_cast<const CudaT*>(weight.data<HostT>());
       const CudaT* bias_ptr = bias ? reinterpret_cast<const CudaT*>(bias->data<HostT>()) : nullptr;
       CudaT* output_ptr = reinterpret_cast<CudaT*>(output.data<HostT>());
 
-      // Allocate and populate im2col buffer
-      size_t col_size = batch_size * in_channels_per_group * kernel_size * output_length * groups;
-      CudaT* col_buffer = static_cast<CudaT*>(
-          get_allocator<Device::CUDA>().allocate(col_size * sizeof(CudaT)));
-      
-      int total = batch_size * in_channels * kernel_size * output_length;
-      int threads = 256;
-      int blocks = (total + threads - 1) / threads;
-      
-      im2col_1d_kernel<<<blocks, threads>>>(
-          input_ptr, col_buffer, output_ptr, bias_ptr, batch_size, in_channels, 
-          input_length, kernel_size, stride, padding, dilation, output_length, out_channels);
-      
-      // Setup GEMM parameters
-      float alpha = 1.0f;
-      float beta = bias_ptr ? 1.0f : 0.0f;
-      
-      dim_t m = out_channels_per_group;
-      dim_t n = output_length;
-      dim_t k = in_channels_per_group * kernel_size;
-      
-      // Perform grouped convolution via GEMM
-      for (int g = 0; g < groups; g++) {
-        const CudaT* group_weight = weight_ptr + g * m * k;
-        const CudaT* group_col = col_buffer + g * k * n;
-        CudaT* group_output = output_ptr + g * m * n;
+      // Check if this is causal convolution (SSM-style)
+      const bool is_causal = (stride == 1 && padding == kernel_size - 1 && 
+                             dilation == 1 && groups == 1 && 
+                             in_channels == out_channels);
+
+      if (is_causal && kernel_size >= 3 && kernel_size <= 8) {
+        // Optimized path for SSM/Mamba causal convolution
+        const int threads = 128;
+        const int blocks_x = (in_channels + threads - 1) / threads;
+        const int blocks_y = batch_size;
+        dim3 blocks(blocks_x, blocks_y);
         
-        dim_t stride_b = in_channels * kernel_size * output_length;
-        dim_t stride_c = out_channels * output_length;
+        switch (kernel_size) {
+          case 3:
+            causal_conv1d_kernel<CudaT, 3><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, input_length);
+            break;
+          case 4:
+            causal_conv1d_kernel<CudaT, 4><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, input_length);
+            break;
+          case 5:
+            causal_conv1d_kernel<CudaT, 5><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, input_length);
+            break;
+          case 6:
+            causal_conv1d_kernel<CudaT, 6><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, input_length);
+            break;
+          case 7:
+            causal_conv1d_kernel<CudaT, 7><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, input_length);
+            break;
+          case 8:
+            causal_conv1d_kernel<CudaT, 8><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, input_length);
+            break;
+        }
+      } else {
+        // General path for arbitrary stride/padding/dilation/groups
+        const int threads = 256;
+        dim3 blocks(out_channels, batch_size);
         
-        primitives<Device::CUDA>::gemm_batch_strided<HostT, HostT>(
-            false, false,
-            m, n, k,
-            alpha,
-            reinterpret_cast<const HostT*>(group_weight), k, 0,
-            reinterpret_cast<const HostT*>(group_col), n, stride_b,
-            beta,
-            reinterpret_cast<HostT*>(group_output), n, stride_c,
-            batch_size);
+        switch (kernel_size) {
+          case 1:
+            direct_conv1d_kernel<CudaT, 1><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          case 2:
+            direct_conv1d_kernel<CudaT, 2><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          case 3:
+            direct_conv1d_kernel<CudaT, 3><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          case 4:
+            direct_conv1d_kernel<CudaT, 4><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          case 5:
+            direct_conv1d_kernel<CudaT, 5><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          case 6:
+            direct_conv1d_kernel<CudaT, 6><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          case 7:
+            direct_conv1d_kernel<CudaT, 7><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          case 8:
+            direct_conv1d_kernel<CudaT, 8><<<blocks, threads>>>(
+                input_ptr, weight_ptr, bias_ptr, output_ptr,
+                batch_size, in_channels, out_channels, input_length, output_length,
+                stride, padding, dilation, groups);
+            break;
+          default:
+            throw std::runtime_error(
+                "Unsupported kernel size: " + std::to_string(kernel_size) + 
+                ". Supported: 1-8. For larger kernels, use im2col+GEMM implementation");
+        }
       }
       
-      get_allocator<Device::CUDA>().free(col_buffer);
       CUDA_CHECK(cudaGetLastError());
     }
 
@@ -140,8 +286,9 @@ namespace ctranslate2 {
           throw std::runtime_error(                                    \
               "Quantization is not supported in this Conv1D implementation"); \
                                                                        \
-        conv1d_compute_impl<CudaT, HostT>(input, weight, bias, output, \
-                                         _stride, _padding, _dilation, _groups); \
+        conv1d_compute_impl_direct<CudaT, HostT>(                     \
+            input, weight, bias, output,                              \
+            _stride, _padding, _dilation, _groups);                   \
       }
 
     CONV1D_COMPUTE_SPECIALIZATION(float, float)

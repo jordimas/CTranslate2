@@ -5,11 +5,13 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Optimized im2col kernel - parallel over all batches with coalesced memory access
+    // Optimized im2col kernel with optional bias initialization
     template <typename T>
     __global__ void im2col_1d_kernel(
         const T* __restrict__ input,
         T* __restrict__ col_buffer,
+        T* __restrict__ output,
+        const T* __restrict__ bias,
         int batch_size,
         int in_channels,
         int input_length,
@@ -17,7 +19,8 @@ namespace ctranslate2 {
         int stride,
         int padding,
         int dilation,
-        int output_length) {
+        int output_length,
+        int out_channels) {
       
       int idx = blockIdx.x * blockDim.x + threadIdx.x;
       int total = batch_size * in_channels * kernel_size * output_length;
@@ -39,36 +42,15 @@ namespace ctranslate2 {
         } else {
           col_buffer[col_idx] = T(0);
         }
+        
+        // Initialize output with bias (first thread per output position)
+        if (bias && ic == 0 && k == 0) {
+          for (int oc = 0; oc < out_channels; oc++) {
+            int out_idx = (b * out_channels + oc) * output_length + out_pos;
+            output[out_idx] = bias[oc];
+          }
+        }
       }
-    }
-
-    // Broadcast bias across batch and spatial dimensions
-    template <typename T>
-    __global__ void broadcast_bias_kernel(
-        T* __restrict__ output,
-        const T* __restrict__ bias,
-        int batch_size,
-        int out_channels,
-        int output_length) {
-      
-      int idx = blockIdx.x * blockDim.x + threadIdx.x;
-      int total = batch_size * out_channels * output_length;
-      
-      if (idx < total) {
-        int oc = (idx / output_length) % out_channels;
-        output[idx] = bias[oc];
-      }
-    }
-
-    // Helper to launch bias broadcast kernel
-    template <typename T>
-    void broadcast_bias(T* output, const T* bias, 
-                       int batch_size, int out_channels, int output_length) {
-      int total = batch_size * out_channels * output_length;
-      int threads = 256;
-      int blocks = (total + threads - 1) / threads;
-      broadcast_bias_kernel<<<blocks, threads>>>(
-          output, bias, batch_size, out_channels, output_length);
     }
 
     // Main convolution implementation
@@ -109,13 +91,8 @@ namespace ctranslate2 {
       int blocks = (total + threads - 1) / threads;
       
       im2col_1d_kernel<<<blocks, threads>>>(
-          input_ptr, col_buffer, batch_size, in_channels, input_length,
-          kernel_size, stride, padding, dilation, output_length);
-      
-      // Broadcast bias if present (before GEMM)
-      if (bias_ptr) {
-        broadcast_bias(output_ptr, bias_ptr, batch_size, out_channels, output_length);
-      }
+          input_ptr, col_buffer, output_ptr, bias_ptr, batch_size, in_channels, 
+          input_length, kernel_size, stride, padding, dilation, output_length, out_channels);
       
       // Setup GEMM parameters
       float alpha = 1.0f;

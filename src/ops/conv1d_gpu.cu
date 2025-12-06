@@ -1,10 +1,11 @@
 #include "ctranslate2/ops/conv1d.h"
+#include "ctranslate2/primitives.h"
 #include "cuda/utils.h"
 
 namespace ctranslate2 {
   namespace ops {
 
-    // Unified arithmetic operations
+    // Unified arithmetic operations for CUDA kernels
     template <typename T>
     struct ArithOps {
       __device__ static T zero() { return T(0); }
@@ -67,9 +68,9 @@ namespace ctranslate2 {
       }
     }
 
-    // Broadcast bias to output before GEMM
+    // Broadcast bias to output (used when we need to prepare output before GEMM)
     template <typename T>
-    __global__ void broadcast_bias_for_gemm(
+    __global__ void broadcast_bias_kernel(
         T* __restrict__ output,
         const T* __restrict__ bias,
         int batch_size,
@@ -85,186 +86,7 @@ namespace ctranslate2 {
       }
     }
 
-    // Single GEMM wrappers (keep original logic)
-    template <typename T>
-    void gemm_cuda(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const T* a, int lda,
-        const T* b, int ldb,
-        T* c, int ldc);
-
-    template <>
-    void gemm_cuda<float>(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const float* a, int lda,
-        const float* b, int ldb,
-        float* c, int ldc) {
-      
-      float alpha = 1.0f;
-      float beta = 0.0f;
-      
-      CUBLAS_CHECK(cublasSgemm(
-          handle,
-          trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
-          trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
-          n, m, k,
-          &alpha,
-          b, ldb,
-          a, lda,
-          &beta,
-          c, ldc));
-    }
-
-    template <>
-    void gemm_cuda<__half>(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const __half* a, int lda,
-        const __half* b, int ldb,
-        __half* c, int ldc) {
-      
-      float alpha = 1.0f;
-      float beta = 0.0f;
-      
-      CUBLAS_CHECK(cublasGemmEx(
-          handle,
-          trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
-          trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
-          n, m, k,
-          &alpha,
-          b, CUDA_R_16F, ldb,
-          a, CUDA_R_16F, lda,
-          &beta,
-          c, CUDA_R_16F, ldc,
-          CUBLAS_COMPUTE_32F,
-          CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-    }
-
-    template <>
-    void gemm_cuda<__nv_bfloat16>(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const __nv_bfloat16* a, int lda,
-        const __nv_bfloat16* b, int ldb,
-        __nv_bfloat16* c, int ldc) {
-      
-      float alpha = 1.0f;
-      float beta = 0.0f;
-      
-      CUBLAS_CHECK(cublasGemmEx(
-          handle,
-          trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
-          trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
-          n, m, k,
-          &alpha,
-          b, CUDA_R_16BF, ldb,
-          a, CUDA_R_16BF, lda,
-          &beta,
-          c, CUDA_R_16BF, ldc,
-          CUBLAS_COMPUTE_32F,
-          CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-    }
-
-    // Batched GEMM wrappers
-    template <typename T>
-    void gemm_batched_cuda(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const T* a, int lda, long long stride_a,
-        const T* b, int ldb, long long stride_b,
-        T* c, int ldc, long long stride_c,
-        int batch_count);
-
-    template <>
-    void gemm_batched_cuda<float>(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const float* a, int lda, long long stride_a,
-        const float* b, int ldb, long long stride_b,
-        float* c, int ldc, long long stride_c,
-        int batch_count) {
-      
-      float alpha = 1.0f;
-      float beta = 0.0f;
-      
-      CUBLAS_CHECK(cublasSgemmStridedBatched(
-          handle,
-          trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
-          trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
-          n, m, k,
-          &alpha,
-          b, ldb, stride_b,
-          a, lda, stride_a,
-          &beta,
-          c, ldc, stride_c,
-          batch_count));
-    }
-
-    template <>
-    void gemm_batched_cuda<__half>(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const __half* a, int lda, long long stride_a,
-        const __half* b, int ldb, long long stride_b,
-        __half* c, int ldc, long long stride_c,
-        int batch_count) {
-      
-      float alpha = 1.0f;
-      float beta = 0.0f;
-      
-      CUBLAS_CHECK(cublasGemmStridedBatchedEx(
-          handle,
-          trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
-          trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
-          n, m, k,
-          &alpha,
-          b, CUDA_R_16F, ldb, stride_b,
-          a, CUDA_R_16F, lda, stride_a,
-          &beta,
-          c, CUDA_R_16F, ldc, stride_c,
-          batch_count,
-          CUBLAS_COMPUTE_32F,
-          CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-    }
-
-    template <>
-    void gemm_batched_cuda<__nv_bfloat16>(
-        cublasHandle_t handle,
-        bool trans_a, bool trans_b,
-        int m, int n, int k,
-        const __nv_bfloat16* a, int lda, long long stride_a,
-        const __nv_bfloat16* b, int ldb, long long stride_b,
-        __nv_bfloat16* c, int ldc, long long stride_c,
-        int batch_count) {
-      
-      float alpha = 1.0f;
-      float beta = 0.0f;
-      
-      CUBLAS_CHECK(cublasGemmStridedBatchedEx(
-          handle,
-          trans_b ? CUBLAS_OP_T : CUBLAS_OP_N,
-          trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
-          n, m, k,
-          &alpha,
-          b, CUDA_R_16BF, ldb, stride_b,
-          a, CUDA_R_16BF, lda, stride_a,
-          &beta,
-          c, CUDA_R_16BF, ldc, stride_c,
-          batch_count,
-          CUBLAS_COMPUTE_32F,
-          CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-    }
-
-    // Main implementation - using batched GEMM instead of loop
+    // Main implementation - using primitives for GEMM operations
     template <typename CudaT, typename HostT>
     void conv1d_compute_impl(
         const StorageView& input,
@@ -289,16 +111,7 @@ namespace ctranslate2 {
       const CudaT* bias_ptr = bias ? reinterpret_cast<const CudaT*>(bias->data<HostT>()) : nullptr;
       CudaT* output_ptr = reinterpret_cast<CudaT*>(output.data<HostT>());
 
-      cublasHandle_t cublas_handle = cuda::get_cublas_handle();
-      
-      // Enable tensor core optimizations
-#if CUDA_VERSION >= 11000
-      cublasSetMathMode(cublas_handle, CUBLAS_DEFAULT_TENSOR_OP_MATH);
-#elif CUDA_VERSION >= 9000
-      cublasSetMathMode(cublas_handle, CUBLAS_TENSOR_OP_MATH);
-#endif
-
-      // im2col + GEMM approach
+      // Allocate im2col buffer
       size_t col_size = batch_size * in_channels_per_group * kernel_size * output_length * groups;
       CudaT* col_buffer = static_cast<CudaT*>(
           get_allocator<Device::CUDA>().allocate(col_size * sizeof(CudaT)));
@@ -314,130 +127,90 @@ namespace ctranslate2 {
           kernel_size, stride, padding, dilation, output_length,
           in_channels_per_group, groups);
       
-      // Perform grouped GEMM with optimized bias handling
+      // Perform grouped GEMM using primitives
       int out_channels_per_group = out_channels / groups;
       
       if (groups == 1) {
-        // Single group: use batched GEMM with fused bias
-        long long stride_col = in_channels * kernel_size * output_length;
-        long long stride_output = out_channels * output_length;
+        // Single group: use batched GEMM from primitives
         
         // Broadcast bias first if present
         if (bias_ptr) {
-          int total = batch_size * out_channels * output_length;
+          int total_elems = batch_size * out_channels * output_length;
           int bias_threads = 256;
-          int bias_blocks = (total + bias_threads - 1) / bias_threads;
-          broadcast_bias_for_gemm<CudaT><<<bias_blocks, bias_threads>>>(
+          int bias_blocks = (total_elems + bias_threads - 1) / bias_threads;
+          broadcast_bias_kernel<CudaT><<<bias_blocks, bias_threads>>>(
               output_ptr, bias_ptr, batch_size, out_channels, output_length);
         }
         
-        // Then GEMM with beta=1.0 to accumulate with bias
+        // GEMM: output = weight @ col_buffer (+ bias if present)
+        // Dimensions: (out_channels, output_length) = (out_channels, in_channels*kernel) @ (in_channels*kernel, output_length)
+        // Using batched strided GEMM from primitives
         float alpha = 1.0f;
         float beta = bias_ptr ? 1.0f : 0.0f;
         
-        if (std::is_same<CudaT, float>::value) {
-          CUBLAS_CHECK(cublasSgemmStridedBatched(
-              cublas_handle,
-              CUBLAS_OP_N, CUBLAS_OP_N,
-              output_length, out_channels_per_group, in_channels_per_group * kernel_size,
-              &alpha,
-              reinterpret_cast<const float*>(col_buffer), output_length, stride_col,
-              reinterpret_cast<const float*>(weight_ptr), in_channels_per_group * kernel_size, 0,
-              &beta,
-              reinterpret_cast<float*>(output_ptr), output_length, stride_output,
-              batch_size));
-        } else if (std::is_same<CudaT, __half>::value) {
-          CUBLAS_CHECK(cublasGemmStridedBatchedEx(
-              cublas_handle,
-              CUBLAS_OP_N, CUBLAS_OP_N,
-              output_length, out_channels_per_group, in_channels_per_group * kernel_size,
-              &alpha,
-              col_buffer, CUDA_R_16F, output_length, stride_col,
-              weight_ptr, CUDA_R_16F, in_channels_per_group * kernel_size, 0,
-              &beta,
-              output_ptr, CUDA_R_16F, output_length, stride_output,
-              batch_size,
-              CUBLAS_COMPUTE_32F,
-              CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-        } else if (std::is_same<CudaT, __nv_bfloat16>::value) {
-          CUBLAS_CHECK(cublasGemmStridedBatchedEx(
-              cublas_handle,
-              CUBLAS_OP_N, CUBLAS_OP_N,
-              output_length, out_channels_per_group, in_channels_per_group * kernel_size,
-              &alpha,
-              col_buffer, CUDA_R_16BF, output_length, stride_col,
-              weight_ptr, CUDA_R_16BF, in_channels_per_group * kernel_size, 0,
-              &beta,
-              output_ptr, CUDA_R_16BF, output_length, stride_output,
-              batch_size,
-              CUBLAS_COMPUTE_32F,
-              CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-        }
+        dim_t m = out_channels_per_group;
+        dim_t n = output_length;
+        dim_t k = in_channels_per_group * kernel_size;
+        dim_t lda = k;  // weight is (out_channels, k)
+        dim_t ldb = n;  // col_buffer is (k, output_length)
+        dim_t ldc = n;  // output is (out_channels, output_length)
+        
+        dim_t stride_a = 0;  // weight is shared across batches
+        dim_t stride_b = k * n;  // col_buffer strides by batch
+        dim_t stride_c = m * n;  // output strides by batch
+        
+        primitives<Device::CUDA>::gemm_batch_strided<HostT, HostT>(
+            false, false,  // no transpose
+            m, n, k,
+            alpha,
+            reinterpret_cast<const HostT*>(weight_ptr), lda, stride_a,
+            reinterpret_cast<const HostT*>(col_buffer), ldb, stride_b,
+            beta,
+            reinterpret_cast<HostT*>(output_ptr), ldc, stride_c,
+            batch_size);
         
       } else {
-        // Multiple groups: need to handle bias differently
-        // First broadcast all biases if present
+        // Multiple groups: broadcast bias first if present
         if (bias_ptr) {
-          int total = batch_size * out_channels * output_length;
+          int total_elems = batch_size * out_channels * output_length;
           int bias_threads = 256;
-          int bias_blocks = (total + bias_threads - 1) / bias_threads;
-          broadcast_bias_for_gemm<CudaT><<<bias_blocks, bias_threads>>>(
+          int bias_blocks = (total_elems + bias_threads - 1) / bias_threads;
+          broadcast_bias_kernel<CudaT><<<bias_blocks, bias_threads>>>(
               output_ptr, bias_ptr, batch_size, out_channels, output_length);
         }
         
-        // Then process each group
+        // Process each group using primitives
         for (int g = 0; g < groups; g++) {
           const CudaT* group_weight = weight_ptr + 
               g * out_channels_per_group * in_channels_per_group * kernel_size;
+          CudaT* group_output = output_ptr + 
+              g * out_channels_per_group * output_length;
+          const CudaT* group_col = col_buffer + 
+              g * in_channels_per_group * kernel_size * output_length;
           
-          long long stride_col = in_channels * kernel_size * output_length;
-          long long stride_output = out_channels * output_length;
-          
-          CudaT* batch_col = col_buffer + g * in_channels_per_group * kernel_size * output_length;
-          CudaT* batch_output = output_ptr + g * out_channels_per_group * output_length;
-          
-          // GEMM for this group with beta=1.0 if bias present
           float alpha = 1.0f;
           float beta = bias_ptr ? 1.0f : 0.0f;
           
-          if (std::is_same<CudaT, float>::value) {
-            CUBLAS_CHECK(cublasSgemmStridedBatched(
-                cublas_handle,
-                CUBLAS_OP_N, CUBLAS_OP_N,
-                output_length, out_channels_per_group, in_channels_per_group * kernel_size,
-                &alpha,
-                reinterpret_cast<const float*>(batch_col), output_length, stride_col,
-                reinterpret_cast<const float*>(group_weight), in_channels_per_group * kernel_size, 0,
-                &beta,
-                reinterpret_cast<float*>(batch_output), output_length, stride_output,
-                batch_size));
-          } else if (std::is_same<CudaT, __half>::value) {
-            CUBLAS_CHECK(cublasGemmStridedBatchedEx(
-                cublas_handle,
-                CUBLAS_OP_N, CUBLAS_OP_N,
-                output_length, out_channels_per_group, in_channels_per_group * kernel_size,
-                &alpha,
-                batch_col, CUDA_R_16F, output_length, stride_col,
-                group_weight, CUDA_R_16F, in_channels_per_group * kernel_size, 0,
-                &beta,
-                batch_output, CUDA_R_16F, output_length, stride_output,
-                batch_size,
-                CUBLAS_COMPUTE_32F,
-                CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-          } else if (std::is_same<CudaT, __nv_bfloat16>::value) {
-            CUBLAS_CHECK(cublasGemmStridedBatchedEx(
-                cublas_handle,
-                CUBLAS_OP_N, CUBLAS_OP_N,
-                output_length, out_channels_per_group, in_channels_per_group * kernel_size,
-                &alpha,
-                batch_col, CUDA_R_16BF, output_length, stride_col,
-                group_weight, CUDA_R_16BF, in_channels_per_group * kernel_size, 0,
-                &beta,
-                batch_output, CUDA_R_16BF, output_length, stride_output,
-                batch_size,
-                CUBLAS_COMPUTE_32F,
-                CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-          }
+          dim_t m = out_channels_per_group;
+          dim_t n = output_length;
+          dim_t k = in_channels_per_group * kernel_size;
+          dim_t lda = k;
+          dim_t ldb = n;
+          dim_t ldc = n;
+          
+          dim_t stride_a = 0;
+          dim_t stride_b = in_channels * kernel_size * output_length;
+          dim_t stride_c = out_channels * output_length;
+          
+          primitives<Device::CUDA>::gemm_batch_strided<HostT, HostT>(
+              false, false,
+              m, n, k,
+              alpha,
+              reinterpret_cast<const HostT*>(group_weight), lda, stride_a,
+              reinterpret_cast<const HostT*>(group_col), ldb, stride_b,
+              beta,
+              reinterpret_cast<HostT*>(group_output), ldc, stride_c,
+              batch_size);
         }
       }
       

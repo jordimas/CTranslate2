@@ -148,6 +148,7 @@ namespace ctranslate2 {
     void gemm_cuda<float>(
         cublasHandle_t handle,
         bool trans_a, bool trans_b,
+
         int m, int n, int k,
         const float* a, int lda,
         const float* b, int ldb,
@@ -220,21 +221,9 @@ namespace ctranslate2 {
           CUBLAS_GEMM_DEFAULT_TENSOR_OP));
     }
 
-    // Type conversion helpers
-    template <typename CudaT, typename HostT>
-    inline CudaT* to_cuda_type(HostT* ptr) {
-      return reinterpret_cast<CudaT*>(ptr);
-    }
-
-    template <typename CudaT, typename HostT>
-    inline const CudaT* to_cuda_type(const HostT* ptr) {
-      return reinterpret_cast<const CudaT*>(ptr);
-    }
-
     // Template implementation for all types
     template <typename CudaT, typename HostT>
     void conv1d_compute_impl(
-        const Conv1D& op,
         const StorageView& input,
         const StorageView& weight,
         const StorageView* bias,
@@ -252,10 +241,10 @@ namespace ctranslate2 {
       const int in_channels_per_group = weight.dim(1);
       const int kernel_size = weight.dim(2);
 
-      const CudaT* input_ptr = to_cuda_type<const CudaT>(input.data<HostT>());
-      const CudaT* weight_ptr = to_cuda_type<const CudaT>(weight.data<HostT>());
-      const CudaT* bias_ptr = bias ? to_cuda_type<const CudaT>(bias->data<HostT>()) : nullptr;
-      CudaT* output_ptr = to_cuda_type<CudaT>(output.data<HostT>());
+      const CudaT* input_ptr = reinterpret_cast<const CudaT*>(input.data<HostT>());
+      const CudaT* weight_ptr = reinterpret_cast<const CudaT*>(weight.data<HostT>());
+      const CudaT* bias_ptr = bias ? reinterpret_cast<const CudaT*>(bias->data<HostT>()) : nullptr;
+      CudaT* output_ptr = reinterpret_cast<CudaT*>(output.data<HostT>());
 
       const bool use_direct = (kernel_size <= 5 && groups == 1 && output_length <= 512);
 
@@ -330,51 +319,30 @@ namespace ctranslate2 {
       CUDA_CHECK(cudaGetLastError());
     }
 
-    // Main compute functions
-    template <>
-    void Conv1D::compute<Device::CUDA, float>(
-        const StorageView& input,
-        const StorageView& weight,
-        const StorageView* bias,
-        StorageView& output,
-        const StorageView* qscale) const {
-      
-      if (qscale)
-        throw std::runtime_error("Quantization is not supported in this Conv1D implementation");
-      
-      conv1d_compute_impl<float, float>(*this, input, weight, bias, output,
-                                        _stride, _padding, _dilation, _groups);
-    }
+    // Consolidated compute using macro
+    #define CONV1D_COMPUTE_SPECIALIZATION(HostT, CudaT)                \
+      template <>                                                      \
+      void Conv1D::compute<Device::CUDA, HostT>(                      \
+          const StorageView& input,                                    \
+          const StorageView& weight,                                   \
+          const StorageView* bias,                                     \
+          StorageView& output,                                         \
+          const StorageView* qscale) const {                          \
+                                                                       \
+        if (qscale)                                                    \
+          throw std::runtime_error(                                    \
+              "Quantization is not supported in this Conv1D implementation"); \
+                                                                       \
+        conv1d_compute_impl<CudaT, HostT>(input, weight, bias, output, \
+                                         _stride, _padding, _dilation, _groups); \
+      }
 
-    template <>
-    void Conv1D::compute<Device::CUDA, float16_t>(
-        const StorageView& input,
-        const StorageView& weight,
-        const StorageView* bias,
-        StorageView& output,
-        const StorageView* qscale) const {
-      
-      if (qscale)
-        throw std::runtime_error("Quantization is not supported in this Conv1D implementation");
-      
-      conv1d_compute_impl<__half, float16_t>(*this, input, weight, bias, output,
-                                             _stride, _padding, _dilation, _groups);
-    }
+    // Instantiate for all supported types
+    CONV1D_COMPUTE_SPECIALIZATION(float, float)
+    CONV1D_COMPUTE_SPECIALIZATION(float16_t, __half)
+    CONV1D_COMPUTE_SPECIALIZATION(bfloat16_t, __nv_bfloat16)
 
-    template <>
-    void Conv1D::compute<Device::CUDA, bfloat16_t>(
-        const StorageView& input,
-        const StorageView& weight,
-        const StorageView* bias,
-        StorageView& output,
-        const StorageView* qscale) const {
-      
-      if (qscale)
-        throw std::runtime_error("Quantization is not supported in this Conv1D implementation");
-      
-      conv1d_compute_impl<__nv_bfloat16, bfloat16_t>(*this, input, weight, bias, output,
-                                                     _stride, _padding, _dilation, _groups);
-    }
+    #undef CONV1D_COMPUTE_SPECIALIZATION
 
   }
 }

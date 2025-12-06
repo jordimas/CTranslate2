@@ -5,55 +5,176 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Optimized im2col kernel with optional bias initialization
-    template <typename T>
-    __global__ void im2col_1d_kernel(
+    // Fused im2col-GEMM kernel - directly computes convolution output
+    // Each thread block computes a tile of the output
+    template <typename T, int TILE_M = 64, int TILE_N = 64, int TILE_K = 16>
+    __global__ void fused_conv1d_kernel(
         const T* __restrict__ input,
-        T* __restrict__ col_buffer,
-        T* __restrict__ output,
+        const T* __restrict__ weight,
         const T* __restrict__ bias,
+        T* __restrict__ output,
         int batch_size,
         int in_channels,
         int input_length,
+        int out_channels,
         int kernel_size,
         int stride,
         int padding,
         int dilation,
         int output_length,
-        int out_channels) {
+        int in_channels_per_group,
+        int out_channels_per_group,
+        int group_id) {
       
-      int idx = blockIdx.x * blockDim.x + threadIdx.x;
-      int total = batch_size * in_channels * kernel_size * output_length;
+      // Shared memory for tiles
+      __shared__ T tile_weight[TILE_M][TILE_K];
+      __shared__ T tile_input[TILE_K][TILE_N];
       
-      if (idx < total) {
-        // Unpack indices (innermost: output_length for coalesced writes)
-        int out_pos = idx % output_length;
-        int k = (idx / output_length) % kernel_size;
-        int ic = (idx / (output_length * kernel_size)) % in_channels;
-        int b = idx / (output_length * kernel_size * in_channels);
+      // Thread and block indices
+      int tx = threadIdx.x;
+      int ty = threadIdx.y;
+      int bx = blockIdx.x;
+      int by = blockIdx.y;
+      int bz = blockIdx.z;
+      
+      // Output position: batch and spatial
+      int batch = bz;
+      int out_row = by * TILE_M + ty;  // output channel (within group)
+      int out_col_base = bx * TILE_N + tx;  // output spatial position
+      
+      // Bounds check
+      if (batch >= batch_size) return;
+      
+      // Accumulator
+      float acc = 0.0f;
+      
+      // K dimension: in_channels_per_group * kernel_size
+      int K = in_channels_per_group * kernel_size;
+      
+      // Loop over K dimension in tiles
+      for (int k_tile = 0; k_tile < (K + TILE_K - 1) / TILE_K; k_tile++) {
+        int k_base = k_tile * TILE_K;
         
-        int w_in = out_pos * stride - padding + k * dilation;
-        int col_idx = b * in_channels * kernel_size * output_length + 
-                      (ic * kernel_size + k) * output_length + out_pos;
+        // Load weight tile (each thread loads one element)
+        int weight_row = out_row;
+        int weight_col = k_base + tx;
         
-        if (w_in >= 0 && w_in < input_length) {
-          int input_idx = (b * in_channels + ic) * input_length + w_in;
-          col_buffer[col_idx] = input[input_idx];
-        } else {
-          col_buffer[col_idx] = T(0);
+        if (weight_row < out_channels_per_group && weight_col < K && ty == 0) {
+          int weight_offset = group_id * out_channels_per_group * K;
+          tile_weight[ty][tx] = weight[weight_offset + weight_row * K + weight_col];
         }
         
-        // Initialize output with bias (first thread per output position)
-        if (bias && ic == 0 && k == 0) {
-          for (int oc = 0; oc < out_channels; oc++) {
-            int out_idx = (b * out_channels + oc) * output_length + out_pos;
-            output[out_idx] = bias[oc];
+        // Broadcast weight across ty dimension
+        if (ty == 0 && weight_row < out_channels_per_group && weight_col < K) {
+          T val = tile_weight[0][tx];
+          for (int i = 1; i < TILE_M && (by * TILE_M + i) < out_channels_per_group; i++) {
+            tile_weight[i][tx] = val;
           }
         }
+        
+        // Load input tile with im2col logic
+        int k_idx = k_base + ty;
+        int out_col = out_col_base;
+        
+        if (k_idx < K && out_col < output_length) {
+          // Decompose k_idx into (input_channel, kernel_position)
+          int kernel_pos = k_idx % kernel_size;
+          int in_ch = k_idx / kernel_size;
+          
+          // Compute input spatial position
+          int w_in = out_col * stride - padding + kernel_pos * dilation;
+          
+          // Load from input or use zero padding
+          if (w_in >= 0 && w_in < input_length) {
+            int in_offset = group_id * in_channels_per_group;
+            int input_idx = (batch * in_channels + in_offset + in_ch) * input_length + w_in;
+            tile_input[ty][tx] = input[input_idx];
+          } else {
+            tile_input[ty][tx] = T(0);
+          }
+        } else {
+          tile_input[ty][tx] = T(0);
+        }
+        
+        __syncthreads();
+        
+        // Compute partial dot product
+        if (out_row < out_channels_per_group && out_col_base < output_length) {
+          for (int k = 0; k < TILE_K && (k_base + k) < K; k++) {
+            acc += float(tile_weight[ty][k]) * float(tile_input[k][tx]);
+          }
+        }
+        
+        __syncthreads();
+      }
+      
+      // Write output with bias
+      if (out_row < out_channels_per_group && out_col_base < output_length) {
+        int out_ch = group_id * out_channels_per_group + out_row;
+        int out_idx = (batch * out_channels + out_ch) * output_length + out_col_base;
+        
+        if (bias) {
+          acc += float(bias[out_ch]);
+        }
+        
+        output[out_idx] = T(acc);
       }
     }
 
-    // Main convolution implementation
+    // Fallback kernel for small problems or edge cases
+    template <typename T>
+    __global__ void simple_conv1d_kernel(
+        const T* __restrict__ input,
+        const T* __restrict__ weight,
+        const T* __restrict__ bias,
+        T* __restrict__ output,
+        int batch_size,
+        int in_channels,
+        int input_length,
+        int out_channels,
+        int kernel_size,
+        int stride,
+        int padding,
+        int dilation,
+        int output_length,
+        int in_channels_per_group,
+        int out_channels_per_group,
+        int groups) {
+      
+      int idx = blockIdx.x * blockDim.x + threadIdx.x;
+      int total = batch_size * out_channels * output_length;
+      
+      if (idx < total) {
+        int out_pos = idx % output_length;
+        int out_ch = (idx / output_length) % out_channels;
+        int batch = idx / (output_length * out_channels);
+        
+        int group_id = out_ch / out_channels_per_group;
+        int out_ch_in_group = out_ch % out_channels_per_group;
+        
+        float acc = bias ? float(bias[out_ch]) : 0.0f;
+        
+        int in_offset = group_id * in_channels_per_group;
+        int weight_offset = group_id * out_channels_per_group * in_channels_per_group * kernel_size;
+        
+        for (int ic = 0; ic < in_channels_per_group; ic++) {
+          for (int k = 0; k < kernel_size; k++) {
+            int w_in = out_pos * stride - padding + k * dilation;
+            
+            if (w_in >= 0 && w_in < input_length) {
+              int input_idx = (batch * in_channels + in_offset + ic) * input_length + w_in;
+              int weight_idx = weight_offset + (out_ch_in_group * in_channels_per_group + ic) * kernel_size + k;
+              
+              acc += float(input[input_idx]) * float(weight[weight_idx]);
+            }
+          }
+        }
+        
+        output[idx] = T(acc);
+      }
+    }
+
+    // Main convolution implementation with fused kernel
     template <typename CudaT, typename HostT>
     void conv1d_compute_impl(
         const StorageView& input,
@@ -81,48 +202,42 @@ namespace ctranslate2 {
       const CudaT* bias_ptr = bias ? reinterpret_cast<const CudaT*>(bias->data<HostT>()) : nullptr;
       CudaT* output_ptr = reinterpret_cast<CudaT*>(output.data<HostT>());
 
-      // Allocate and populate im2col buffer
-      size_t col_size = batch_size * in_channels_per_group * kernel_size * output_length * groups;
-      CudaT* col_buffer = static_cast<CudaT*>(
-          get_allocator<Device::CUDA>().allocate(col_size * sizeof(CudaT)));
+      // Choose kernel based on problem size
+      constexpr int TILE_M = 64;
+      constexpr int TILE_N = 64;
+      constexpr int TILE_K = 16;
       
-      int total = batch_size * in_channels * kernel_size * output_length;
-      int threads = 256;
-      int blocks = (total + threads - 1) / threads;
+      bool use_fused = (out_channels_per_group >= 32 && output_length >= 32);
       
-      im2col_1d_kernel<<<blocks, threads>>>(
-          input_ptr, col_buffer, output_ptr, bias_ptr, batch_size, in_channels, 
-          input_length, kernel_size, stride, padding, dilation, output_length, out_channels);
-      
-      // Setup GEMM parameters
-      float alpha = 1.0f;
-      float beta = bias_ptr ? 1.0f : 0.0f;
-      
-      dim_t m = out_channels_per_group;
-      dim_t n = output_length;
-      dim_t k = in_channels_per_group * kernel_size;
-      
-      // Perform grouped convolution via GEMM
-      for (int g = 0; g < groups; g++) {
-        const CudaT* group_weight = weight_ptr + g * m * k;
-        const CudaT* group_col = col_buffer + g * k * n;
-        CudaT* group_output = output_ptr + g * m * n;
+      if (use_fused) {
+        // Use fused tiled kernel
+        dim3 block(TILE_N / 4, TILE_M / 16);  // 16x4 = 64 threads
+        dim3 grid(
+            (output_length + TILE_N - 1) / TILE_N,
+            (out_channels_per_group + TILE_M - 1) / TILE_M,
+            batch_size
+        );
         
-        dim_t stride_b = in_channels * kernel_size * output_length;
-        dim_t stride_c = out_channels * output_length;
+        for (int g = 0; g < groups; g++) {
+          fused_conv1d_kernel<CudaT, TILE_M, TILE_N, TILE_K><<<grid, block>>>(
+              input_ptr, weight_ptr, bias_ptr, output_ptr,
+              batch_size, in_channels, input_length, out_channels,
+              kernel_size, stride, padding, dilation, output_length,
+              in_channels_per_group, out_channels_per_group, g);
+        }
+      } else {
+        // Use simple kernel for small problems
+        int total = batch_size * out_channels * output_length;
+        int threads = 256;
+        int blocks = (total + threads - 1) / threads;
         
-        primitives<Device::CUDA>::gemm_batch_strided<HostT, HostT>(
-            false, false,
-            m, n, k,
-            alpha,
-            reinterpret_cast<const HostT*>(group_weight), k, 0,
-            reinterpret_cast<const HostT*>(group_col), n, stride_b,
-            beta,
-            reinterpret_cast<HostT*>(group_output), n, stride_c,
-            batch_size);
+        simple_conv1d_kernel<<<blocks, threads>>>(
+            input_ptr, weight_ptr, bias_ptr, output_ptr,
+            batch_size, in_channels, input_length, out_channels,
+            kernel_size, stride, padding, dilation, output_length,
+            in_channels_per_group, out_channels_per_group, groups);
       }
       
-      get_allocator<Device::CUDA>().free(col_buffer);
       CUDA_CHECK(cudaGetLastError());
     }
 

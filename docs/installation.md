@@ -17,7 +17,6 @@ The Python wheels have the following requirements:
 ```{admonition} GPU support
 The Linux and Windows Python wheels support GPU execution. Install [CUDA](https://developer.nvidia.com/cuda-toolkit) 12.x to use the GPU.
 
-If you plan to run models with convolutional layers (e.g. for speech recognition), you should also install [cuDNN 8](https://developer.nvidia.com/cudnn) for CUDA 12.x.
 ```
 
 ```{note}
@@ -34,7 +33,7 @@ docker pull ghcr.io/opennmt/ctranslate2:latest-ubuntu22.04-cuda11.2
 
 The images include:
 
-* the NVIDIA libraries cuBLAS and cuDNN to support GPU execution
+* the NVIDIA libraries cuBLAS to support GPU execution
 * the C++ library installed in `/opt/ctranslate2`
 * the Python module installed in the Python system packages
 * the translator executable, which is the image entrypoint:
@@ -108,7 +107,6 @@ The following options can be set with `-DOPTION=VALUE` during the CMake configur
 | ENABLE_PROFILING | **OFF**, ON | Enables the integrated profiler (usually disabled in production builds) |
 | OPENMP_RUNTIME | **INTEL**, COMP, NONE | Selects the OpenMP runtime:<ul><li>INTEL: Intel OpenMP</li><li>COMP: OpenMP runtime provided by the compiler</li><li>NONE: no OpenMP runtime (a custom threading implementation will be used)</li></ul> |
 | WITH_CUDA | **OFF**, ON | Compiles with the CUDA backend |
-| WITH_CUDNN | **OFF**, ON | Compiles with the cuDNN backend |
 | WITH_DNNL | **OFF**, ON | Compiles with the oneDNN backend (a.k.a. DNNL) |
 | WITH_MKL | OFF, **ON** | Compiles with the Intel MKL backend |
 | WITH_ACCELERATE | **OFF**, ON | Compiles with the Apple Accelerate backend |
@@ -118,7 +116,6 @@ The following options can be set with `-DOPTION=VALUE` during the CMake configur
 Some build options require additional dependencies. See their respective documentation for installation instructions.
 
 * `-DWITH_CUDA=ON` requires [CUDA](https://developer.nvidia.com/cuda-toolkit) >= 11.0
-* `-DWITH_CUDNN=ON` requires [cuDNN](https://developer.nvidia.com/cudnn) >= 8
 * `-DWITH_MKL=ON` requires [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html) >= 2019.5
 * `-DWITH_DNNL=ON` requires [oneDNN](https://github.com/oneapi-src/oneDNN) >= 3.0
 * `-DWITH_ACCELERATE=ON` requires [Accelerate](https://developer.apple.com/documentation/accelerate)

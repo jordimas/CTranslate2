@@ -554,6 +554,13 @@ if (WITH_CUDA)
   else()
     list(APPEND LIBRARIES ${CUDA_CUBLAS_LIBRARIES})
   endif()
+
+  if(WITH_CUDNN)
+    list(APPEND SOURCES src/ops/conv1d_gpu_cudnn.cu)
+  else()
+  #  list(APPEND SOURCES src/ops/conv1d_gpu.cu)
+  endif()
+
   if (WITH_FLASH_ATTN)
     add_definitions(-DCT2_WITH_FLASH_ATTN)
     list(APPEND SOURCES
@@ -655,12 +662,6 @@ if (WITH_CUDA)
     src/ops/awq/gemv_gpu.cu
     src/ops/awq/dequantize_gpu.cu
   )
-
-if(WITH_CUDNN)
-  list(APPEND SOURCES src/ops/conv1d_gpu_cudnn.cu)
-else()
-  list(APPEND SOURCES src/ops/conv1d_gpu.cu)
-endif()
 
 
 elseif(WITH_CUDNN)

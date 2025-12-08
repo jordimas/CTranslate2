@@ -558,7 +558,7 @@ if (WITH_CUDA)
   if(WITH_CUDNN)
     list(APPEND SOURCES src/ops/conv1d_gpu_cudnn.cu)
   else()
-  #  list(APPEND SOURCES src/ops/conv1d_gpu.cu)
+    list(APPEND SOURCES src/ops/conv1d_gpu.cu)
   endif()
 
   if (WITH_FLASH_ATTN)

@@ -636,7 +636,6 @@ if (WITH_CUDA)
     src/ops/alibi_add_gpu.cu
     src/ops/bias_add_gpu.cu
     src/ops/concat_split_slide_gpu.cu
-    src/ops/conv1d_gpu.cu
     src/ops/dequantize_gpu.cu
     src/ops/flash_attention_gpu.cu
     src/ops/gather_gpu.cu
@@ -656,6 +655,12 @@ if (WITH_CUDA)
     src/ops/awq/gemv_gpu.cu
     src/ops/awq/dequantize_gpu.cu
   )
+
+if(WITH_CUDNN)
+  list(APPEND SOURCES src/ops/conv1d_gpu_cudnn.cu)
+else()
+  list(APPEND SOURCES src/ops/conv1d_gpu.cu)
+endif()
 
 
 elseif(WITH_CUDNN)

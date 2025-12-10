@@ -6,18 +6,6 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Debug print helper for device arrays
-    template <typename T>
-    void print_device_array(const char* name, const T* d_ptr, int count, int batch_idx = 0, int channel_idx = 0, int offset = 0) {
-      T* h_data = new T[count];
-      cudaMemcpy(h_data, d_ptr + offset, count * sizeof(T), cudaMemcpyDeviceToHost);
-      printf("%s[%d,%d,%d:%d]: ", name, batch_idx, channel_idx, offset, offset + count - 1);
-      for (int i = 0; i < count && i < 10; i++) {
-        printf("%.3f ", float(h_data[i]));
-      }
-      printf("\n");
-      delete[] h_data;
-    }
 
     // FIXED: Properly designed tiled Conv1D kernel
     // Key fix: Each thread computes ONE output element, threads cooperate to load tiles
@@ -148,34 +136,6 @@ namespace ctranslate2 {
       const int kernel_size = weight.dim(2);
       const int out_channels_per_group = out_channels / groups;
 
-      printf("\n=== CONV1D DEBUG INFO ===\n");
-      printf("Dimensions:\n");
-      printf("  Input: [%d, %d, %d] (batch, in_channels, length)\n", 
-             batch_size, in_channels, input_length);
-      printf("  Weight: [%d, %d, %d] (out_channels, in_per_group, kernel)\n",
-             out_channels, in_channels_per_group, kernel_size);
-      printf("  Output: [%d, %d, %d] (batch, out_channels, length)\n",
-             batch_size, out_channels, output_length);
-      printf("  Bias: %s\n", bias ? "yes" : "no");
-      
-      printf("Parameters:\n");
-      printf("  Stride: %d, Padding: %d, Dilation: %d, Groups: %d\n",
-             stride, padding, dilation, groups);
-      printf("  Channels per group: in=%d out=%d\n", 
-             in_channels_per_group, out_channels_per_group);
-      
-      // Validate dimensions
-      int expected_output_length = (input_length + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1;
-      printf("\nValidation:\n");
-      printf("  Expected output length: %d (actual: %d) %s\n",
-             expected_output_length, output_length,
-             expected_output_length == output_length ? "✓" : "✗ MISMATCH!");
-      
-      assert(in_channels == in_channels_per_group * groups);
-      assert(out_channels == out_channels_per_group * groups);
-      assert(output_length == expected_output_length);
-      
-      printf("  All dimension checks passed ✓\n");
 
       // Cast pointers
       const CudaT* input_ptr = reinterpret_cast<const CudaT*>(input.data<HostT>());
@@ -183,22 +143,8 @@ namespace ctranslate2 {
       const CudaT* bias_ptr = bias ? reinterpret_cast<const CudaT*>(bias->data<HostT>()) : nullptr;
       CudaT* output_ptr = reinterpret_cast<CudaT*>(output.data<HostT>());
 
-      // Print sample input/weight values
-      printf("\nSample values (first 5):\n");
-      print_device_array("Input[0,0]", input_ptr, std::min(5, input_length), 0, 0, 0);
-      if (in_channels > 1) {
-        print_device_array("Input[0,1]", input_ptr, std::min(5, input_length), 0, 1, input_length);
-      }
-      print_device_array("Weight[0,0]", weight_ptr, std::min(5, in_channels_per_group * kernel_size), 0, 0, 0);
-      if (bias_ptr) {
-        print_device_array("Bias", bias_ptr, std::min(5, out_channels), 0, 0, 0);
-      }
-
       // Choose kernel based on problem size
       bool use_tiled = (out_channels_per_group >= 16 && output_length >= 128);
-      
-      printf("\nKernel selection:\n");
-      printf("  Use tiled kernel: %s\n", use_tiled ? "YES" : "NO (using simple)");
       
       if (use_tiled) {
         // Use 2D tiled kernel - each thread computes one output
@@ -208,9 +154,6 @@ namespace ctranslate2 {
             (out_channels_per_group + block.y - 1) / block.y,
             batch_size
         );
-        
-        printf("  Block: (%d, %d) = %d threads\n", block.x, block.y, block.x * block.y);
-        printf("  Grid: (%d, %d, %d) = %d blocks\n", grid.x, grid.y, grid.z, grid.x * grid.y * grid.z);
         
         for (int g = 0; g < groups; g++) {
           tiled_conv1d_kernel<CudaT><<<grid, block>>>(
@@ -225,10 +168,6 @@ namespace ctranslate2 {
         int threads = 256;
         int blocks = (total + threads - 1) / threads;
         
-        printf("  Threads per block: %d\n", threads);
-        printf("  Blocks: %d\n", blocks);
-        printf("  Total outputs: %d\n", total);
-        
         simple_conv1d_kernel<<<blocks, threads>>>(
             input_ptr, weight_ptr, bias_ptr, output_ptr,
             batch_size, in_channels, input_length, out_channels,
@@ -239,14 +178,6 @@ namespace ctranslate2 {
       cudaDeviceSynchronize();
       CUDA_CHECK(cudaGetLastError());
       
-      // Print sample output values
-      printf("\nSample outputs (first 5):\n");
-      print_device_array("Output[0,0]", output_ptr, std::min(5, output_length), 0, 0, 0);
-      if (out_channels > 1) {
-        print_device_array("Output[0,1]", output_ptr, std::min(5, output_length), 0, 1, output_length);
-      }
-      
-      printf("=== CONV1D DEBUG END ===\n\n");
     }
 
     // Template specializations

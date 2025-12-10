@@ -61,59 +61,6 @@ namespace ctranslate2 {
       output[out_idx] = T(acc);
     }
 
-    // Fallback kernel for small problems or edge cases
-    template <typename T>
-    __global__ void simple_conv1d_kernel(
-        const T* __restrict__ input,
-        const T* __restrict__ weight,
-        const T* __restrict__ bias,
-        T* __restrict__ output,
-        int batch_size,
-        int in_channels,
-        int input_length,
-        int out_channels,
-        int kernel_size,
-        int stride,
-        int padding,
-        int dilation,
-        int output_length,
-        int in_channels_per_group,
-        int out_channels_per_group,
-        int groups) {
-      
-      int idx = blockIdx.x * blockDim.x + threadIdx.x;
-      int total = batch_size * out_channels * output_length;
-      
-      if (idx < total) {
-        int out_pos = idx % output_length;
-        int out_ch = (idx / output_length) % out_channels;
-        int batch = idx / (output_length * out_channels);
-        
-        int group_id = out_ch / out_channels_per_group;
-        int out_ch_in_group = out_ch % out_channels_per_group;
-        
-        float acc = bias ? float(bias[out_ch]) : 0.0f;
-        
-        int in_offset = group_id * in_channels_per_group;
-        int weight_offset = group_id * out_channels_per_group * in_channels_per_group * kernel_size;
-        
-        for (int ic = 0; ic < in_channels_per_group; ic++) {
-          for (int k = 0; k < kernel_size; k++) {
-            int w_in = out_pos * stride - padding + k * dilation;
-            
-            if (w_in >= 0 && w_in < input_length) {
-              int input_idx = (batch * in_channels + in_offset + ic) * input_length + w_in;
-              int weight_idx = weight_offset + (out_ch_in_group * in_channels_per_group + ic) * kernel_size + k;
-              
-              acc += float(input[input_idx]) * float(weight[weight_idx]);
-            }
-          }
-        }
-        
-        output[idx] = T(acc);
-      }
-    }
-
     // Main convolution implementation
     template <typename CudaT, typename HostT>
     void conv1d_compute_impl(
@@ -143,36 +90,20 @@ namespace ctranslate2 {
       const CudaT* bias_ptr = bias ? reinterpret_cast<const CudaT*>(bias->data<HostT>()) : nullptr;
       CudaT* output_ptr = reinterpret_cast<CudaT*>(output.data<HostT>());
 
-      // Choose kernel based on problem size
-      bool use_tiled = (out_channels_per_group >= 16 && output_length >= 128);
+      // Use 2D tiled kernel - each thread computes one output
+      dim3 block(32, 8);  // 32 spatial positions, 8 output channels = 256 threads
+      dim3 grid(
+          (output_length + block.x - 1) / block.x,
+          (out_channels_per_group + block.y - 1) / block.y,
+          batch_size
+      );
       
-      if (use_tiled) {
-        // Use 2D tiled kernel - each thread computes one output
-        dim3 block(32, 8);  // 32 spatial positions, 8 output channels = 256 threads
-        dim3 grid(
-            (output_length + block.x - 1) / block.x,
-            (out_channels_per_group + block.y - 1) / block.y,
-            batch_size
-        );
-        
-        for (int g = 0; g < groups; g++) {
-          tiled_conv1d_kernel<CudaT><<<grid, block>>>(
-              input_ptr, weight_ptr, bias_ptr, output_ptr,
-              batch_size, in_channels, input_length, out_channels,
-              kernel_size, stride, padding, dilation, output_length,
-              in_channels_per_group, out_channels_per_group, g);
-        }
-      } else {
-        // Use simple 1D kernel
-        int total = batch_size * out_channels * output_length;
-        int threads = 256;
-        int blocks = (total + threads - 1) / threads;
-        
-        simple_conv1d_kernel<<<blocks, threads>>>(
+      for (int g = 0; g < groups; g++) {
+        tiled_conv1d_kernel<CudaT><<<grid, block>>>(
             input_ptr, weight_ptr, bias_ptr, output_ptr,
             batch_size, in_channels, input_length, out_channels,
             kernel_size, stride, padding, dilation, output_length,
-            in_channels_per_group, out_channels_per_group, groups);
+            in_channels_per_group, out_channels_per_group, g);
       }
       
       cudaDeviceSynchronize();

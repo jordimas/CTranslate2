@@ -172,7 +172,6 @@ namespace ctranslate2 {
       const dim_t stridew = (out_channels / _groups) * in_channels_per_group * kernel_size * weight.item_size();
       const dim_t strideb = k * output_length;
       const dim_t stridec = m * output_length;
-      const dim_t qscale_stride = qscale ? qscale->dim(0) / _groups : 0;
 
       auto* w = static_cast<int8_t*>(const_cast<void*>(weight.buffer()));
       auto* b = im2col_output.data<T>();

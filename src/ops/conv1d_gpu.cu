@@ -1,8 +1,6 @@
 #include "ctranslate2/ops/conv1d.h"
 #include "cuda/utils.h"
 #include "ctranslate2/ops/gemm.h"
-#include "ctranslate2/ops/quantize.h"
-#include "ctranslate2/ops/dequantize.h"
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
 
@@ -129,11 +127,6 @@ namespace ctranslate2 {
         StorageView& output,
         const StorageView* qscale) const {
 
-      printf("T size: %zu bytes\n", sizeof(T));
-      printf("Input dtype: %d\n", static_cast<int>(input.dtype()));
-      printf("Weight dtype: %d\n", static_cast<int>(weight.dtype()));
-      printf("Output dtype: %d\n", static_cast<int>(output.dtype()));
-              
       if (_dilation != 1)
         throw std::runtime_error("Dilation is not supported in this Conv1D implementation");
 
@@ -211,7 +204,6 @@ namespace ctranslate2 {
         
         // Dispatch to appropriate kernel based on type
         if (std::is_same<T, float>::value) {
-          printf("float32 bias\n");
           add_bias_kernel_float<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
               reinterpret_cast<float*>(output.buffer()),
               reinterpret_cast<const float*>(bias->buffer()),
@@ -219,7 +211,6 @@ namespace ctranslate2 {
               out_channels,
               output_length);
         } else if (std::is_same<T, float16_t>::value) {
-          printf("float16 bias\n");        
           add_bias_kernel_half<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
               reinterpret_cast<__half*>(output.buffer()),
               reinterpret_cast<const __half*>(bias->buffer()),
@@ -227,7 +218,6 @@ namespace ctranslate2 {
               out_channels,
               output_length);
         } else if (std::is_same<T, bfloat16_t>::value) {
-          printf("float16_t bias\n");        
           add_bias_kernel_bfloat16<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
               reinterpret_cast<__nv_bfloat16*>(output.buffer()),
               reinterpret_cast<const __nv_bfloat16*>(bias->buffer()),

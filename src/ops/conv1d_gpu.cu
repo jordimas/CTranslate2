@@ -128,7 +128,12 @@ namespace ctranslate2 {
         const StorageView* bias,
         StorageView& output,
         const StorageView* qscale) const {
-      
+
+      printf("T size: %zu bytes\n", sizeof(T));
+      printf("Input dtype: %d\n", static_cast<int>(input.dtype()));
+      printf("Weight dtype: %d\n", static_cast<int>(weight.dtype()));
+      printf("Output dtype: %d\n", static_cast<int>(output.dtype()));
+              
       if (_dilation != 1)
         throw std::runtime_error("Dilation is not supported in this Conv1D implementation");
 
@@ -178,10 +183,6 @@ namespace ctranslate2 {
       auto* c = output.data<T>();
 
       const Gemm gemm(1.0, 0.0, false, true);
-      const Quantize quantize_op(Quantize::ScaleType::PER_LAYER,
-                                 /*shift_to_uint8=*/false,
-                                 /*round_before_cast=*/true);
-      const Dequantize dequantize_op;
 
       // Process each batch and group
       for (dim_t i = 0; i < batch_size * _groups; ++i) {

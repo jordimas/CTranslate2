@@ -3,14 +3,10 @@
 #include "ctranslate2/ops/gemm.h"
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
+#include <cuda/helpers.h>
 
 namespace ctranslate2 {
   namespace ops {
-
-    // Helper to get device-compatible type
-    template<typename T> struct DeviceType { using type = T; };
-    template<> struct DeviceType<float16_t> { using type = __half; };
-    template<> struct DeviceType<bfloat16_t> { using type = __nv_bfloat16; };
 
     // CUDA kernel for im2col transformation (transposed version)
     template<typename T>
@@ -130,7 +126,7 @@ namespace ctranslate2 {
       if (_dilation != 1)
         throw std::runtime_error("Dilation is not supported in this Conv1D implementation");
 
-      using DevT = typename DeviceType<T>::type;
+      using DevT = cuda::device_type<T>;
 
       const dim_t batch_size = input.dim(0);
       const dim_t in_channels = input.dim(1);
@@ -152,8 +148,8 @@ namespace ctranslate2 {
       const int grid_size = (total_outputs + block_size - 1) / block_size;
       
       im2col_transposed_kernel<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
-          reinterpret_cast<const DevT*>(input.buffer()),
-          reinterpret_cast<DevT*>(im2col_output.buffer()),
+          cuda::device_cast(input.data<T>()),
+          cuda::device_cast(im2col_output.data<T>()),
           batch_size,
           in_channels,
           input_length,
@@ -205,22 +201,22 @@ namespace ctranslate2 {
         // Dispatch to appropriate kernel based on type
         if (std::is_same<T, float>::value) {
           add_bias_kernel_float<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
-              reinterpret_cast<float*>(output.buffer()),
-              reinterpret_cast<const float*>(bias->buffer()),
+              cuda::device_cast(output.data<float>()),
+              cuda::device_cast(bias->data<float>()),
               batch_size,
               out_channels,
               output_length);
         } else if (std::is_same<T, float16_t>::value) {
           add_bias_kernel_half<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
-              reinterpret_cast<__half*>(output.buffer()),
-              reinterpret_cast<const __half*>(bias->buffer()),
+              cuda::device_cast(output.data<float16_t>()),
+              cuda::device_cast(bias->data<float16_t>()),
               batch_size,
               out_channels,
               output_length);
         } else if (std::is_same<T, bfloat16_t>::value) {
           add_bias_kernel_bfloat16<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
-              reinterpret_cast<__nv_bfloat16*>(output.buffer()),
-              reinterpret_cast<const __nv_bfloat16*>(bias->buffer()),
+              cuda::device_cast(output.data<bfloat16_t>()),
+              cuda::device_cast(bias->data<bfloat16_t>()),
               batch_size,
               out_channels,
               output_length);

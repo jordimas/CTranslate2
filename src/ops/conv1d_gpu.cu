@@ -60,46 +60,27 @@ namespace ctranslate2 {
       }
     }
 
-    // CUDA kernel for adding bias - specialized for float
-    __global__ void add_bias_kernel_float(
-        float* output,
-        const float* bias,
-        const int batch_size,
-        const int out_channels,
-        const int output_length) {
-      
-      const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-      const int total_elements = batch_size * out_channels * output_length;
-      
-      if (idx >= total_elements)
-        return;
-      
-      const int channel_idx = (idx / output_length) % out_channels;
-      output[idx] = output[idx] + bias[channel_idx];
-    }
+    // Helper struct for type-specific addition operations
+    template<typename T>
+    struct AddOp {
+      __device__ static inline T add(T a, T b) { return a + b; }
+    };
 
-    // CUDA kernel for adding bias - specialized for __half
-    __global__ void add_bias_kernel_half(
-        __half* output,
-        const __half* bias,
-        const int batch_size,
-        const int out_channels,
-        const int output_length) {
-      
-      const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-      const int total_elements = batch_size * out_channels * output_length;
-      
-      if (idx >= total_elements)
-        return;
-      
-      const int channel_idx = (idx / output_length) % out_channels;
-      output[idx] = __hadd(output[idx], bias[channel_idx]);
-    }
+    template<>
+    struct AddOp<__half> {
+      __device__ static inline __half add(__half a, __half b) { return __hadd(a, b); }
+    };
 
-    // CUDA kernel for adding bias - specialized for __nv_bfloat16
-    __global__ void add_bias_kernel_bfloat16(
-        __nv_bfloat16* output,
-        const __nv_bfloat16* bias,
+    template<>
+    struct AddOp<__nv_bfloat16> {
+      __device__ static inline __nv_bfloat16 add(__nv_bfloat16 a, __nv_bfloat16 b) { return __hadd(a, b); }
+    };
+
+    // Simple 1D bias kernel for very long sequences (unified template)
+    template<typename T>
+    __global__ void add_bias_kernel_simple(
+        T* __restrict__ output,
+        const T* __restrict__ bias,
         const int batch_size,
         const int out_channels,
         const int output_length) {
@@ -107,11 +88,10 @@ namespace ctranslate2 {
       const int idx = blockIdx.x * blockDim.x + threadIdx.x;
       const int total_elements = batch_size * out_channels * output_length;
       
-      if (idx >= total_elements)
-        return;
-      
-      const int channel_idx = (idx / output_length) % out_channels;
-      output[idx] = __hadd(output[idx], bias[channel_idx]);
+      if (idx < total_elements) {
+        const int channel_idx = (idx / output_length) % out_channels;
+        output[idx] = AddOp<T>::add(output[idx], bias[channel_idx]);
+      }
     }
 
     // Generic template implementation
@@ -192,35 +172,19 @@ namespace ctranslate2 {
         }
       }
 
-      // Add bias if present
+      // Add bias if present - unified implementation with adaptive kernel selection
       if (bias) {
+        cudaStream_t stream = cuda::get_cuda_stream();
+        DevT* output_ptr = cuda::device_cast(output.data<T>());
+        const DevT* bias_ptr = cuda::device_cast(bias->data<T>());
+        
+        // Use simple kernel for very long sequences
         const int total_elements = batch_size * out_channels * output_length;
         const int block_size = 256;
         const int grid_size = (total_elements + block_size - 1) / block_size;
         
-        // Dispatch to appropriate kernel based on type
-        if (std::is_same<T, float>::value) {
-          add_bias_kernel_float<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
-              cuda::device_cast(output.data<float>()),
-              cuda::device_cast(bias->data<float>()),
-              batch_size,
-              out_channels,
-              output_length);
-        } else if (std::is_same<T, float16_t>::value) {
-          add_bias_kernel_half<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
-              cuda::device_cast(output.data<float16_t>()),
-              cuda::device_cast(bias->data<float16_t>()),
-              batch_size,
-              out_channels,
-              output_length);
-        } else if (std::is_same<T, bfloat16_t>::value) {
-          add_bias_kernel_bfloat16<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
-              cuda::device_cast(output.data<bfloat16_t>()),
-              cuda::device_cast(bias->data<bfloat16_t>()),
-              batch_size,
-              out_channels,
-              output_length);
-        }
+        add_bias_kernel_simple<<<grid_size, block_size, 0, stream>>>(
+            output_ptr, bias_ptr, batch_size, out_channels, output_length);
       }
     }
 

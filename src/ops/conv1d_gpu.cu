@@ -197,17 +197,7 @@ namespace ctranslate2 {
         StorageView cc({m, n}, c_i);
 
         if (qscale) {
-          StorageView qinput(weight.dtype(), Device::CUDA);
-          StorageView qinput_scale(Device::CUDA);
-          qinput_scale.to(qscale->dtype());
-          StorageView qoutput(DataType::INT32, Device::CUDA);
-          StorageView group_qscale({qscale_stride}, 
-              const_cast<float*>(qscale->data<float>()) + group_index * qscale_stride);
-          
-          quantize_op(bb, qinput, qinput_scale);
-          gemm(aa, qinput, qoutput);
-          dequantize_op(qoutput, group_qscale, qinput_scale,
-                       /*trans_a=*/false, /*trans_b=*/true, cc);
+          throw std::runtime_error("Scale is not supported");
         } else {
           gemm(aa, bb, cc);
         }
@@ -221,6 +211,7 @@ namespace ctranslate2 {
         
         // Dispatch to appropriate kernel based on type
         if (std::is_same<T, float>::value) {
+          printf("float32 bias\n");
           add_bias_kernel_float<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
               reinterpret_cast<float*>(output.buffer()),
               reinterpret_cast<const float*>(bias->buffer()),
@@ -228,6 +219,7 @@ namespace ctranslate2 {
               out_channels,
               output_length);
         } else if (std::is_same<T, float16_t>::value) {
+          printf("float16 bias\n");        
           add_bias_kernel_half<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
               reinterpret_cast<__half*>(output.buffer()),
               reinterpret_cast<const __half*>(bias->buffer()),
@@ -235,6 +227,7 @@ namespace ctranslate2 {
               out_channels,
               output_length);
         } else if (std::is_same<T, bfloat16_t>::value) {
+          printf("float16_t bias\n");        
           add_bias_kernel_bfloat16<<<grid_size, block_size, 0, cuda::get_cuda_stream()>>>(
               reinterpret_cast<__nv_bfloat16*>(output.buffer()),
               reinterpret_cast<const __nv_bfloat16*>(bias->buffer()),

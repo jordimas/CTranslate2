@@ -1,8 +1,6 @@
 #include "ctranslate2/ops/conv1d.h"
 #include "cuda/utils.h"
 #include "ctranslate2/ops/gemm.h"
-#include <cuda_fp16.h>
-#include <cuda_bf16.h>
 #include <cuda/helpers.h>
 
 namespace ctranslate2 {

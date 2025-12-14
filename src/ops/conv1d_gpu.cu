@@ -170,13 +170,11 @@ namespace ctranslate2 {
         }
       }
 
-      // Add bias if present - unified implementation with adaptive kernel selection
       if (bias) {
         cudaStream_t stream = cuda::get_cuda_stream();
         DevT* output_ptr = cuda::device_cast(output.data<T>());
         const DevT* bias_ptr = cuda::device_cast(bias->data<T>());
         
-        // Use simple kernel for very long sequences
         const int total_elements = batch_size * out_channels * output_length;
         const int block_size = 256;
         const int grid_size = (total_elements + block_size - 1) / block_size;

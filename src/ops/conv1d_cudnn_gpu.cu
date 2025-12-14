@@ -14,15 +14,6 @@ namespace ctranslate2 {
       if (qscale)
         throw std::runtime_error("Quantization is not supported in this Conv1D implementation");
 
-#ifndef CT2_WITH_CUDNN
-      (void)input;
-      (void)weight;
-      (void)bias;
-      (void)output;
-      throw std::runtime_error("Conv1D on GPU currently requires the cuDNN library "
-                               "which is not integrated in this build");
-
-#else
       const int batch_size = input.dim(0);
       const int in_channels = input.dim(1);
       const int input_length = input.dim(2);
@@ -143,7 +134,6 @@ namespace ctranslate2 {
       CUDNN_CHECK(cudnnDestroyFilterDescriptor(weight_desc));
       CUDNN_CHECK(cudnnDestroyTensorDescriptor(input_desc));
       CUDNN_CHECK(cudnnDestroyTensorDescriptor(output_desc));
-#endif
     }
 
 #define DECLARE_IMPL(T)                                                 \

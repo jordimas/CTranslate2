@@ -58,23 +58,7 @@ namespace ctranslate2 {
       }
     }
 
-    // Helper struct for type-specific addition operations
-    template<typename T>
-    struct AddOp {
-      __device__ static inline T add(T a, T b) { return a + b; }
-    };
-
-    template<>
-    struct AddOp<__half> {
-      __device__ static inline __half add(__half a, __half b) { return __hadd(a, b); }
-    };
-
-    template<>
-    struct AddOp<__nv_bfloat16> {
-      __device__ static inline __nv_bfloat16 add(__nv_bfloat16 a, __nv_bfloat16 b) { return __hadd(a, b); }
-    };
-
-    // Simple 1D bias kernel for very long sequences (unified template)
+    // Simple 1D bias kernel
     template<typename T>
     __global__ void add_bias_kernel_simple(
         T* __restrict__ output,
@@ -88,7 +72,8 @@ namespace ctranslate2 {
       
       if (idx < total_elements) {
         const int channel_idx = (idx / output_length) % out_channels;
-        output[idx] = AddOp<T>::add(output[idx], bias[channel_idx]);
+        cuda::plus<T> add_op;
+        output[idx] = add_op(output[idx], bias[channel_idx]);
       }
     }
 

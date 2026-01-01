@@ -36,6 +36,5 @@ jobs:
                 -DCMAKE_CXX_COMPILER=clang++ \
                 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
                 .
-
       - name: Run clang-tidy
-        run: run-clang-tidy
+        run: run-clang-tidy src/

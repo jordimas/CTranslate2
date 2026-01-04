@@ -38,12 +38,15 @@ else
     CACHE_DIR="/project/.cibw-cache"
     mkdir -p "$CACHE_DIR"
 
-    # oneDNN
     ONEDNN_VERSION=3.1.1
-    if [ -f "$CACHE_DIR/onednn-${ONEDNN_VERSION}.tar.gz" ]; then
-        tar xf "$CACHE_DIR/onednn-${ONEDNN_VERSION}.tar.gz" -C /usr/local
-        echo "ONEDNN_VERSION cached"
+    OPENMPI_VERSION=4.1.6
+    CACHE_FILE="$CACHE_DIR/native-deps-onednn${ONEDNN_VERSION}-openmpi${OPENMPI_VERSION}.tar.gz"
+
+    if [ -f "$CACHE_FILE" ]; then
+        tar xf "$CACHE_FILE" -C /usr/local
+        ldconfig
     else
+        # oneDNN
         curl -L -O https://github.com/oneapi-src/oneDNN/archive/refs/tags/v${ONEDNN_VERSION}.tar.gz
         tar xf *.tar.gz && rm *.tar.gz
         cd oneDNN-*
@@ -51,15 +54,8 @@ else
         make -j$(nproc) install
         cd ..
         rm -r oneDNN-*
-        tar czf "$CACHE_DIR/onednn-${ONEDNN_VERSION}.tar.gz" -C /usr/local lib64 include/oneapi share/doc/dnnl
-    fi
 
-    # OpenMPI
-    OPENMPI_VERSION=4.1.6
-    if [ -f "$CACHE_DIR/openmpi-${OPENMPI_VERSION}.tar.gz" ]; then
-        tar xf "$CACHE_DIR/openmpi-${OPENMPI_VERSION}.tar.gz" -C /usr/local
-        echo "OPENMPI_VERSION cached"        
-    else
+        # OpenMPI
         curl -L -O https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-${OPENMPI_VERSION}.tar.bz2
         tar xf *.tar.bz2 && rm *.tar.bz2
         cd openmpi-*
@@ -67,7 +63,8 @@ else
         make -j$(nproc) install
         cd ..
         rm -r openmpi-*
-        tar czf "$CACHE_DIR/openmpi-${OPENMPI_VERSION}.tar.gz" -C /usr/local lib/libmpi* lib/libopen* lib/openmpi lib/pkgconfig/ompi* include/mpi* include/openmpi bin/mpi* bin/opal* bin/ompi* bin/orte* share/openmpi
+
+        tar czf "$CACHE_FILE" -C /usr/local lib64 include bin share
     fi
 
     export LD_LIBRARY_PATH="/usr/local/lib/:$LD_LIBRARY_PATH"

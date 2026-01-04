@@ -42,6 +42,7 @@ else
     ONEDNN_VERSION=3.1.1
     if [ -f "$CACHE_DIR/onednn-${ONEDNN_VERSION}.tar.gz" ]; then
         tar xf "$CACHE_DIR/onednn-${ONEDNN_VERSION}.tar.gz" -C /usr/local
+        echo "ONEDNN_VERSION cached"
     else
         curl -L -O https://github.com/oneapi-src/oneDNN/archive/refs/tags/v${ONEDNN_VERSION}.tar.gz
         tar xf *.tar.gz && rm *.tar.gz
@@ -57,6 +58,7 @@ else
     OPENMPI_VERSION=4.1.6
     if [ -f "$CACHE_DIR/openmpi-${OPENMPI_VERSION}.tar.gz" ]; then
         tar xf "$CACHE_DIR/openmpi-${OPENMPI_VERSION}.tar.gz" -C /usr/local
+        echo "OPENMPI_VERSION cached"        
     else
         curl -L -O https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-${OPENMPI_VERSION}.tar.bz2
         tar xf *.tar.bz2 && rm *.tar.bz2

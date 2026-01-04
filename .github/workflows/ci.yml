@@ -150,10 +150,6 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: docker/setup-qemu-action@v2
-        if: ${{ matrix.arch == 'aarch64' }}
-        name: Set up QEMU
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
         with:

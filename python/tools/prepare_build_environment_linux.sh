@@ -51,7 +51,7 @@ else
         make -j$(nproc) install
         cd ..
         rm -r oneDNN-*
-        tar czf "$CACHE_DIR/onednn-${ONEDNN_VERSION}.tar.gz" -C /usr/local lib/libdnnl* lib/cmake/dnnl include/dnnl* include/oneapi
+        tar czf "$CACHE_DIR/onednn-${ONEDNN_VERSION}.tar.gz" -C /usr/local lib64 include/oneapi share/doc/dnnl
     fi
 
     # OpenMPI

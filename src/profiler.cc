@@ -100,6 +100,11 @@ namespace ctranslate2 {
       for (const auto& pair : sorted_cumulated)
         longest_name = std::max(longest_name, pair.first.length());
 
+      // Print header
+      os << "  Self%  Total%  Cumul% " << std::left << std::setw(longest_name) << "Name"
+         << " Time" << std::endl;
+      os << std::string(6 + 7 + 7 + longest_name + 10, '-') << std::endl;
+
       double total_time_us = total_time.count();
       double ratio_printed_so_far = 0;
       for (const auto& pair : sorted_cumulated) {

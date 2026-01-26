@@ -47,6 +47,7 @@ try:
         get_cuda_device_count,
         get_supported_compute_types,
         set_random_seed,
+        get_backend_for_compute_type,
     )
     from ctranslate2.extensions import register_extensions
     from ctranslate2.logging import get_log_level, set_log_level

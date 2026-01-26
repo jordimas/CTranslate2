@@ -12,6 +12,7 @@ namespace ctranslate2 {
 
   void log_system_config();
   int get_gpu_count();
+  std::string get_backend(ComputeType type);
   void set_num_threads(size_t num_threads);
 
   bool ends_with(const std::string& str, const std::string& suffix);

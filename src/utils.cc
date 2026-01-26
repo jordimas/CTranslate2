@@ -74,6 +74,10 @@ namespace ctranslate2 {
     return get_device_count(Device::CUDA);
   }
 
+  std::string get_backend(ComputeType type) {
+      return cpu::gemm_backend_to_str(cpu::get_gemm_backend(type));
+  }
+
   static inline size_t get_default_num_threads() {
     constexpr size_t default_num_threads = 4;
     const size_t max_num_threads = std::thread::hardware_concurrency();

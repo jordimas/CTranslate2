@@ -10,6 +10,12 @@
 #include "utils.h"
 
 
+static std::string get_backend_for_compute_type(std::string type) {
+    ctranslate2::ComputeType t = ctranslate2::str_to_compute_type(type);
+    std::string backend = get_backend(t);
+    return backend;
+}
+
 static std::unordered_set<std::string>
 get_supported_compute_types(const std::string& device_str, const int device_index) {
   const auto device = ctranslate2::str_to_device(device_str);
@@ -55,6 +61,9 @@ PYBIND11_MODULE(_ext, m)
 
   m.def("get_cuda_device_count", &ctranslate2::get_gpu_count,
         "Returns the number of visible GPU devices.");
+
+  m.def("get_backend_for_compute_type", &get_backend_for_compute_type,py::arg("type"),
+        "Returns the backend for the provided compute type.");
 
   m.def("get_supported_compute_types", &get_supported_compute_types,
         py::arg("device"),

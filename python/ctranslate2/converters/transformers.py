@@ -463,7 +463,7 @@ class M2M100Loader(BartLoader):
         if tokens[-1] == tokenizer.unk_token:
             tokens.insert(tokenizer.unk_token_id, tokens.pop())
 
-        for token in tokenizer.special_tokens_map.get("additional_special_tokens", []):
+        for token in tokenizer.additional_special_tokens:
             if token not in tokens:
                 tokens.append(token)
 
@@ -488,8 +488,7 @@ class MBartLoader(BartLoader):
         config.unk_token = tokenizer.unk_token
 
         # MBart-25 passes the language code as the decoder start token.
-        tokenizer_class = getattr(model.config, "tokenizer_class", None)
-        if tokenizer_class in ("MBartTokenizer", None):
+        if model.config.tokenizer_class in ("MBartTokenizer", None):
             config.decoder_start_token = None
         else:
             config.decoder_start_token = tokenizer.eos_token
@@ -929,10 +928,12 @@ class WhisperLoader(BartLoader):
             "<|nocaptions|>",
             "<|notimestamps|>",
         ]
-        tokens = tokenizer.special_tokens_map.get("additional_special_tokens", [])
         return [
-            tokenizer.convert_tokens_to_ids(token)
-            for token in tokens
+            token_id
+            for token_id, token in zip(
+                tokenizer.additional_special_tokens_ids,
+                tokenizer.additional_special_tokens,
+            )
             if token not in non_lang_special_tokens
         ]
 

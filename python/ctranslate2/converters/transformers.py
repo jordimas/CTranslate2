@@ -463,7 +463,7 @@ class M2M100Loader(BartLoader):
         if tokens[-1] == tokenizer.unk_token:
             tokens.insert(tokenizer.unk_token_id, tokens.pop())
 
-        for token in tokenizer.additional_special_tokens:
+        for token in tokenizer.special_tokens_map.get("additional_special_tokens", []):
             if token not in tokens:
                 tokens.append(token)
 

@@ -463,7 +463,7 @@ class M2M100Loader(BartLoader):
         if tokens[-1] == tokenizer.unk_token:
             tokens.insert(tokenizer.unk_token_id, tokens.pop())
 
-        for token in tokenizer.additional_special_tokens:
+        for token in tokenizer.special_tokens_map.get("additional_special_tokens", []):
             if token not in tokens:
                 tokens.append(token)
 
@@ -928,12 +928,10 @@ class WhisperLoader(BartLoader):
             "<|nocaptions|>",
             "<|notimestamps|>",
         ]
+        tokens = tokenizer.special_tokens_map.get("additional_special_tokens", [])
         return [
-            token_id
-            for token_id, token in zip(
-                tokenizer.additional_special_tokens_ids,
-                tokenizer.additional_special_tokens,
-            )
+            tokenizer.convert_tokens_to_ids(token)
+            for token in tokens
             if token not in non_lang_special_tokens
         ]
 

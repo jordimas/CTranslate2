@@ -269,11 +269,11 @@ class ModelLoader(abc.ABC):
                         % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
                     )
             rotary_scaling_factor = rope_scaling.get("factor", 1)
-            rope_theta = rope_scaling.get("rope_theta", 100000)
+            rope_theta = rope_scaling.get("rope_theta", default_rope_theta)
         else:
             rotary_scaling_type = None
             rotary_scaling_factor = 1
-            rope_theta = getattr(model.config, "rope_theta", 100000)
+            rope_theta = getattr(model.config, "rope_theta", default_rope_theta)
 
         return rotary_scaling_type, rotary_scaling_factor, rope_theta
 

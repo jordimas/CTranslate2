@@ -1678,7 +1678,7 @@ class LlamaLoader(ModelLoader):
         if rope_scaling:
             rope_type = rope_scaling.get("type") or rope_scaling["rope_type"]
             rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
-            rotary_scaling_factor = rope_scaling["factor"]
+            rotary_scaling_factor = rope_scaling.get("factor", 1.0)
 
             if rotary_scaling_type is None:
                 raise NotImplementedError(
@@ -2033,7 +2033,7 @@ class MistralLoader(ModelLoader):
         rope_scaling = getattr(model.config, "rope_scaling", None)
         if rope_scaling:
             rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_scaling["type"])
-            rotary_scaling_factor = rope_scaling["factor"]
+            rotary_scaling_factor = rope_scaling.get("factor", 1.0)
 
             if rotary_scaling_type is None:
                 raise NotImplementedError(
@@ -2179,7 +2179,7 @@ class Qwen2Loader(ModelLoader):
         if rope_scaling:
             rope_type = rope_scaling.get("type") or rope_scaling["rope_type"]
             rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
-            rotary_scaling_factor = rope_scaling["factor"]
+            rotary_scaling_factor = rope_scaling.get("factor", 1.0)
 
             if rotary_scaling_type is None:
                 raise NotImplementedError(
@@ -2335,7 +2335,8 @@ class Qwen3Loader(ModelLoader):
         if rope_scaling:
             rope_type = rope_scaling.get("type") or rope_scaling["rope_type"]
             rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
-            rotary_scaling_factor = rope_scaling["factor"]
+            rotary_scaling_factor = rope_scaling.get("factor", 1.0)
+
             if rotary_scaling_type is None:
                 raise NotImplementedError(
                     "RoPE scaling type '%s' is not yet implemented. "

@@ -252,6 +252,30 @@ class ModelLoader(abc.ABC):
         raise NotImplementedError(
             "No activation smoothing logic is defined for this model"
         )
+        
+    def get_rotary_params(self, config, default_rope_theta):
+        rope_scaling = getattr(model.config, "rope_scaling", None)
+        if rope_scaling:
+            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
+
+            if rope_type == "default":
+                rotary_scaling_type = None
+            else:
+                rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
+                if rotary_scaling_type is None:
+                    raise NotImplementedError(
+                        "RoPE scaling type '%s' is not yet implemented. "
+                        "The following RoPE scaling types are currently supported: %s"
+                        % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
+                    )
+            rotary_scaling_factor = rope_scaling.get("factor", 1)
+            rope_theta = rope_scaling.get("rope_theta", 100000)
+        else:
+            rotary_scaling_type = None
+            rotary_scaling_factor = 1
+            rope_theta = getattr(model.config, "rope_theta", 100000)
+
+        return rotary_scaling_type, rotary_scaling_factor, rope_theta
 
 
 @register_loader("BartConfig")
@@ -2342,39 +2366,7 @@ class Qwen3Loader(ModelLoader):
         if num_heads_kv == num_heads:
             num_heads_kv = None
 
-        rope_scaling = getattr(model.config, "rope_scaling", None)
-        print(f"rope_scaling: {model.config.rope_scaling}")
-        # rope_scaling: None
-        # * rotary_scaling_type: None
-        # * rotary_scaling_factor: 1
-
-        # rope_scaling: {'rope_theta': 1000000, 'rope_type': 'default'}
-        # * rotary_scaling_type: None
-        # * rotary_scaling_factor: 1
-
-        if rope_scaling:
-            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
-
-            if rope_type == "default":
-                rotary_scaling_type = None
-            else:
-                rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
-                if rotary_scaling_type is None:
-                    raise NotImplementedError(
-                        "RoPE scaling type '%s' is not yet implemented. "
-                        "The following RoPE scaling types are currently supported: %s"
-                        % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
-                    )
-            rotary_scaling_factor = rope_scaling.get("factor", 1)
-            rope_theta = rope_scaling.get("rope_theta", 10000)
-        else:
-            rotary_scaling_type = None
-            rotary_scaling_factor = 1
-            rope_theta = getattr(model.config, "rope_theta", 10000)
-
-        print(f"* rotary_scaling_type: {rotary_scaling_type}")
-        print(f"* rotary_scaling_factor: {rotary_scaling_factor}")
-
+        rotary_scaling_type, rotary_scaling_factor, rope_theta = self.get_rotary_params(model.config, 1_000_000)
         # Check for AWQ quantization config
         quantization_config = getattr(model.config, "quantization_config", None)
         if quantization_config:

@@ -942,7 +942,7 @@ class WhisperLoader(BartLoader):
         return spec
 
     def _get_lang_ids_from_tokenizer(self, tokenizer):
-        non_lang_special_tokens = {
+        non_lang_special_tokens = [
             "<|endoftext|>",
             "<|startoftranscript|>",
             "<|translate|>",
@@ -951,10 +951,9 @@ class WhisperLoader(BartLoader):
             "<|startofprev|>",
             "<|nocaptions|>",
             "<|notimestamps|>",
-        }
+        ]
 
         additional_tokens = getattr(tokenizer, "additional_special_tokens", [])
-
         if not additional_tokens:
             return []
 

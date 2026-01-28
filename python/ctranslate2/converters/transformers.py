@@ -918,7 +918,7 @@ class WhisperLoader(BartLoader):
         return spec
 
     def _get_lang_ids_from_tokenizer(self, tokenizer):
-        non_lang_special_tokens = [
+        non_lang_special_tokens = {
             "<|endoftext|>",
             "<|startoftranscript|>",
             "<|translate|>",
@@ -927,13 +927,18 @@ class WhisperLoader(BartLoader):
             "<|startofprev|>",
             "<|nocaptions|>",
             "<|notimestamps|>",
-        ]
+        }
+
+        additional_tokens = getattr(tokenizer, "additional_special_tokens", [])
+
+        if not additional_tokens:
+            return []
+
+        # Use convert_tokens_to_ids for Transformers 4.x and 5.0 compatibility
+        # (additional_special_tokens_ids property is unreliable in 5.0 for some tokenizers)
         return [
-            token_id
-            for token_id, token in zip(
-                tokenizer.additional_special_tokens_ids,
-                tokenizer.additional_special_tokens,
-            )
+            tokenizer.convert_tokens_to_ids(token)
+            for token in additional_tokens
             if token not in non_lang_special_tokens
         ]
 
@@ -2338,6 +2343,15 @@ class Qwen3Loader(ModelLoader):
             num_heads_kv = None
 
         rope_scaling = getattr(model.config, "rope_scaling", None)
+        print(f"rope_scaling: {model.config.rope_scaling}")
+        # rope_scaling: None
+        # * rotary_scaling_type: None
+        # * rotary_scaling_factor: 1
+
+        # rope_scaling: {'rope_theta': 1000000, 'rope_type': 'default'}
+        # * rotary_scaling_type: None
+        # * rotary_scaling_factor: 1
+
         if rope_scaling:
             rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
 
@@ -2351,11 +2365,15 @@ class Qwen3Loader(ModelLoader):
                         "The following RoPE scaling types are currently supported: %s"
                         % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
                     )
-            rotary_scaling_factor = rope_scaling.get("factor", 1.0)
-
+            rotary_scaling_factor = rope_scaling.get("factor", 1)
+            rope_theta = rope_scaling.get("rope_theta", 10000)
         else:
             rotary_scaling_type = None
             rotary_scaling_factor = 1
+            rope_theta = getattr(model.config, "rope_theta", 10000)
+
+        print(f"* rotary_scaling_type: {rotary_scaling_type}")
+        print(f"* rotary_scaling_factor: {rotary_scaling_factor}")
 
         # Check for AWQ quantization config
         quantization_config = getattr(model.config, "quantization_config", None)
@@ -2390,7 +2408,7 @@ class Qwen3Loader(ModelLoader):
             rotary_interleave=False,
             rotary_scaling_type=rotary_scaling_type,
             rotary_scaling_factor=rotary_scaling_factor,
-            rotary_base=getattr(model.config, "rope_theta", 10000),
+            rotary_base=rope_theta,
             num_heads_kv=num_heads_kv,
             head_dim=head_dim,
             qk_norm=True,

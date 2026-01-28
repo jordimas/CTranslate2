@@ -273,7 +273,7 @@ class ModelLoader(abc.ABC):
         else:
             rotary_scaling_type = None
             rotary_scaling_factor = 1
-            rope_theta = getattr(model.config, "rope_theta", default_rope_theta)
+            rope_theta = getattr(config, "rope_theta", default_rope_theta)
 
         return rotary_scaling_type, rotary_scaling_factor, rope_theta
 

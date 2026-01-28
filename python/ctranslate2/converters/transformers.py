@@ -254,7 +254,7 @@ class ModelLoader(abc.ABC):
         )
 
     def get_rotary_params(self, config, default_rope_theta):
-        rope_scaling = getattr(model.config, "rope_scaling", None)
+        rope_scaling = getattr(config, "rope_scaling", None)
         if rope_scaling:
             rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
 

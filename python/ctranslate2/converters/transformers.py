@@ -2333,7 +2333,7 @@ class Qwen3Loader(ModelLoader):
 
         rope_scaling = getattr(model.config, "rope_scaling", None)
         if rope_scaling:
-            rope_type = rope_scaling.get("type") or rope_scaling["rope_type"]
+            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
             rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
             rotary_scaling_factor = rope_scaling.get("factor", 1.0)
 
@@ -2341,7 +2341,7 @@ class Qwen3Loader(ModelLoader):
                 raise NotImplementedError(
                     "RoPE scaling type '%s' is not yet implemented. "
                     "The following RoPE scaling types are currently supported: %s"
-                    % (rope_scaling["type"], ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
+                    % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
                 )
         else:
             rotary_scaling_type = None

@@ -1703,24 +1703,9 @@ class LlamaLoader(ModelLoader):
         if num_heads_kv == num_heads:
             num_heads_kv = None
 
-        rope_scaling = getattr(model.config, "rope_scaling", None)
-        if rope_scaling:
-            rope_type = rope_scaling.get("type") or rope_scaling.get("rope_type")
-
-            if rope_type == "default":
-                rotary_scaling_type = None
-            else:
-                rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_type)
-                if rotary_scaling_type is None:
-                    raise NotImplementedError(
-                        "RoPE scaling type '%s' is not yet implemented. "
-                        "The following RoPE scaling types are currently supported: %s"
-                        % (rope_type, ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
-                    )
-            rotary_scaling_factor = rope_scaling.get("factor", 1.0)
-        else:
-            rotary_scaling_type = None
-            rotary_scaling_factor = 1
+        rotary_scaling_type, rotary_scaling_factor, rope_theta = self.get_rotary_params(
+            model.config, 10_000
+        )
 
         quantization_config = getattr(model.config, "quantization_config", None)
         if quantization_config:
@@ -1754,7 +1739,7 @@ class LlamaLoader(ModelLoader):
             rotary_interleave=False,
             rotary_scaling_type=rotary_scaling_type,
             rotary_scaling_factor=rotary_scaling_factor,
-            rotary_base=getattr(model.config, "rope_theta", 10000),
+            rotary_base=rope_theta,
             num_heads_kv=num_heads_kv,
             quant_type=quant_type,
             quant_group_size=quant_group_size,

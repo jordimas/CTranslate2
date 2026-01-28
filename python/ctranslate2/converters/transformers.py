@@ -252,7 +252,7 @@ class ModelLoader(abc.ABC):
         raise NotImplementedError(
             "No activation smoothing logic is defined for this model"
         )
-        
+
     def get_rotary_params(self, config, default_rope_theta):
         rope_scaling = getattr(model.config, "rope_scaling", None)
         if rope_scaling:
@@ -2366,7 +2366,9 @@ class Qwen3Loader(ModelLoader):
         if num_heads_kv == num_heads:
             num_heads_kv = None
 
-        rotary_scaling_type, rotary_scaling_factor, rope_theta = self.get_rotary_params(model.config, 1_000_000)
+        rotary_scaling_type, rotary_scaling_factor, rope_theta = self.get_rotary_params(
+            model.config, 1_000_000
+        )
         # Check for AWQ quantization config
         quantization_config = getattr(model.config, "quantization_config", None)
         if quantization_config:

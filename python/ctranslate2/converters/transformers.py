@@ -488,7 +488,7 @@ class MBartLoader(BartLoader):
         config.unk_token = tokenizer.unk_token
 
         # MBart-25 passes the language code as the decoder start token.
-        if model.config.tokenizer_class in ("MBartTokenizer", None):
+        if getattr(model.config, "tokenizer_class", None) in ("MBartTokenizer", None):
             config.decoder_start_token = None
         else:
             config.decoder_start_token = tokenizer.eos_token

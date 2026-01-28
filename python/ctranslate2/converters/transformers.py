@@ -2047,20 +2047,9 @@ class MistralLoader(ModelLoader):
 
         sliding_window = getattr(model.config, "sliding_window", 0)
 
-        rope_scaling = getattr(model.config, "rope_scaling", None)
-        if rope_scaling:
-            rotary_scaling_type = _SUPPORTED_ROPE_SCALING.get(rope_scaling["type"])
-            rotary_scaling_factor = rope_scaling.get("factor", 1.0)
-
-            if rotary_scaling_type is None:
-                raise NotImplementedError(
-                    "RoPE scaling type '%s' is not yet implemented. "
-                    "The following RoPE scaling types are currently supported: %s"
-                    % (rope_scaling["type"], ", ".join(_SUPPORTED_ROPE_SCALING.keys()))
-                )
-        else:
-            rotary_scaling_type = None
-            rotary_scaling_factor = 1
+        rotary_scaling_type, rotary_scaling_factor, rope_theta = self.get_rotary_params(
+            model.config, 10_000
+        )
 
         quantization_config = getattr(model.config, "quantization_config", None)
         if quantization_config:
@@ -2093,7 +2082,7 @@ class MistralLoader(ModelLoader):
             rotary_interleave=False,
             rotary_scaling_type=rotary_scaling_type,
             rotary_scaling_factor=rotary_scaling_factor,
-            rotary_base=getattr(model.config, "rope_theta", 10000),
+            rotary_base=rope_theta,
             num_heads_kv=num_heads_kv,
             sliding_window=sliding_window,
             quant_type=quant_type,

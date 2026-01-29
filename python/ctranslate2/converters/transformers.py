@@ -1747,6 +1747,7 @@ class LlamaLoader(ModelLoader):
         self.set_linear(spec.decoder.projection, model.lm_head)
 
         # set extra RoPE parameters for Llama-3.1
+        rope_scaling = getattr(model.config, "rope_scaling", None)
         if rotary_scaling_type == attention_spec.RotaryScalingType.Llama3:
             for layer in spec.decoder.layer:
                 layer.self_attention.rotary_low_freq_factor = rope_scaling[

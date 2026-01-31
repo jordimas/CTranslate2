@@ -68,7 +68,7 @@ ctranslate2_module = Extension(
 ParallelCompile("CMAKE_BUILD_PARALLEL_LEVEL").install()
 
 setup(
-    name="ctranslate2",
+    name="jordi-ctranslate2",
     version=_get_project_version(),
     license="MIT",
     description="Fast inference engine for Transformer models",

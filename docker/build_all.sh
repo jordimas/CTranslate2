@@ -21,7 +21,7 @@ cd $ROOT_DIR
 VERSION=${1:-latest}
 PUSH=${2:-0}
 GPU=${3:-cuda}
-IMAGE=ghcr.io/opennmt/ctranslate2
+IMAGE=ghcr.io/jordimas/ctranslate2
 
 build()
 {

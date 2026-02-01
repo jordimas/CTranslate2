@@ -454,20 +454,27 @@ jobs:
         with:
           folder: docs/build
           clean: true
-      - name: Download ROCm wheels Linux
+      - name: Download ROCm wheels and zip for release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-        uses: actions/download-artifact@v4
-        with:
-          name: rocm-python-wheels-Linux
-          path: wheels/
-      - name: Download ROCm wheels Windows
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-        uses: actions/download-artifact@v4
-        with:
-          name: rocm-python-wheels-Windows
-          path: wheels/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release-zips
+
+          gh run download ${{ github.run_id }} \
+            --name rocm-python-wheels-Linux \
+            --dir temp-linux
+          zip -r release-zips/rocm-python-wheels-Linux.zip temp-linux/*
+          rm -rf temp-linux
+
+          gh run download ${{ github.run_id }} \
+            --name rocm-python-wheels-Windows \
+            --dir temp-windows
+          zip -r release-zips/rocm-python-wheels-Windows.zip temp-windows/*
+          rm -rf temp-windows
+
       - name: Create GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         uses: softprops/action-gh-release@v2
         with:
-          files: wheels/*.whl
+          files: release-zips/*.zip

@@ -282,6 +282,10 @@ jobs:
             artifact_pattern: python-wheels-macOS-arm64
             wheel_pattern: "*cp310*macosx*arm64.whl"
 
+          - os: windows-2022
+            artifact_pattern: python-wheels-Windows-auto64
+            wheel_pattern: "*cp310*win*amd64.whl"
+
     steps:
       - name: Set up Python 3.10.11
         uses: actions/setup-python@v5

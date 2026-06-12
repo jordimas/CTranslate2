@@ -1,6 +1,5 @@
 #include "./utils.h"
 
-#include <atomic>
 #include <cstdlib>
 #include <memory>
 #include <stdexcept>
@@ -67,27 +66,15 @@ namespace ctranslate2 {
       }
     }
 
-    // We assign the default CUDA stream to the main thread since it can interact with
-    // multiple devices (e.g. load replicas on each GPU). The main thread is created
-    // before the others, so it will be the first to see the flag below set to true.
-    static std::atomic<bool> is_main_thread(true);
-
     class CudaStream {
     public:
       CudaStream() {
-        if (is_main_thread) {
-          is_main_thread = false;
-          _stream = cudaStreamDefault;
-        } else {
-          CUDA_CHECK(cudaGetDevice(&_device));
-          CUDA_CHECK(cudaStreamCreate(&_stream));
-        }
+        CUDA_CHECK(cudaGetDevice(&_device));
+        CUDA_CHECK(cudaStreamCreate(&_stream));
       }
       ~CudaStream() {
-        if (_stream != cudaStreamDefault) {
-          ScopedDeviceSetter scoped_device_setter(Device::CUDA, _device);
-          cudaStreamDestroy(_stream);
-        }
+        ScopedDeviceSetter scoped_device_setter(Device::CUDA, _device);
+        cudaStreamDestroy(_stream);
       }
       cudaStream_t get() const {
         return _stream;

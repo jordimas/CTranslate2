@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "**"
+      - "!test/mps-macos-15"
     tags:
       - v*
   pull_request:
@@ -180,12 +181,10 @@ jobs:
         run: |
           tests/ctranslate2_test tests/data
 
-  # The contributor fork uses its self-hosted Apple Silicon runner. Upstream
-  # keeps the GPU-enabled GitHub runner so this remains mergeable without
-  # depending on infrastructure owned by the contributor.
+  # Validate MPS on the standard Apple Silicon runner, which is free for
+  # public repositories.
   build-and-test-mps:
-    if: github.repository != 'TBO22/CTranslate2' || github.event_name == 'push'
-    runs-on: ${{ github.repository == 'TBO22/CTranslate2' && 'self-hosted' || 'macos-15-xlarge' }}
+    runs-on: macos-15
     env:
       CT2_VERBOSE: 1
 

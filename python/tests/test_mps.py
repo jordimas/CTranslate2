@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pytest
 
 import ctranslate2
@@ -44,6 +45,18 @@ def test_mps_is_explicit_opt_in():
 
     translator = ctranslate2.Translator(_get_model_path(), device="auto")
     assert translator.device == "cpu"
+
+
+def test_mps_storage_does_not_expose_cuda_array_interface():
+    _require_mps()
+
+    array = np.arange(4, dtype=np.float32)
+    storage = ctranslate2.StorageView.from_array(array).to_device(
+        ctranslate2.Device.mps
+    )
+
+    assert storage.device == "mps"
+    assert not hasattr(storage, "__cuda_array_interface__")
 
 
 def test_mps_float16_translation_matches_cpu():

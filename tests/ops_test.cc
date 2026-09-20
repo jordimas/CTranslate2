@@ -6,6 +6,8 @@
 #include "ctranslate2/ops/ops.h"
 #include "ctranslate2/primitives.h"
 #ifdef CT2_WITH_MPS
+#  include <chrono>
+#  include <future>
 #  include "ctranslate2/allocator.h"
 #  include "ctranslate2/devices.h"
 #  include "mps/kernels.h"
@@ -1547,6 +1549,36 @@ TEST_P(OpDeviceFPTest, BiasAddAxisGELU) {
 }
 
 #ifdef CT2_WITH_MPS
+TEST(MPSBackendTest, DeviceSynchronizeWaitsForAnotherThreadsWork) {
+  StorageView output({4}, std::vector<float>{0, 0, 0, 0}, Device::MPS);
+  std::promise<void> queued;
+  std::promise<void> release_worker;
+  auto queued_future = queued.get_future();
+  auto release_future = release_worker.get_future();
+  auto worker = std::async(std::launch::async, [&]() {
+    output.fill(42.f);
+    queued.set_value();
+    // Keep the worker alive: its thread-local stream destructor would otherwise
+    // synchronize the pending operation and hide a device synchronization bug.
+    release_future.wait_for(std::chrono::seconds(10));
+    synchronize_stream(Device::MPS);
+  });
+
+  if (queued_future.wait_for(std::chrono::seconds(10)) != std::future_status::ready) {
+    release_worker.set_value();
+    worker.get();
+    FAIL() << "MPS worker did not queue its operation";
+    return;
+  }
+  synchronize_device(Device::MPS, 0);
+  const float value_after_device_sync = output.data<float>()[0];
+  release_worker.set_value();
+  worker.get();
+
+  EXPECT_EQ(value_after_device_sync, 42.f);
+  EXPECT_EQ(output.data<float>()[0], 42.f);
+}
+
 TEST(MPSBackendTest, ActiveTemporaryFreesAreProcessedAfterCompletion) {
   constexpr size_t iterations = 256;
   constexpr dim_t elements = 16;

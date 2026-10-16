@@ -5,6 +5,7 @@
 #include "concat.h"
 #include "conv1d.h"
 #include "conv_transpose1d.h"
+#include "causal_depthwise_conv1d.h"
 #include "cos.h"
 #include "gather.h"
 #include "gated_delta_net.h"

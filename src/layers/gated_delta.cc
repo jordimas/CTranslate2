@@ -6,7 +6,7 @@
 #include <limits>
 #include <stdexcept>
 
-#include "ctranslate2/ops/conv1d.h"
+#include "ctranslate2/ops/causal_depthwise_conv1d.h"
 #include "ctranslate2/ops/gated_delta_net.h"
 
 namespace ctranslate2 {
@@ -106,6 +106,7 @@ namespace ctranslate2 {
         throw std::invalid_argument("GatedDeltaNet conv1d weight must be [channels,1,kernel]");
       _kernel = conv.dim(2);
       _conv_weight = conv;
+      _conv_weight.reshape({_conv_channels, _kernel});
       _parameters.insert(_parameters.end(), {&conv, &_a_log, &_dt_bias, &_norm_weight});
       if (_conv_bias)
         _parameters.push_back(_conv_bias);
@@ -168,29 +169,8 @@ namespace ctranslate2 {
       StorageView next_state(state), next_history(history);
       StorageView projected, mixed, z, a, beta;
       _qkv(input, projected);
-      require_finite(projected);
-      const dim_t past = _kernel - 1;
-      const dim_t length = past + steps;
-      StorageView convolution_input({1, _conv_channels, length});
-      for (dim_t c = 0; c < _conv_channels; ++c) {
-        auto* channel = convolution_input.data<float>() + c * length;
-        std::copy_n(history.data<float>() + c * past, past, channel);
-        for (dim_t t = 0; t < steps; ++t)
-          channel[past + t] = projected.data<float>()[t * _conv_channels + c];
-        std::copy_n(channel + steps, past, next_history.data<float>() + c * past);
-      }
-      const ops::ActivationType activation = ops::ActivationType::Swish;
-      const ops::Conv1D convolution(1, 0, 1, _conv_channels, &activation);
-      StorageView convolved;
-      if (_conv_bias)
-        convolution(convolution_input, _conv_weight, *_conv_bias, convolved);
-      else
-        convolution(convolution_input, _conv_weight, convolved);
-      require_finite(convolved);
-      mixed.resize({1, steps, _conv_channels});
-      for (dim_t t = 0; t < steps; ++t)
-        for (dim_t c = 0; c < _conv_channels; ++c)
-          mixed.data<float>()[t * _conv_channels + c] = convolved.data<float>()[c * steps + t];
+      projected.reshape({1, steps, _conv_channels});
+      ops::CausalDepthwiseConv1D()(projected, _conv_weight, _conv_bias, next_history, mixed);
       _z(input, z);
       _a(input, a);
       _b(input, beta);

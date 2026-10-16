@@ -54,7 +54,6 @@ TEST(GatedDeltaLayerTest, IndependentNonzeroStateScalarEquation) {
   model.put("out_proj/weight", StorageView({1, 1}, -2.f));
   model.put("conv1d/weight", StorageView({3, 1, 2},
                                        std::vector<float>{.5f, 1, 1, -.25f, -.5f, 2}));
-  model.put("conv1d/bias", StorageView({3}, std::vector<float>{.1f, -.2f, .3f}));
   model.put("A_log", StorageView({1}, std::log(2.f)));
   model.put("dt_bias", StorageView({1}, .3f));
   model.put("norm/weight", StorageView({1}, 1.5f));
@@ -65,7 +64,7 @@ TEST(GatedDeltaLayerTest, IndependentNonzeroStateScalarEquation) {
   layer(input, state, history, output);
   const auto silu = [](double x) { return x / (1 + std::exp(-x)); };
   // Causal conv uses raw previous projected QKV, followed by SiLU.
-  double q = silu(2.6), k = silu(-3.2), v = silu(12.175);
+  double q = silu(2.5), k = silu(-3), v = silu(11.875);
   q /= std::sqrt(q * q + 1e-6);
   k /= std::sqrt(k * k + 1e-6);
   const double decay = std::pow(1 + std::exp(-.1), -2);

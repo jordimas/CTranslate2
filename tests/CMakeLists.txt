@@ -29,6 +29,7 @@ add_executable(ctranslate2_test
   fish_dac_transformer_test.cc
   fish_dac_upsample_test.cc
   conv_transpose1d_test.cc
+  causal_depthwise_conv1d_test.cc
   conv1d_dilation_test.cc
   layers_test.cc
   model_test.cc

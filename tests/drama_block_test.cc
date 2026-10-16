@@ -1,0 +1,162 @@
+#include <cmath>
+#include <limits>
+
+#include "test_utils.h"
+#include "ctranslate2/layers/drama_block.h"
+
+namespace {
+
+  const std::string block_scope = "backbone/layers_0";
+
+  class TinyBlockModel : public models::Model {
+  public:
+    explicit TinyBlockModel(bool attention) {
+      put("input_layernorm/weight", {2}, {.1f, -.2f});
+      put("post_attention_layernorm/weight", {2}, {-.1f, .3f});
+      put("mlp/router/weight", {2, 2}, {1, 0, 0, 1});
+      put("mlp/shared_expert_gate/weight", {1, 2}, {.2f, -.1f});
+      for (const auto* expert : {"experts_0", "experts_1", "shared_expert"}) {
+        const std::string name = std::string("mlp/") + expert;
+        put(name + "/gate_proj/weight", {1, 2}, {.4f, -.2f});
+        put(name + "/up_proj/weight", {1, 2}, {.2f, .5f});
+        put(name + "/down_proj/weight", {2, 1}, {.5f, -.3f});
+      }
+      if (attention) {
+        put("self_attn/q_proj/weight", {4, 2}, {1, 0, 0, 1, .2f, 0, 0, -.3f});
+        put("self_attn/k_proj/weight", {2, 2}, {1, 0, 0, 1});
+        put("self_attn/v_proj/weight", {2, 2}, {.3f, 0, 0, .4f});
+        put("self_attn/o_proj/weight", {2, 2}, {1, 0, 0, 1});
+        put("self_attn/q_norm/weight", {2}, {0, 0});
+        put("self_attn/k_norm/weight", {2}, {0, 0});
+      } else {
+        put("linear_attn/in_proj_qkv/weight", {3, 2}, {.4f, 0, .3f, 0, 0, .5f});
+        put("linear_attn/in_proj_z/weight", {1, 2}, {.5f, -.1f});
+        put("linear_attn/in_proj_a/weight", {1, 2}, {0, 0});
+        put("linear_attn/in_proj_b/weight", {1, 2}, {0, 0});
+        put("linear_attn/out_proj/weight", {2, 1}, {.5f, -.2f});
+        put("linear_attn/A_log", {1}, {0});
+        put("linear_attn/dt_bias", {1}, {0});
+        put("linear_attn/norm/weight", {1}, {1});
+        put("linear_attn/conv1d/weight", {3, 1, 2}, {.5f, .5f, .5f, .5f, .5f, .5f});
+      }
+      set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
+    }
+  protected:
+    bool is_packable(const std::string&) const override { return false; }
+    std::unique_ptr<models::Model> clone() const override {
+      return std::make_unique<TinyBlockModel>(*this);
+    }
+  private:
+    void put(const std::string& path, Shape shape, std::vector<float> values) {
+      register_variable(block_scope + "/" + path, StorageView(std::move(shape), values));
+    }
+  };
+
+  layers::DramaBlockConfig config(bool attention) {
+    layers::DramaBlockConfig cfg;
+    cfg.kind = attention ? layers::DramaMixerKind::FullAttention : layers::DramaMixerKind::LinearAttention;
+    cfg.norm_epsilon = 1e-5f;
+    cfg.num_experts = 2;
+    cfg.top_k = 1;
+    cfg.key_heads = cfg.value_heads = cfg.key_dim = cfg.value_dim = 1;
+    cfg.attention = {1, 1, 2, 2, 100.f, 1e-5f, false, true};
+    return cfg;
+  }
+
+  StorageView inputs() {
+    return StorageView({3, 2}, std::vector<float>{1, 2, -.5f, 1, 2, -.25f});
+  }
+
+  StorageView independent_norm(const StorageView& input, const std::vector<double>& gamma) {
+    StorageView result(input.shape(), DataType::FLOAT32);
+    for (dim_t t = 0; t < input.dim(0); ++t) {
+      const double a = input.data<float>()[2 * t], b = input.data<float>()[2 * t + 1];
+      const double rms = std::sqrt((a * a + b * b) / 2 + 1e-5);
+      result.data<float>()[2 * t] = float(a / rms * (1 + gamma[0]));
+      result.data<float>()[2 * t + 1] = float(b / rms * (1 + gamma[1]));
+    }
+    return result;
+  }
+
+}
+
+TEST(DramaBlockTest, IndependentCompositionHasTwoPrenormResiduals) {
+  for (const bool attention : {false, true}) {
+    TinyBlockModel model(attention);
+    const auto cfg = config(attention);
+    layers::DramaBlock block(model, block_scope, cfg);
+    layers::DramaBlockState state;
+    block.initialize_state(state, 3);
+    const auto input = inputs();
+    StorageView actual;
+    block(input, state, actual);
+    const auto normalized = independent_norm(input, {.1, -.2});
+    StorageView mixed;
+    if (attention) {
+      layers::DramaAttention mixer(model, block_scope + "/self_attn", cfg.attention);
+      layers::DramaAttentionCache cache{StorageView({3, 1, 2}, DataType::FLOAT32),
+                                         StorageView({3, 1, 2}, DataType::FLOAT32), 0};
+      mixer(normalized, cache, mixed);
+    } else {
+      layers::GatedDeltaNet mixer(model, block_scope + "/linear_attn", 1, 1, 1, 1, 1e-5f);
+      StorageView recurrent, history;
+      mixer.initialize_state(recurrent, history);
+      mixer(normalized, recurrent, history, mixed);
+    }
+    for (dim_t i = 0; i < mixed.size(); ++i)
+      mixed.data<float>()[i] += input.data<float>()[i];
+    const auto post = independent_norm(mixed, {-.1, .3});
+    layers::SparseMoE moe(model, block_scope + "/mlp", 2, 1);
+    StorageView expert;
+    moe(post, expert);
+    for (dim_t i = 0; i < actual.size(); ++i)
+      EXPECT_NEAR(actual.data<float>()[i], mixed.data<float>()[i] + expert.data<float>()[i], 1e-5);
+  }
+}
+
+TEST(DramaBlockTest, SingleStepsAndResetMatchPrefillForBothMixers) {
+  for (const bool attention : {false, true}) {
+    TinyBlockModel model(attention);
+    layers::DramaBlock block(model, block_scope, config(attention));
+    layers::DramaBlockState full_state, step_state;
+    block.initialize_state(full_state, 3);
+    block.initialize_state(step_state, 3);
+    auto input = inputs();
+    StorageView full;
+    block(input, full_state, full);
+    for (dim_t t = 0; t < 3; ++t) {
+      StorageView row({1, 2}, input.data<float>() + t * 2), output;
+      block(row, step_state, output);
+      for (dim_t d = 0; d < 2; ++d)
+        EXPECT_NEAR(output.data<float>()[d], full.data<float>()[t * 2 + d], 1e-6);
+    }
+    if (!attention) {
+      expect_storage_eq(full_state.recurrent, step_state.recurrent);
+      expect_storage_eq(full_state.history, step_state.history);
+    } else {
+      expect_storage_eq(full_state.attention.keys, step_state.attention.keys);
+      expect_storage_eq(full_state.attention.values, step_state.attention.values);
+    }
+    block.initialize_state(step_state, 3);
+    StorageView reset_output;
+    block(input, step_state, reset_output);
+    expect_storage_eq(reset_output, full);
+  }
+}
+
+TEST(DramaBlockTest, InputAndStateGuards) {
+  TinyBlockModel model(false);
+  layers::DramaBlock block(model, block_scope, config(false));
+  layers::DramaBlockState state;
+  block.initialize_state(state);
+  StorageView wrong({1, 3}, 1.f), output;
+  EXPECT_THROW(block(wrong, state, output), std::invalid_argument);
+  auto input = inputs();
+  EXPECT_THROW(block(input, state, input), std::invalid_argument);
+  EXPECT_THROW(block(input, state, state.history), std::invalid_argument);
+  input.data<float>()[0] = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_THROW(block(input, state, output), std::invalid_argument);
+  TinyBlockModel attention_model(true);
+  layers::DramaBlock attention(attention_model, block_scope, config(true));
+  EXPECT_THROW(attention.initialize_state(state, 0), std::invalid_argument);
+}

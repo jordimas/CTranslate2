@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "faster-tts-ct2"
+version = "0.0.1"
+description = "Experimental CPU Drama 3 inference through CTranslate2"
+requires-python = ">=3.10"
+dependencies = ["ctranslate2>=4.8", "numpy>=1.23", "tokenizers>=0.20"]
+
+[project.optional-dependencies]
+hub = ["huggingface-hub>=0.24"]
+
+[project.scripts]
+faster-tts = "faster_tts.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["faster_tts*"]

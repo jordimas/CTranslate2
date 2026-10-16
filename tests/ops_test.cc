@@ -1341,8 +1341,6 @@ TEST_P(OpDeviceFPTest, Conv1DPaddingAndStride) {
 
 TEST_P(OpDeviceFPTest, Conv1DDilation) {
   const Device device = GetParam().device;
-  if (device == Device::CPU)
-      GTEST_SKIP() << "Dilated convolution is not implemented for CPU.";
   const DataType dtype = GetParam().dtype;
   const float error = GetParam().error;
   const StorageView expected({2, 4, 1}, std::vector<float>{

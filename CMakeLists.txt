@@ -127,6 +127,7 @@ set(SOURCES
   src/decoding_utils.cc
   src/devices.cc
   src/dtw.cc
+  src/drama3.cc
   src/encoder.cc
   src/env.cc
   src/filesystem.cc
@@ -135,6 +136,16 @@ set(SOURCES
   src/layers/attention.cc
   src/layers/flash_attention.cc
   src/layers/common.cc
+  src/layers/moe.cc
+  src/layers/gated_delta.cc
+  src/layers/drama_attention.cc
+  src/layers/drama_block.cc
+  src/layers/drama_backbone.cc
+  src/layers/drama_tower.cc
+  src/layers/fish_dac.cc
+  src/layers/fish_dac_codebooks.cc
+  src/layers/fish_dac_transformer.cc
+  src/layers/fish_dac_upsample.cc
   src/layers/decoder.cc
   src/layers/transformer.cc
   src/layers/wav2vec2.cc
@@ -143,6 +154,7 @@ set(SOURCES
   src/logging.cc
   src/models/language_model.cc
   src/models/model.cc
+  src/models/drama3.cc
   src/models/model_factory.cc
   src/models/model_reader.cc
   src/models/sequence_to_sequence.cc
@@ -160,6 +172,8 @@ set(SOURCES
   src/ops/concat_split_slide_cpu.cc
   src/ops/conv1d.cc
   src/ops/conv1d_cpu.cc
+  src/ops/conv_transpose1d.cc
+  src/ops/causal_depthwise_conv1d.cc
   src/ops/cos.cc
   src/ops/dequantize.cc
   src/ops/dequantize_cpu.cc
@@ -167,6 +181,9 @@ set(SOURCES
   src/ops/flash_attention_cpu.cc
   src/ops/gather.cc
   src/ops/gather_cpu.cc
+  src/ops/gated_delta_net.cc
+  src/ops/snake.cc
+  src/ops/moe_topk.cc
   src/ops/gelu.cc
   src/ops/gemm.cc
   src/ops/gumbel_max.cc

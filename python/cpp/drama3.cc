@@ -1,6 +1,6 @@
 #include "module.h"
 #include <pybind11/numpy.h>
-#include <ctranslate2/drama3.h>
+#include <ctranslate2/models/drama3.h>
 
 // Older pybind11 can silently allocate rank-one NumPy 2 arrays with stride 0,
 // exposing the first audio sample repeatedly despite a correct native buffer.
@@ -10,12 +10,12 @@
 
 namespace ctranslate2 { namespace python {
   void register_drama3(py::module& m) {
-    py::class_<Drama3>(m,"Drama3")
+    py::class_<models::Drama3>(m,"Drama3")
       .def(py::init<const std::string&,size_t,const std::string&>(),
            py::arg("model_path"),py::arg("intra_threads")=8,
            py::arg("compute_type")="int8_float32",
            py::call_guard<py::gil_scoped_release>())
-      .def("generate",[](Drama3& model,
+      .def("generate",[](models::Drama3& model,
                          py::array_t<int32_t,py::array::c_style> prompt,
                          dim_t max_frames,dim_t prefill_chunk_size, float temperature,
                          dim_t top_k,float top_p,uint64_t seed,bool greedy) {
@@ -23,7 +23,7 @@ namespace ctranslate2 { namespace python {
           throw std::invalid_argument("Drama3 prompt must have shape [rows,11]");
         StorageView input({prompt.shape(0),prompt.shape(1)},
                           std::vector<int32_t>(prompt.data(),prompt.data()+prompt.size()));
-        Drama3Result result;
+        models::Drama3Result result;
         {
           py::gil_scoped_release release;
           result = model.generate(input,max_frames,prefill_chunk_size,temperature,top_k,top_p,seed,greedy);

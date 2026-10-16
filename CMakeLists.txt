@@ -127,7 +127,6 @@ set(SOURCES
   src/decoding_utils.cc
   src/devices.cc
   src/dtw.cc
-  src/drama3.cc
   src/encoder.cc
   src/env.cc
   src/filesystem.cc

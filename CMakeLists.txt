@@ -172,7 +172,6 @@ set(SOURCES
   src/ops/conv1d.cc
   src/ops/conv1d_cpu.cc
   src/ops/conv_transpose1d.cc
-  src/ops/causal_depthwise_conv1d.cc
   src/ops/cos.cc
   src/ops/dequantize.cc
   src/ops/dequantize_cpu.cc

@@ -97,7 +97,7 @@ namespace {
                                      dim_t dilation, dim_t groups) {
     StorageView x({batch, cin, time}), w({cin, cout_group, kernel});
     const dim_t cout = cout_group * groups;
-    StorageView bias({cout});
+    StorageView bias(Shape{cout});
     for (dim_t i = 0; i < x.size(); ++i) x.data<float>()[i] = (i % 17 - 8) * .03125f;
     for (dim_t i = 0; i < w.size(); ++i) w.data<float>()[i] = (i % 13 - 6) * .015625f;
     for (dim_t i = 0; i < cout; ++i) bias.data<float>()[i] = i * .00390625f;

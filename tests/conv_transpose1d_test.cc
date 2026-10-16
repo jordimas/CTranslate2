@@ -69,7 +69,7 @@ TEST(ConvTranspose1DTest, RejectsInvalidShapesTypesAndLengths) {
   EXPECT_THROW(op(empty, w, y), std::invalid_argument);
   EXPECT_THROW(ops::ConvTranspose1D(1, 0, 0, 1, 3)(x, w, y), std::invalid_argument);
   EXPECT_THROW(ops::ConvTranspose1D(1, 10)(x, w, y), std::invalid_argument);
-  EXPECT_THROW(ops::ConvTranspose1D(std::numeric_limits<dim_t>::max())(x, w, y),
+  EXPECT_THROW(ops::ConvTranspose1D{std::numeric_limits<dim_t>::max()}(x, w, y),
                std::invalid_argument);
 }
 

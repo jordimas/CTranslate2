@@ -38,9 +38,17 @@ def quantize_int8_rows(matrix):
     return values.astype(np.int8), scales
 
 
-def write_int8_matrix(writer, source_reader, source_name, output_scope,
-                      chunk_rows=128, expert_index=None, inverse_scale=None,
-                      scale_reader=None, block_size=(128, 128)):
+def write_int8_matrix(
+    writer,
+    source_reader,
+    source_name,
+    output_scope,
+    chunk_rows=128,
+    expert_index=None,
+    inverse_scale=None,
+    scale_reader=None,
+    block_size=(128, 128),
+):
     """Write scope/weight then scope/weight_scale with two bounded source passes.
 
     FP8 inverse scales are source dequantization multipliers. Output CT2 row
@@ -56,9 +64,13 @@ def write_int8_matrix(writer, source_reader, source_name, output_scope,
     if len(shape) not in (2, 3) or any(dim <= 0 for dim in shape[-2:]):
         raise ValueError("source must contain a nonempty matrix or expert bank")
     rows, cols = shape[-2:]
-    options = dict(chunk_rows=chunk_rows, expert_index=expert_index,
-                   inverse_scale=inverse_scale, scale_reader=scale_reader,
-                   block_size=block_size)
+    options = dict(
+        chunk_rows=chunk_rows,
+        expert_index=expert_index,
+        inverse_scale=inverse_scale,
+        scale_reader=scale_reader,
+        block_size=block_size,
+    )
 
     def quantized_chunks():
         for chunk in source_reader.iter_matrix_rows(source_name, **options):
@@ -71,4 +83,8 @@ def write_int8_matrix(writer, source_reader, source_name, output_scope,
     weight_name = output_scope + "/weight"
     writer.write_tensor(weight_name, (rows, cols), "int8", quantized_chunks())
     writer.write_tensor(weight_name + "_scale", (rows,), "float32", scale_chunks())
-    return {"weight": weight_name, "scale": weight_name + "_scale", "shape": [rows, cols]}
+    return {
+        "weight": weight_name,
+        "scale": weight_name + "_scale",
+        "shape": [rows, cols],
+    }

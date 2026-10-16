@@ -9,27 +9,39 @@ individual expert variables rather than emitting a multi-gigabyte bank.
 
 import math
 import os
-from pathlib import Path
 import struct
 import tempfile
 
+from pathlib import Path
+
 import numpy as np
 
-
-DTYPES = {"float32": (0, "<f4"), "int8": (1, "i1"), "int16": (2, "<i2"),
-          "int32": (3, "<i4"), "float16": (4, "<f2"), "bfloat16": (5, "<u2")}
+DTYPES = {
+    "float32": (0, "<f4"),
+    "int8": (1, "i1"),
+    "int16": (2, "<i2"),
+    "int32": (3, "<i4"),
+    "float16": (4, "<f2"),
+    "bfloat16": (5, "<u2"),
+}
 UINT32_MAX = (1 << 32) - 1
 
 
 def _integer(value, maximum=UINT32_MAX, minimum=0):
-    if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
+    if (
+        not isinstance(value, int)
+        or isinstance(value, bool)
+        or not minimum <= value <= maximum
+    ):
         raise ValueError(f"expected integer in {minimum}..{maximum}")
     return value
 
 
 def _string(value):
     if not isinstance(value, str) or not value or "\0" in value:
-        raise ValueError("model and variable names must be nonempty strings without NUL")
+        raise ValueError(
+            "model and variable names must be nonempty strings without NUL"
+        )
     encoded = value.encode("utf-8")
     if len(encoded) + 1 > 65535:
         raise ValueError("encoded name exceeds uint16 string length")
@@ -58,11 +70,17 @@ class StreamingModelWriter:
         self._count = _integer(variable_count)
         if self.path.exists():
             raise FileExistsError(f"destination already exists: {self.path}")
-        descriptor, temporary = tempfile.mkstemp(prefix=f".{self.path.name}.", suffix=".tmp", dir=self.path.parent)
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=f".{self.path.name}.", suffix=".tmp", dir=self.path.parent
+        )
         self._temp = Path(temporary)
         self._file = os.fdopen(descriptor, "wb")
         try:
-            self._file.write(struct.pack("<I", 6) + name + struct.pack("<II", revision, variable_count))
+            self._file.write(
+                struct.pack("<I", 6)
+                + name
+                + struct.pack("<II", revision, variable_count)
+            )
         except BaseException:
             self.abort()
             raise
@@ -110,14 +128,18 @@ class StreamingModelWriter:
             for chunk in chunks:
                 if isinstance(chunk, np.ndarray):
                     if chunk.dtype != numpy_dtype or not chunk.flags.c_contiguous:
-                        raise ValueError("array chunks must have exact dtype and C-contiguous layout")
+                        raise ValueError(
+                            "array chunks must have exact dtype and C-contiguous layout"
+                        )
                 try:
                     payload = memoryview(chunk)
                     if not payload.c_contiguous:
                         raise ValueError("byte chunks must be contiguous")
                     payload = payload.cast("B")
                 except TypeError as exc:
-                    raise ValueError("chunks must be contiguous arrays or bytes-like objects") from exc
+                    raise ValueError(
+                        "chunks must be contiguous arrays or bytes-like objects"
+                    ) from exc
                 if written + len(payload) > expected:
                     raise ValueError("tensor payload exceeds declared shape")
                 self._file.write(payload)
@@ -141,7 +163,9 @@ class StreamingModelWriter:
             for alias, target in pairs:
                 a, t = _string(alias), _string(target)
                 if alias in names or target not in self._names:
-                    raise ValueError("alias duplicates a name or does not target a concrete tensor")
+                    raise ValueError(
+                        "alias duplicates a name or does not target a concrete tensor"
+                    )
                 names.add(alias)
                 encoded.append((a, t))
             # The native loader implicitly aliases associated scales and zeros.
@@ -149,7 +173,9 @@ class StreamingModelWriter:
                 for suffix in ("_scale", "_zero"):
                     if target + suffix in self._names:
                         if alias + suffix in names:
-                            raise ValueError("alias collides with an implicit scale/zero alias")
+                            raise ValueError(
+                                "alias collides with an implicit scale/zero alias"
+                            )
                         names.add(alias + suffix)
             self._file.write(struct.pack("<I", len(pairs)))
             for alias, target in encoded:

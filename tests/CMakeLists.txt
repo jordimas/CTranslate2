@@ -46,6 +46,10 @@ target_link_libraries(ctranslate2_test PRIVATE
   ${PROJECT_NAME}
   gtest_main
   )
+if(WITH_RUY)
+  # Tests include cpu/backend.h, which exposes the Ruy context declaration.
+  target_link_libraries(ctranslate2_test PRIVATE ruy)
+endif()
 
 add_executable(benchmark_ops
   benchmark_ops.cc

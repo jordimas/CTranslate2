@@ -10,3 +10,6 @@ python/dist/
 .cache
 docs/build/
 docs/python/
+
+# Standalone Python interface repository.
+/tts/faster_tts/

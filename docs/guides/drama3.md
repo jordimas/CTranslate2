@@ -167,8 +167,3 @@ Voice cloning would require a reference-audio encoder and reference-conditioned
 prompt preparation. The existing waveform decoder alone cannot turn a reference
 recording into the codes needed to condition generation.
 
-English and Spanish smoke tests have produced intelligible speech, but broader
-evaluation has also found repeated codes, prolonged silence, and frame-limit
-failures. Quality, speaker similarity, and production reliability have not been
-established. Component numerical parity and successful conversion do not by
-themselves establish speech quality.

@@ -117,3 +117,54 @@ TEST(Drama3MixedPrecisionTest, StandardComputeTypesUseBackendResolutionAndDense)
     }
   }
 }
+
+TEST(Drama3MixedPrecisionTest, GpuProjectionsMatchCpuWithCachedAndSelectedWeights) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  const std::string scope = "backbone/layers_0/mlp/experts_0/gate_proj";
+  for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
+    const ScopedDeviceSetter setter(Device::CUDA, index);
+    for (bool fp8 : {false, true}) {
+      for (auto type : {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
+                        ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
+        try { resolve_compute_type(type, ComputeType::FLOAT32, Device::CUDA, index); }
+        catch (const std::invalid_argument&) { continue; }
+        SCOPED_TRACE(compute_type_to_str(type) + (fp8 ? " FP8" : " F32"));
+        std::string bytes;
+        integer(bytes, 6, 4); string(bytes, "Drama3Spec"); integer(bytes, 1, 4);
+        integer(bytes, fp8 ? 3 : 2, 4);
+        if (fp8) {
+          tensor<int8_t>(bytes, scope + "/weight", {16, 16}, 1, std::vector<int8_t>(256, 0x38));
+          tensor<float>(bytes, scope + "/weight_scale_inv", {1, 1}, 0, {2.f});
+        } else {
+          tensor<float>(bytes, scope + "/weight", {16, 16}, 0, std::vector<float>(256, .5f));
+        }
+        tensor<float>(bytes, scope + "/bias", {16}, 0, std::vector<float>(16, -.25f));
+        integer(bytes, 0, 4);
+        models::ModelMemoryReader reader("drama3_gpu_projection");
+        reader.register_file("model.bin", std::move(bytes));
+        reader.register_file("config.json", nlohmann::json{
+          {"model_type", "drama3"}, {"ct2_layout_version", 1}, {"source_config", nlohmann::json::object()},
+          {"quantization_policy", fp8 ? "experts_fp8_sensitive_float32" : "standard"},
+          {"fp8_format", "e4m3fn_block128"}, {"drama3_gpu_compute_type", compute_type_to_str(type)},
+          {"drama3_gpu_device_index", index}}.dump());
+        auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32);
+        layers::Dense dense(*model, scope);
+        for (dim_t rows : {1, 4, 1}) {  // Repeat after cache creation with another batch shape.
+          StorageView input({rows, 16}, .25f), residual({rows, 16}, .5f), output;
+          dense(input, output, &residual);
+          expect_storage_eq(output, StorageView({rows, 16}, fp8 ? 8.25f : 2.25f), .08f);
+        }
+        if (!fp8) {
+          StorageView selected({4}, std::vector<int32_t>{3, 0, 2, 1});
+          StorageView extra_bias({4}, .5f), input({1, 16}, .25f), output;
+          dense.select_weights(&selected, &extra_bias);
+          dense(input, output);
+          expect_storage_eq(output, StorageView({1, 4}, 2.25f), .08f);
+          dense.select_weights(nullptr);
+          dense(input, output);
+          expect_storage_eq(output, StorageView({1, 16}, 1.75f), .08f);
+        }
+      }
+    }
+  }
+}

@@ -254,6 +254,7 @@ set(CUDA_SOURCES
   src/ops/concat_split_slide_gpu.cu
   src/ops/conv1d_gpu.cu
   src/ops/dequantize_gpu.cu
+  src/ops/dequantize_fp8_gpu.cu
   src/ops/flash_attention_gpu.cu
   src/ops/gather_gpu.cu
   src/ops/gumbel_max_gpu.cu

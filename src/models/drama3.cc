@@ -135,12 +135,31 @@ namespace ctranslate2 { namespace models {
     int32_t eos;
     std::mutex mutex;
 
-    Impl(const std::string& path, size_t count, const std::string& compute)
+    Impl(const std::string& path, size_t count, const std::string& compute,
+         const std::string& device, int device_index)
       : threads(count) {
       if (!count)
         throw std::invalid_argument("Drama3 requires positive intra_threads");
+      const auto target = str_to_device(device);
+      if (device_index < 0 || device_index >= get_device_count(target))
+        throw std::invalid_argument("Invalid Drama3 device index: " + std::to_string(device_index));
+      const ScopedDeviceSetter device_setter(target, device_index);
+      const auto requested = str_to_compute_type(compute);
+      if (target == Device::CUDA && requested != ComputeType::DEFAULT)
+        resolve_compute_type(requested, ComputeType::FLOAT32, target, device_index);
       set_num_threads(threads);
-      model = Model::load(path, Device::CPU, 0, str_to_compute_type(compute));
+      // Set per-instance execution options before publishing the model to layers.
+      auto loaded = std::const_pointer_cast<Model>(Model::load(path, Device::CPU, 0,
+                                target == Device::CPU ? requested : ComputeType::FLOAT32));
+      loaded->config.erase("drama3_gpu_compute_type");
+      loaded->config.erase("drama3_gpu_device_index");
+      if (target == Device::CUDA) {
+        const auto resolved = resolve_compute_type(requested,
+                                                   loaded->saved_compute_type(), target, device_index);
+        loaded->config["drama3_gpu_compute_type"] = compute_type_to_str(resolved);
+        loaded->config["drama3_gpu_device_index"] = device_index;
+      }
+      model = std::move(loaded);
       if (!dynamic_cast<const Drama3Model*>(model.get()))
         throw std::invalid_argument("Expected a converted Drama3Spec model");
       const auto& source = model->config.at("source_config");
@@ -199,8 +218,9 @@ namespace ctranslate2 { namespace models {
     }
   };
 
-  Drama3::Drama3(const std::string& path, size_t threads, const std::string& compute)
-    : _impl(std::make_unique<Impl>(path,threads,compute)) {}
+  Drama3::Drama3(const std::string& path, size_t threads, const std::string& compute,
+                 const std::string& device, int device_index)
+    : _impl(std::make_unique<Impl>(path,threads,compute,device,device_index)) {}
   Drama3::~Drama3() = default;
 
   Drama3Result Drama3::generate(const StorageView& prompt, dim_t max_frames,

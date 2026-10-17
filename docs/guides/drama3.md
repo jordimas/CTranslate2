@@ -1,6 +1,7 @@
 # Drama 3
 
-Drama 3 is supported experimentally for offline text-to-speech synthesis on CPU.
+Drama 3 supports experimental offline text-to-speech synthesis on CPU, with
+optional CUDA or ROCm acceleration for backbone and tower projections.
 The native runtime generates audio codes and decodes them to a
 mono waveform.
 
@@ -140,10 +141,11 @@ nor Transformers, and does not depend on audio.cpp or GGML.
 * `result["timings"]` reports native prefill, backbone, tower, codec, and total
   execution durations, excluding model loading and Python-side processing.
 
-The native constructor accepts `model_path`, `intra_threads=8`, and
-`compute_type="default"`. It accepts the standard CTranslate2 compute types,
+The native constructor accepts `model_path`, `intra_threads=8`,
+`compute_type="default"`, `device="cpu"`, and `device_index=0`.
+It accepts the standard CTranslate2 compute types,
 including `auto`, `float32`, `int8`, and `int8_float32`. Availability follows the
-CPU backend: explicit unsupported types raise the standard error, while `default`
+CPU backend when `device="cpu"`: explicit unsupported types raise the standard error, while `default`
 and `auto` use standard fallback rules. FLOAT16 and BFLOAT16 storage can therefore
 be converted for CPU execution at load time. The synthesis graph and codec use
 FLOAT32 activations.
@@ -155,12 +157,43 @@ weights remain resident; sparse selection reduces computation, not weight storag
 Requests on one model instance execute sequentially with independent per-call
 state.
 
+### CUDA and ROCm
+
+Build the native library and Python extension with `WITH_CUDA=ON` for NVIDIA,
+or `WITH_HIP=ON` for AMD, as described in the
+[installation guide](../installation.md). Both builds use `device="cuda"`:
+
+```python
+model = Drama3(
+    str(model_path), device="cuda", device_index=0, compute_type="float16"
+)
+```
+
+`device="auto"` selects a GPU when one is available. Projection precision follows
+the selected GPU backend's standard compute-type rules, including FLOAT32,
+FLOAT16, BFLOAT16, and supported INT8 variants. Unsupported explicit types raise
+an error; `default` and `auto` use standard fallback rules.
+
+This is hybrid execution: backbone and tower dense projections, including routed
+experts, execute on the GPU. Attention, recurrent state updates, routing,
+sampling, embeddings, and the entire waveform codec execute on CPU. Activations
+are transferred for each projection; this is not an entirely GPU-resident graph.
+There is no tensor parallelism.
+
+The host checkpoint remains resident, with non-FP8 parameters loaded as FLOAT32
+even when GPU projections use lower precision. Projection weights are uploaded on first
+use and cached on the selected GPU, so GPU memory usage grows as new experts
+are selected. FP8 expert bytes remain FP8 in that cache for floating-point
+execution and are decoded on the GPU for each projection. INT8 execution instead
+quantizes each projection once when it is first used. Converted checkpoints do
+not need to change, and output audio and codes remain CPU arrays.
+
 ## Supported scope
 
-The implementation currently provides offline CPU synthesis and waveform
+The implementation provides offline synthesis and waveform
 decoding. It does not provide reference-audio voice cloning, audio encoding,
 voice design, a dedicated multi-speaker API, speech editing or history,
-automatic long-text splitting, public streaming, batching, or GPU execution.
+automatic long-text splitting, public streaming, or batching.
 Transcription is a separate speech-recognition task.
 
 Voice cloning would require a reference-audio encoder and reference-conditioned

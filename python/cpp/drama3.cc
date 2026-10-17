@@ -5,9 +5,10 @@
 namespace ctranslate2 { namespace python {
   void register_drama3(py::module& m) {
     py::class_<models::Drama3>(m,"Drama3")
-      .def(py::init<const std::string&,size_t,const std::string&>(),
+      .def(py::init<const std::string&,size_t,const std::string&,const std::string&,int>(),
            py::arg("model_path"),py::arg("intra_threads")=8,
            py::arg("compute_type")="default",
+           py::arg("device")="cpu",py::arg("device_index")=0,
            py::call_guard<py::gil_scoped_release>())
       .def("generate",[](models::Drama3& model,
                          py::array_t<int32_t,py::array::c_style> prompt,

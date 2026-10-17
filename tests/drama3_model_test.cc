@@ -87,3 +87,11 @@ TEST(Drama3ModelTest, SupportsInt16WhenAvailable) {
   const auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::INT16);
   EXPECT_EQ(model->effective_compute_type(), ComputeType::INT16);
 }
+
+TEST(Drama3ModelTest, RejectsInvalidDeviceBeforeLoadingCheckpoint) {
+  EXPECT_THROW(models::Drama3("missing", 1, "default", "invalid"), std::invalid_argument);
+  EXPECT_THROW(models::Drama3("missing", 1, "default", "cpu", -1), std::invalid_argument);
+  EXPECT_THROW(models::Drama3("missing", 1, "default", "cpu", 1), std::invalid_argument);
+  EXPECT_THROW(models::Drama3("missing", 1, "default", "cuda", -1), std::invalid_argument);
+  EXPECT_THROW(models::Drama3("missing", 1, "default", "cuda", get_device_count(Device::CUDA)), std::invalid_argument);
+}

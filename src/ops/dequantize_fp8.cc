@@ -14,10 +14,11 @@ namespace ctranslate2 {
                                   const StorageView& scale_inv,
                                   StorageView& output) const {
       PROFILE("DequantizeFP8");
-      if (input.device() != Device::CPU || scale_inv.device() != Device::CPU
-          || output.device() != Device::CPU || input.dtype() != DataType::INT8
+      if (scale_inv.device() != input.device() || output.device() != input.device()
+          || input.device_index() != scale_inv.device_index() || input.device_index() != output.device_index()
+          || input.dtype() != DataType::INT8
           || scale_inv.dtype() != DataType::FLOAT32 || output.dtype() != DataType::FLOAT32)
-        throw std::invalid_argument("DequantizeFP8 requires CPU INT8 bytes and F32 scales/output");
+        throw std::invalid_argument("DequantizeFP8 requires INT8 bytes and F32 scales/output on the same device");
       if (input.rank() != 2 || input.dim(0) <= 0 || input.dim(1) <= 0
           || scale_inv.rank() != 2
           || scale_inv.shape() != Shape{input.dim(0) / 128 + (input.dim(0) % 128 != 0),
@@ -32,6 +33,13 @@ namespace ctranslate2 {
                            : a - b < static_cast<uintptr_t>(output.reserved_memory()))))
           throw std::invalid_argument("DequantizeFP8 output must not alias inputs");
       }
+#ifdef CT2_WITH_CUDA
+      if (input.device() == Device::CUDA) {
+        const ScopedDeviceSetter device_setter(input.device(), input.device_index());
+        compute_gpu(input, scale_inv, output);
+        return;
+      }
+#endif
       const auto* scales = scale_inv.data<float>();
       for (dim_t i = 0; i < scale_inv.size(); ++i)
         if (!(scales[i] > 0) || !std::isfinite(scales[i]))

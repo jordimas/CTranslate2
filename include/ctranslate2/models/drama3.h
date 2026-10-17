@@ -42,12 +42,13 @@ namespace ctranslate2 { namespace models {
   };
 
   // Coordinates prompt processing, audio token generation, and waveform decoding.
-  // Single resident CPU model; sequential requests, independent per-call state.
+  // CPU graph with optional CUDA/HIP projections; independent per-call state.
   // Seeded sampling is the default; greedy decoding is available for diagnosis.
   class Drama3 {
   public:
     explicit Drama3(const std::string& model_path, size_t intra_threads = 8,
-                    const std::string& compute_type = "default");
+                    const std::string& compute_type = "default",
+                    const std::string& device = "cpu", int device_index = 0);
     ~Drama3();
     Drama3Result generate(const StorageView& prompt, dim_t max_frames = 512,
                           dim_t prefill_chunk_size = 16, float temperature = .8f,

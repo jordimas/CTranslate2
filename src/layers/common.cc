@@ -309,6 +309,80 @@ namespace ctranslate2 {
               || _weight.device() != Device::CPU || _weight.dtype() != DataType::INT8
               || _packed_weight || _qscale || _qzero || _output_type != DataType::FLOAT32))
         throw std::invalid_argument("Block FP8 Dense requires explicit E4M3FN metadata and unpacked CPU float32 compute");
+      if (model.config.contains("drama3_gpu_compute_type") && scope.compare(0, 6, "codec/") != 0) {
+        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+        _gpu_compute_type = str_to_compute_type(model.config.at("drama3_gpu_compute_type").get<std::string>());
+        if (_weight.device() != Device::CPU || _packed_weight || _qzero || _output_type != DataType::FLOAT32)
+          throw std::invalid_argument("Drama3 GPU projections require unpacked CPU weights and float32 graph state");
+      }
+    }
+
+    void Dense::forward_gpu(const StorageView& input, const StorageView& weight,
+                            const StorageView* bias, const StorageView* scale,
+                            const StorageView* residual, StorageView& output) const {
+      const ScopedDeviceSetter device_setter(Device::CUDA, _gpu_device_index);
+      if (input.device() != Device::CPU || input.dtype() != DataType::FLOAT32
+          || output.device() != Device::CPU || output.dtype() != DataType::FLOAT32)
+        throw std::invalid_argument("Drama3 GPU projections require CPU float32 input/output");
+      const auto types = compute_type_to_data_type(_gpu_compute_type);
+      const auto weight_type = types.first, float_type = types.second;
+      if (_gpu_weight.empty()) {
+        StorageView uploaded;
+        if (!_fp8_scale_inv && !is_float_type(weight.dtype())) {
+          StorageView decoded;
+          ops::Dequantize()(weight, *scale, decoded);
+          uploaded = decoded.to(Device::CUDA);
+        } else {
+          uploaded = weight.to(Device::CUDA);
+        }
+        if (_fp8_scale_inv) {
+          _gpu_scale_inv = _fp8_scale_inv->to(Device::CUDA);
+          if (weight_type == DataType::INT8) {
+            StorageView decoded(DataType::FLOAT32, Device::CUDA);
+            ops::DequantizeFP8()(uploaded, _gpu_scale_inv, decoded);
+            uploaded = std::move(decoded);
+            _gpu_scale_inv.release();
+          }
+        }
+        if (weight_type == DataType::INT8) {
+          StorageView quantized(DataType::INT8, Device::CUDA), scales(DataType::FLOAT32, Device::CUDA);
+          ops::Quantize(ops::Quantize::ScaleType::PER_LAYER, false)(uploaded, quantized, scales);
+          _gpu_scale = std::move(scales);
+          uploaded = std::move(quantized);
+        } else if (!_fp8_scale_inv && uploaded.dtype() != float_type) {
+          uploaded = uploaded.to(float_type);
+        }
+        _gpu_weight = std::move(uploaded);
+      }
+      StorageView gpu_input = input.to(Device::CUDA);
+      if (gpu_input.dtype() != float_type) gpu_input = gpu_input.to(float_type);
+      StorageView gpu_bias, gpu_residual;
+      if (bias) gpu_bias = bias->to(Device::CUDA).to(float_type);
+      if (residual) gpu_residual = residual->to(Device::CUDA).to(float_type);
+      StorageView result(float_type, Device::CUDA);
+      const ops::Gemm gemm(1, 0, false, true, false, false,
+                            weight_type == DataType::INT8 ? nullptr : _activation_type);
+      if (weight_type == DataType::INT8) {
+        StorageView quantized(DataType::INT8, Device::CUDA), scales(DataType::FLOAT32, Device::CUDA);
+        StorageView accumulator(DataType::INT32, Device::CUDA);
+        ops::Quantize(ops::Quantize::ScaleType::PER_LAYER, false)(gpu_input, quantized, scales);
+        gemm(quantized, _gpu_weight, accumulator);
+        _dequantize_op(accumulator, scales, _gpu_scale, false, true, result, bias ? &gpu_bias : nullptr);
+        if (residual) ops::Add()(gpu_residual, result, result);
+      } else {
+        StorageView decoded(DataType::FLOAT32, Device::CUDA);
+        const StorageView* gpu_weight = &_gpu_weight;
+        if (_fp8_scale_inv) {
+          ops::DequantizeFP8()(_gpu_weight, _gpu_scale_inv, decoded);
+          if (decoded.dtype() != float_type) decoded = decoded.to(float_type);
+          gpu_weight = &decoded;
+        }
+        gemm(gpu_input, *gpu_weight, result, nullptr, bias ? &gpu_bias : nullptr,
+             residual ? &gpu_residual : nullptr);
+      }
+      if (result.dtype() != DataType::FLOAT32) result = result.to(DataType::FLOAT32);
+      output.copy_from(result);
+      synchronize_stream(Device::CUDA);  // The following graph operations read host memory.
     }
 
     DataType Dense::output_type() const {
@@ -320,6 +394,10 @@ namespace ctranslate2 {
     }
 
     void Dense::select_weights(const StorageView* index, const StorageView* extra_bias) {
+      // Selection changes the matrix represented by the lazily uploaded copy.
+      _gpu_weight.release();
+      _gpu_scale.release();
+      _gpu_scale_inv.release();
       if (index) {
         if (_fp8_scale_inv)
           throw std::invalid_argument("Selecting block FP8 Dense weights is unsupported");
@@ -360,6 +438,12 @@ namespace ctranslate2 {
       if (affected_by_tp && ScopedMPISetter::getCurRank() != 0) {
         bias = nullptr;
         residual = nullptr;
+      }
+      if (_gpu_device_index >= 0) {
+        if (affected_by_tp)
+          throw std::invalid_argument("Drama3 GPU projections do not support tensor parallelism");
+        forward_gpu(input, *weight, bias, qscale, residual, output);
+        return;
       }
       if (_fp8_scale_inv) {
         if (input.device() != Device::CPU || input.dtype() != DataType::FLOAT32 || affected_by_tp)

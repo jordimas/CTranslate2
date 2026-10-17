@@ -134,6 +134,12 @@ namespace ctranslate2 {
       void operator()(const StorageView& input, StorageView& output, const StorageView* residual = nullptr) const;
       void select_weights(const StorageView* index, const StorageView* extra_bias = nullptr);
     private:
+      void forward_gpu(const StorageView& input, const StorageView& weight,
+                       const StorageView* bias, const StorageView* scale,
+                       const StorageView* residual, StorageView& output) const;
+      int _gpu_device_index = -1;
+      ComputeType _gpu_compute_type = ComputeType::FLOAT32;
+      mutable StorageView _gpu_weight, _gpu_scale, _gpu_scale_inv;
       bool _packed_weight;
       const StorageView& _weight;
       const StorageView* _bias;

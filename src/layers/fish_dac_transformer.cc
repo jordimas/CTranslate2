@@ -150,8 +150,7 @@ namespace ctranslate2 {
         (*block.gate)(normalized, gate);
         (*block.up)(normalized, up);
         ops::Swish()(gate, activated);
-        for (dim_t i = 0; i < activated.size(); ++i)
-          activated.data<float>()[i] *= up.data<float>()[i];
+        ops::Mul()(activated, up, activated);
         (*block.down)(activated, down);
         for (dim_t i = 0; i < hidden.size(); ++i)
           hidden.data<float>()[i] += down.data<float>()[i] * block.ffn_scale->data<float>()[i % _channels];

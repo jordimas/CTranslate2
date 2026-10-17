@@ -93,13 +93,11 @@ namespace ctranslate2 {
         (*_linear)(normalized, state.recurrent, state.history, mixed);
       else
         (*_attention)(normalized, state.attention, mixed);
-      for (dim_t i = 0; i < mixed.size(); ++i)
-        mixed.data<float>()[i] += input.data<float>()[i];
+      ops::Add()(mixed, input, mixed);
       ops::RMSNorm(_config.norm_epsilon, true)(_post_norm, mixed, normalized);
       StorageView expert_output;
       _moe(normalized, expert_output);
-      for (dim_t i = 0; i < expert_output.size(); ++i)
-        expert_output.data<float>()[i] += mixed.data<float>()[i];
+      ops::Add()(expert_output, mixed, expert_output);
       output = std::move(expert_output);
     }
 

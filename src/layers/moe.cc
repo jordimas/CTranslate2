@@ -30,8 +30,7 @@ namespace ctranslate2 {
       gate(input, gated);
       up(input, values);
       ops::get_activation_op(ops::ActivationType::Swish)(gated, activated);
-      for (dim_t i = 0; i < values.size(); ++i)
-        activated.data<float>()[i] *= values.data<float>()[i];
+      ops::Mul()(activated, values, activated);
       down(activated, output);
     }
 

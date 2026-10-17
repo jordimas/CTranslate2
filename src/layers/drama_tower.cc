@@ -165,12 +165,8 @@ namespace ctranslate2 {
         StorageView en, hn;
         ops::RMSNorm(epsilon, true)(enorm, e, en);
         ops::RMSNorm(epsilon, true)(hnorm, hidden, hn);
-        StorageView joined({rows, 2 * dim}, DataType::FLOAT32);
-        for (dim_t t = 0; t < rows; ++t)
-          for (dim_t d = 0; d < dim; ++d) {
-            joined.data<float>()[t * 2 * dim + d] = en.data<float>()[t * dim + d];
-            joined.data<float>()[t * 2 * dim + dim + d] = hn.data<float>()[t * dim + d];
-          }
+        StorageView joined;
+        ops::Concat(-1)({&en, &hn}, joined);
         StorageView mixed;
         if (rows == 0) {
           output.resize_as(hidden);
@@ -180,18 +176,15 @@ namespace ctranslate2 {
         StorageView normalized, attended;
         ops::RMSNorm(epsilon, true)(attention_norm, mixed, normalized);
         attention(normalized, cache, attended);
-        for (dim_t i = 0; i < mixed.size(); ++i)
-          mixed.data<float>()[i] += attended.data<float>()[i];
+        ops::Add()(mixed, attended, mixed);
         ops::RMSNorm(epsilon, true)(ffn_norm, mixed, normalized);
         StorageView gates, ups, activated, projected;
         gate(normalized, gates);
         up(normalized, ups);
         ops::get_activation_op(ops::ActivationType::Swish)(gates, activated);
-        for (dim_t i = 0; i < activated.size(); ++i)
-          activated.data<float>()[i] *= ups.data<float>()[i];
+        ops::Mul()(activated, ups, activated);
         down(activated, projected);
-        for (dim_t i = 0; i < mixed.size(); ++i)
-          mixed.data<float>()[i] += projected.data<float>()[i];
+        ops::Add()(mixed, projected, mixed);
         ops::RMSNorm(epsilon, true)(final_norm, mixed, output);
       }
     };

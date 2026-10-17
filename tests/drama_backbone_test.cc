@@ -1,22 +1,12 @@
 #include <cmath>
 
-#include "test_utils.h"
+#include "drama_test_utils.h"
 #include "ctranslate2/layers/drama_backbone.h"
 
 namespace {
 
-  layers::DramaBlockConfig block_config(bool attention) {
-    layers::DramaBlockConfig cfg;
-    cfg.kind = attention ? layers::DramaMixerKind::FullAttention : layers::DramaMixerKind::LinearAttention;
-    cfg.norm_epsilon = 1e-5f;
-    cfg.num_experts = cfg.top_k = 1;
-    cfg.key_heads = cfg.value_heads = cfg.key_dim = cfg.value_dim = 1;
-    cfg.attention = {1, 1, 2, 2, 100.f, 1e-5f, false, true};
-    return cfg;
-  }
-
   layers::DramaBackboneConfig config(bool hybrid = true) {
-    return {{block_config(false), block_config(hybrid)}, 1e-5f, 8};
+    return {{drama_test::block_config(false, 1), drama_test::block_config(hybrid, 1)}, 1e-5f, 8};
   }
 
   class TinyBackboneModel : public models::Model {
@@ -34,24 +24,9 @@ namespace {
           put(scope + "up_proj/weight", {1, 2}, {-.2f, .1f});
           put(scope + "down_proj/weight", {2, 1}, {.5f, -.1f});
         }
-        if (i == 1 && hybrid) {
-          put(path + "self_attn/q_proj/weight", {4, 2}, {1, 0, 0, 1, .2f, 0, 0, -.3f});
-          put(path + "self_attn/k_proj/weight", {2, 2}, {1, 0, 0, 1});
-          put(path + "self_attn/v_proj/weight", {2, 2}, {.3f, 0, 0, .4f});
-          put(path + "self_attn/o_proj/weight", {2, 2}, {1, 0, 0, 1});
-          put(path + "self_attn/q_norm/weight", {2}, {0, 0});
-          put(path + "self_attn/k_norm/weight", {2}, {0, 0});
-        } else {
-          put(path + "linear_attn/in_proj_qkv/weight", {3, 2}, {.4f, 0, .3f, 0, 0, .5f});
-          put(path + "linear_attn/in_proj_z/weight", {1, 2}, {.5f, -.1f});
-          put(path + "linear_attn/in_proj_a/weight", {1, 2}, {0, 0});
-          put(path + "linear_attn/in_proj_b/weight", {1, 2}, {0, 0});
-          put(path + "linear_attn/out_proj/weight", {2, 1}, {.5f, -.2f});
-          put(path + "linear_attn/A_log", {1}, {0});
-          put(path + "linear_attn/dt_bias", {1}, {0});
-          put(path + "linear_attn/norm/weight", {1}, {1});
-          put(path + "linear_attn/conv1d/weight", {3, 1, 2}, {.5f, .5f, .5f, .5f, .5f, .5f});
-        }
+        drama_test::add_mixer([&](const std::string& name, Shape shape, std::vector<float> values) {
+          put(path + name, std::move(shape), std::move(values));
+        }, i == 1 && hybrid);
       }
       put("backbone/norm/weight", {2}, {.2f, -.1f});
       put("backbone/lm_head/weight", {3, 2}, {1, 0, 0, 1, .5f, -.25f});
@@ -77,10 +52,6 @@ namespace {
     }
   };
 
-  StorageView inputs() {
-    return StorageView({3, 2}, std::vector<float>{1, 2, -.5f, 1, 2, -.25f});
-  }
-
 }
 
 TEST(DramaBackboneTest, HybridCompositionAndIndependentFinalLogits) {
@@ -89,7 +60,7 @@ TEST(DramaBackboneTest, HybridCompositionAndIndependentFinalLogits) {
   layers::DramaBackbone backbone(model, "backbone", cfg);
   layers::DramaBackboneState state;
   backbone.initialize_state(state, 3);
-  const auto embedded = inputs();
+  const auto embedded = drama_test::inputs();
   StorageView hidden, logits;
   backbone(embedded, state, hidden, logits);
   EXPECT_EQ(backbone.output_size(), 2);
@@ -123,7 +94,7 @@ TEST(DramaBackboneTest, HybridChunkParityAndReset) {
   layers::DramaBackboneState whole, chunked;
   backbone.initialize_state(whole);
   backbone.initialize_state(chunked);
-  auto embedded = inputs();
+  auto embedded = drama_test::inputs();
   StorageView full_hidden, full_logits;
   backbone(embedded, whole, full_hidden, full_logits);
   dim_t offset = 0;
@@ -151,7 +122,7 @@ TEST(DramaBackboneTest, ContextLimitAlsoAppliesToGdnOnlyBackbones) {
   layers::DramaBackbone backbone(model, "backbone", config(false));
   layers::DramaBackboneState state;
   backbone.initialize_state(state, 3);
-  auto embedded = inputs();
+  auto embedded = drama_test::inputs();
   StorageView hidden, logits;
   backbone(embedded, state, hidden, logits);
   StorageView row({1, 2}, embedded.data<float>());
@@ -164,7 +135,7 @@ TEST(DramaBackboneTest, InputStateAndAliasGuards) {
   TinyBackboneModel model;
   layers::DramaBackbone backbone(model, "backbone", config());
   layers::DramaBackboneState state;
-  auto embedded = inputs();
+  auto embedded = drama_test::inputs();
   StorageView hidden, logits;
   EXPECT_THROW(backbone(embedded, state, hidden, logits), std::invalid_argument);
   backbone.initialize_state(state);
@@ -183,7 +154,7 @@ TEST(DramaBackboneTest, CandidateHeadMatchesFullProjectionAtRequestedIds) {
   layers::DramaBackboneState fs, ss;
   full.initialize_state(fs);
   selected.initialize_state(ss);
-  const auto input = inputs();
+  const auto input = drama_test::inputs();
   StorageView fh, fl, sh, sl;
   full(input, fs, fh, fl);
   selected(input, ss, sh, sl);
@@ -208,7 +179,7 @@ TEST(DramaBackboneTest, CandidateHeadGathersInt8ScalesAndCompensation) {
   full.initialize_state(fs);
   selected.initialize_state(ss);
   StorageView fh, fl, sh, sl;
-  const auto input = inputs();
+  const auto input = drama_test::inputs();
   full(input, fs, fh, fl);
   selected(input, ss, sh, sl);
   for (dim_t t = 0; t < input.dim(0); ++t) {

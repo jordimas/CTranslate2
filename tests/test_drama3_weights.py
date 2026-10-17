@@ -8,6 +8,8 @@ import unittest
 
 import numpy as np
 
+from drama_test_utils import shard
+
 SPEC = importlib.util.spec_from_file_location(
     "drama3_weights", Path(__file__).resolve().parents[1]
     / "python/ctranslate2/converters/drama3_weights.py")
@@ -16,15 +18,8 @@ SPEC.loader.exec_module(weights)
 
 
 def write_tensors(path, tensors):
-    header, payload = {}, bytearray()
-    for name, (dtype, data) in tensors.items():
-        data = np.asarray(data, dtype=weights.STORAGE_DTYPES[dtype])
-        start = len(payload)
-        payload.extend(data.tobytes())
-        header[name] = {"dtype": "F8_E4M3" if dtype == "F8_E4M3FN" else dtype, "shape": list(data.shape),
-                        "data_offsets": [start, len(payload)]}
-    encoded = json.dumps(header).encode()
-    path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + payload)
+    shard(path, {name: (np.asarray(data, dtype=weights.STORAGE_DTYPES[dtype]), dtype)
+                 for name, (dtype, data) in tensors.items()})
 
 
 class Drama3WeightsTest(unittest.TestCase):

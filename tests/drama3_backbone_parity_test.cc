@@ -1,9 +1,7 @@
-#include <algorithm>
-#include <cmath>
 #include <cstdlib>
 #include <fstream>
 
-#include "test_utils.h"
+#include "drama_parity_test_utils.h"
 #include "ctranslate2/layers/gated_delta.h"
 #include "ctranslate2/models/model_factory.h"
 
@@ -16,37 +14,6 @@ namespace {
       return std::make_unique<BackboneParityFixture>(*this);
     }
   };
-
-  StorageView read_tensor(const std::string& directory, const std::string& name, Shape shape) {
-    StorageView result(std::move(shape), DataType::FLOAT32);
-    std::ifstream stream(directory + "/" + name, std::ios::binary);
-    if (!stream)
-      throw std::runtime_error("cannot read actual-weight backbone fixture " + name);
-    const auto bytes = result.size() * sizeof(float);
-    stream.read(reinterpret_cast<char*>(result.data<float>()), bytes);
-    if (stream.gcount() != std::streamsize(bytes) || stream.peek() != std::char_traits<char>::eof())
-      throw std::runtime_error("incorrect actual-weight backbone fixture byte length");
-    return result;
-  }
-
-  void compare(const StorageView& actual, const StorageView& expected,
-               float max_tolerance, double rms_tolerance, const std::string& label) {
-    ASSERT_EQ(actual.shape(), expected.shape());
-    float maximum = 0;
-    double squared = 0;
-    for (dim_t i = 0; i < actual.size(); ++i) {
-      ASSERT_TRUE(std::isfinite(actual.data<float>()[i]));
-      ASSERT_TRUE(std::isfinite(expected.data<float>()[i]));
-      const float error = std::abs(actual.data<float>()[i] - expected.data<float>()[i]);
-      maximum = std::max(maximum, error);
-      squared += double(error) * error;
-    }
-    const double rms = std::sqrt(squared / std::max(dim_t(1), actual.size()));
-    ::testing::Test::RecordProperty(label + "_max_absolute_error", std::to_string(maximum));
-    ::testing::Test::RecordProperty(label + "_rmse", std::to_string(rms));
-    EXPECT_LT(maximum, max_tolerance) << label;
-    EXPECT_LT(rms, rms_tolerance) << label;
-  }
 }
 
 TEST(Drama3BackboneParityTest, ActualGdnWeightsMatchIndependentFunctionalOracle) {
@@ -70,7 +37,7 @@ TEST(Drama3BackboneParityTest, ActualGdnWeightsMatchIndependentFunctionalOracle)
     const dim_t steps = fixture.at("steps");
     SCOPED_TRACE("actual-weight GDN steps=" + std::to_string(steps));
     auto read = [&](const char* key, Shape shape) {
-      return read_tensor(directory, fixture.at(key), std::move(shape));
+      return drama_test::read_tensor(directory, fixture.at(key), std::move(shape));
     };
     auto input = read("input", {steps, hidden});
     auto state = read("initial_state", state_shape);
@@ -79,16 +46,16 @@ TEST(Drama3BackboneParityTest, ActualGdnWeightsMatchIndependentFunctionalOracle)
     StorageView output;
     layer(input, state, history, output);
     const std::string label = "t" + std::to_string(steps);
-    compare(output, read("expected", {steps, hidden}), 5e-4f, 5e-5, label + "_output");
-    compare(state, read("final_state", state_shape), 5e-6f, 5e-7, label + "_state");
-    compare(history, read("final_history", history_shape), 5e-5f, 5e-6, label + "_history");
+    drama_test::compare(output, read("expected", {steps, hidden}), 5e-4f, 5e-5, label + "_output");
+    drama_test::compare(state, read("final_state", state_shape), 5e-6f, 5e-7, label + "_state");
+    drama_test::compare(history, read("final_history", history_shape), 5e-5f, 5e-6, label + "_history");
     for (dim_t t = 0; t < steps; ++t) {
       StorageView row({1, hidden}, input.data<float>() + t * hidden), one;
       layer(row, step_state, step_history, one);
       StorageView expected_row({1, hidden}, output.data<float>() + t * hidden);
-      compare(one, expected_row, 5e-4f, 5e-5, label + "_step" + std::to_string(t));
+      drama_test::compare(one, expected_row, 5e-4f, 5e-5, label + "_step" + std::to_string(t));
     }
-    compare(step_state, state, 5e-6f, 5e-7, label + "_step_state");
-    compare(step_history, history, 5e-5f, 5e-6, label + "_step_history");
+    drama_test::compare(step_state, state, 5e-6f, 5e-7, label + "_step_state");
+    drama_test::compare(step_history, history, 5e-5f, 5e-6, label + "_step_history");
   }
 }

@@ -1,7 +1,7 @@
 #include <cmath>
 #include <limits>
 
-#include "test_utils.h"
+#include "drama_test_utils.h"
 #include "ctranslate2/layers/drama_block.h"
 
 namespace {
@@ -21,24 +21,9 @@ namespace {
         put(name + "/up_proj/weight", {1, 2}, {.2f, .5f});
         put(name + "/down_proj/weight", {2, 1}, {.5f, -.3f});
       }
-      if (attention) {
-        put("self_attn/q_proj/weight", {4, 2}, {1, 0, 0, 1, .2f, 0, 0, -.3f});
-        put("self_attn/k_proj/weight", {2, 2}, {1, 0, 0, 1});
-        put("self_attn/v_proj/weight", {2, 2}, {.3f, 0, 0, .4f});
-        put("self_attn/o_proj/weight", {2, 2}, {1, 0, 0, 1});
-        put("self_attn/q_norm/weight", {2}, {0, 0});
-        put("self_attn/k_norm/weight", {2}, {0, 0});
-      } else {
-        put("linear_attn/in_proj_qkv/weight", {3, 2}, {.4f, 0, .3f, 0, 0, .5f});
-        put("linear_attn/in_proj_z/weight", {1, 2}, {.5f, -.1f});
-        put("linear_attn/in_proj_a/weight", {1, 2}, {0, 0});
-        put("linear_attn/in_proj_b/weight", {1, 2}, {0, 0});
-        put("linear_attn/out_proj/weight", {2, 1}, {.5f, -.2f});
-        put("linear_attn/A_log", {1}, {0});
-        put("linear_attn/dt_bias", {1}, {0});
-        put("linear_attn/norm/weight", {1}, {1});
-        put("linear_attn/conv1d/weight", {3, 1, 2}, {.5f, .5f, .5f, .5f, .5f, .5f});
-      }
+      drama_test::add_mixer([&](const std::string& name, Shape shape, std::vector<float> values) {
+        put(name, std::move(shape), std::move(values));
+      }, attention);
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
     }
   protected:
@@ -51,21 +36,6 @@ namespace {
       register_variable(block_scope + "/" + path, StorageView(std::move(shape), values));
     }
   };
-
-  layers::DramaBlockConfig config(bool attention) {
-    layers::DramaBlockConfig cfg;
-    cfg.kind = attention ? layers::DramaMixerKind::FullAttention : layers::DramaMixerKind::LinearAttention;
-    cfg.norm_epsilon = 1e-5f;
-    cfg.num_experts = 2;
-    cfg.top_k = 1;
-    cfg.key_heads = cfg.value_heads = cfg.key_dim = cfg.value_dim = 1;
-    cfg.attention = {1, 1, 2, 2, 100.f, 1e-5f, false, true};
-    return cfg;
-  }
-
-  StorageView inputs() {
-    return StorageView({3, 2}, std::vector<float>{1, 2, -.5f, 1, 2, -.25f});
-  }
 
   StorageView independent_norm(const StorageView& input, const std::vector<double>& gamma) {
     StorageView result(input.shape(), DataType::FLOAT32);
@@ -83,11 +53,11 @@ namespace {
 TEST(DramaBlockTest, IndependentCompositionHasTwoPrenormResiduals) {
   for (const bool attention : {false, true}) {
     TinyBlockModel model(attention);
-    const auto cfg = config(attention);
+    const auto cfg = drama_test::block_config(attention);
     layers::DramaBlock block(model, block_scope, cfg);
     layers::DramaBlockState state;
     block.initialize_state(state, 3);
-    const auto input = inputs();
+    const auto input = drama_test::inputs();
     StorageView actual;
     block(input, state, actual);
     const auto normalized = independent_norm(input, {.1, -.2});
@@ -117,11 +87,11 @@ TEST(DramaBlockTest, IndependentCompositionHasTwoPrenormResiduals) {
 TEST(DramaBlockTest, SingleStepsAndResetMatchPrefillForBothMixers) {
   for (const bool attention : {false, true}) {
     TinyBlockModel model(attention);
-    layers::DramaBlock block(model, block_scope, config(attention));
+    layers::DramaBlock block(model, block_scope, drama_test::block_config(attention));
     layers::DramaBlockState full_state, step_state;
     block.initialize_state(full_state, 3);
     block.initialize_state(step_state, 3);
-    auto input = inputs();
+    auto input = drama_test::inputs();
     StorageView full;
     block(input, full_state, full);
     for (dim_t t = 0; t < 3; ++t) {
@@ -146,17 +116,17 @@ TEST(DramaBlockTest, SingleStepsAndResetMatchPrefillForBothMixers) {
 
 TEST(DramaBlockTest, InputAndStateGuards) {
   TinyBlockModel model(false);
-  layers::DramaBlock block(model, block_scope, config(false));
+  layers::DramaBlock block(model, block_scope, drama_test::block_config(false));
   layers::DramaBlockState state;
   block.initialize_state(state);
   StorageView wrong({1, 3}, 1.f), output;
   EXPECT_THROW(block(wrong, state, output), std::invalid_argument);
-  auto input = inputs();
+  auto input = drama_test::inputs();
   EXPECT_THROW(block(input, state, input), std::invalid_argument);
   EXPECT_THROW(block(input, state, state.history), std::invalid_argument);
   input.data<float>()[0] = std::numeric_limits<float>::quiet_NaN();
   EXPECT_THROW(block(input, state, output), std::invalid_argument);
   TinyBlockModel attention_model(true);
-  layers::DramaBlock attention(attention_model, block_scope, config(true));
+  layers::DramaBlock attention(attention_model, block_scope, drama_test::block_config(true));
   EXPECT_THROW(attention.initialize_state(state, 0), std::invalid_argument);
 }

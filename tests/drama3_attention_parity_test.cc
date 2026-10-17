@@ -1,9 +1,7 @@
-#include <algorithm>
-#include <cmath>
 #include <cstdlib>
 #include <fstream>
 
-#include "test_utils.h"
+#include "drama_parity_test_utils.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/models/model_factory.h"
 
@@ -16,36 +14,6 @@ namespace {
       return std::make_unique<AttentionParityFixture>(*this);
     }
   };
-
-  StorageView read(const std::string& path, Shape shape) {
-    StorageView result(std::move(shape), DataType::FLOAT32);
-    std::ifstream stream(path, std::ios::binary);
-    if (!stream)
-      throw std::runtime_error("cannot read attention oracle fixture " + path);
-    const auto bytes = result.size() * sizeof(float);
-    stream.read(reinterpret_cast<char*>(result.data<float>()), bytes);
-    if (stream.gcount() != std::streamsize(bytes) || stream.peek() != std::char_traits<char>::eof())
-      throw std::runtime_error("attention oracle fixture has incorrect byte count");
-    return result;
-  }
-
-  void compare(const StorageView& actual, const StorageView& expected,
-               const std::string& name, float maximum_limit, double rms_limit) {
-    ASSERT_EQ(actual.shape(), expected.shape());
-    float maximum = 0;
-    double squared = 0;
-    for (dim_t i = 0; i < actual.size(); ++i) {
-      ASSERT_TRUE(std::isfinite(actual.data<float>()[i]));
-      const float error = std::abs(actual.data<float>()[i] - expected.data<float>()[i]);
-      maximum = std::max(maximum, error);
-      squared += double(error) * error;
-    }
-    const double rms = std::sqrt(squared / std::max(dim_t(1), actual.size()));
-    ::testing::Test::RecordProperty(name + "_max_absolute_error", std::to_string(maximum));
-    ::testing::Test::RecordProperty(name + "_rmse", std::to_string(rms));
-    EXPECT_LT(maximum, maximum_limit) << name;
-    EXPECT_LT(rms, rms_limit) << name;
-  }
 }
 
 TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndependentOracle) {
@@ -68,7 +36,7 @@ TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndepende
       const std::string label = std::string(kind) + "_t" + std::to_string(steps);
       SCOPED_TRACE(label);
       auto get = [&](const char* name, Shape shape) {
-        return read(directory + "/" + fixture.at(name).get<std::string>(), std::move(shape));
+        return drama_test::read_tensor(directory, fixture.at(name), std::move(shape));
       };
       auto input = get("input", {steps, hidden});
       auto make_cache = [&]() {
@@ -78,17 +46,17 @@ TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndepende
       auto cache = make_cache(), incremental = make_cache();
       StorageView output;
       layer(input, cache, output);
-      compare(output, get("expected", {steps, hidden}), label + "_output", 2e-4f, 2e-5);
-      compare(cache.keys, get("keys", {steps, kv_heads, dim}), label + "_keys", 5e-5f, 5e-6);
-      compare(cache.values, get("values", {steps, kv_heads, dim}), label + "_values", 5e-5f, 5e-6);
+      drama_test::compare(output, get("expected", {steps, hidden}), 2e-4f, 2e-5, label + "_output");
+      drama_test::compare(cache.keys, get("keys", {steps, kv_heads, dim}), 5e-5f, 5e-6, label + "_keys");
+      drama_test::compare(cache.values, get("values", {steps, kv_heads, dim}), 5e-5f, 5e-6, label + "_values");
       for (dim_t t = 0; t < steps; ++t) {
         StorageView row({1, hidden}, input.data<float>() + t * hidden), one;
         layer(row, incremental, one);
         StorageView full_row({1, hidden}, output.data<float>() + t * hidden);
-        compare(one, full_row, label + "_step" + std::to_string(t), 2e-4f, 2e-5);
+        drama_test::compare(one, full_row, 2e-4f, 2e-5, label + "_step" + std::to_string(t));
       }
-      compare(incremental.keys, cache.keys, label + "_step_keys", 5e-5f, 5e-6);
-      compare(incremental.values, cache.values, label + "_step_values", 5e-5f, 5e-6);
+      drama_test::compare(incremental.keys, cache.keys, 5e-5f, 5e-6, label + "_step_keys");
+      drama_test::compare(incremental.values, cache.values, 5e-5f, 5e-6, label + "_step_values");
     }
   }
 }

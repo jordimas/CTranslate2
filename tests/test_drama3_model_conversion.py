@@ -1,12 +1,12 @@
 """Run: python3 -m unittest discover -s tests -p test_drama3_model_conversion.py"""
-import importlib.util
 import json
 from pathlib import Path
-import struct
 import tempfile
 import unittest
 
 import numpy as np
+
+from drama_test_utils import shard
 
 from ctranslate2.converters import drama3 as converter
 from ctranslate2.converters.converter import publish_directory
@@ -15,17 +15,6 @@ from ctranslate2.converters.converter import publish_directory
 def config():
     return {"audio_decoder_config": {"n_head": 2, "n_local_heads": 1, "head_dim": 2},
             "quantization_config": {"weight_block_size": [2, 2]}}
-
-
-def shard(path, tensors):
-    header, data = {}, b""
-    for name, (array, dtype) in tensors.items():
-        payload = array.tobytes(order="C")
-        header[name] = {"dtype": "F8_E4M3" if dtype == "F8_E4M3FN" else dtype, "shape": list(array.shape),
-                        "data_offsets": [len(data), len(data) + len(payload)]}
-        data += payload
-    encoded = json.dumps(header).encode()
-    path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + data)
 
 
 def optimized_variables(variables, quantization="int8_float32"):

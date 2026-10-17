@@ -1,5 +1,4 @@
 """End-to-end checks of the standard model-spec conversion path."""
-import argparse
 import contextlib
 import io
 import json
@@ -12,7 +11,8 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
-ROOT = Path(__file__).resolve().parents[1]
+from drama_test_utils import shard
+
 from ctranslate2.converters import drama3 as c
 from ctranslate2.converters import Converter, TransformersConverter
 
@@ -38,7 +38,7 @@ def read_model(path):
         return values
 
 
-class StandardConversionTest(unittest.TestCase):
+class ConversionFixture(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -60,22 +60,17 @@ class StandardConversionTest(unittest.TestCase):
             "lm_head.weight": (self.sensitive, "F32"),
             "model.language_model.layers.0.linear_attn.conv1d.weight": (self.convolution, "F32"),
         }
-        data, header = b"", {}
-        for name, (value, dtype) in tensors.items():
-            payload = value.tobytes()
-            header[name] = {"shape": list(value.shape), "dtype": "F8_E4M3" if dtype == "F8_E4M3FN" else dtype,
-                            "data_offsets": [len(data), len(data) + len(payload)]}
-            data += payload
-        encoded = json.dumps(header).encode()
-        shard = "model-00001-of-00001.safetensors"
-        (self.source / shard).write_bytes(struct.pack("<Q", len(encoded)) + encoded + data)
+        shard_name = "model-00001-of-00001.safetensors"
+        shard(self.source / shard_name, tensors)
         (self.source / "model.safetensors.index.json").write_text(
-            json.dumps({"weight_map": {name: shard for name in tensors}}))
+            json.dumps({"weight_map": {name: shard_name for name in tensors}}))
         codec = c.codec
         self.codec = np.array([[.234567, -.345678]], np.float32)
         self.enterContext(patch.object(codec, "codec_parameter_shapes", return_value={"decoder.weight": (1, 2)}))
         self.enterContext(patch.object(codec, "load_checkpoint", return_value={"decoder.weight": self.codec}))
 
+
+class StandardConversionTest(ConversionFixture):
     def test_standard_quantization_and_serialization_preserve_sensitive_weights(self):
         converter = TransformersConverter(self.source)
         converter.convert(str(self.output))

@@ -88,11 +88,15 @@ namespace {
     }
   }
 
+  class DramaTowerTest : public ::testing::Test {
+  protected:
+    TinyTowerModel model;
+    layers::DramaTower tower{model, "tower", config()};
+  };
+
 }
 
-TEST(DramaTowerTest, IndependentBackboneEmbeddingFusion) {
-  TinyTowerModel model;
-  layers::DramaTower tower(model, "tower", config());
+TEST_F(DramaTowerTest, IndependentBackboneEmbeddingFusion) {
   StorageView frames({2, 4}, std::vector<int32_t>{6, 1, 1, 2, 2, 0, 2, 1});
   StorageView text({2, 2}, std::vector<float>{1, 2, -1, 3}), output;
   tower.embed_backbone(frames, text, output);
@@ -102,9 +106,7 @@ TEST(DramaTowerTest, IndependentBackboneEmbeddingFusion) {
   EXPECT_FLOAT_EQ(output.data<float>()[3], 3);
 }
 
-TEST(DramaTowerTest, TeacherPrefillUsesNextCodeAndPreviousUnseenCodes) {
-  TinyTowerModel model;
-  layers::DramaTower tower(model, "tower", config());
+TEST_F(DramaTowerTest, TeacherPrefillUsesNextCodeAndPreviousUnseenCodes) {
   layers::DramaTowerState state;
   tower.initialize_state(state, 1);
   StorageView hidden({1, 2}, std::vector<float>{1, 2});
@@ -124,9 +126,7 @@ TEST(DramaTowerTest, TeacherPrefillUsesNextCodeAndPreviousUnseenCodes) {
   EXPECT_EQ(state.length, 1);
 }
 
-TEST(DramaTowerTest, GreedyAndShiftedTeacherPrefillHaveMatchingTemporalCaches) {
-  TinyTowerModel model;
-  layers::DramaTower tower(model, "tower", config());
+TEST_F(DramaTowerTest, GreedyAndShiftedTeacherPrefillHaveMatchingTemporalCaches) {
   layers::DramaTowerState generated, teacher;
   tower.initialize_state(generated, 3);
   tower.initialize_state(teacher, 3);
@@ -152,9 +152,7 @@ TEST(DramaTowerTest, GreedyAndShiftedTeacherPrefillHaveMatchingTemporalCaches) {
   compare_caches(generated, teacher);
 }
 
-TEST(DramaTowerTest, EosAndInputStateGuards) {
-  TinyTowerModel model;
-  layers::DramaTower tower(model, "tower", config());
+TEST_F(DramaTowerTest, EosAndInputStateGuards) {
   layers::DramaTowerState state;
   tower.initialize_state(state, 1);
   StorageView hidden({1, 2}, 1.f), logits({1, 9}, 0.f);
@@ -173,7 +171,7 @@ TEST(DramaTowerTest, EosAndInputStateGuards) {
   EXPECT_THROW(tower.decode_greedy(logits, hidden, previous, state, output), std::invalid_argument);
 }
 
-TEST(DramaTowerTest, Int8EmbeddingTablesUsePerRowScales) {
+TEST_F(DramaTowerTest, Int8EmbeddingTablesUsePerRowScales) {
   TinyTowerModel floating, quantized(true);
   ASSERT_EQ(quantized.get_variable("tower/codebook_embeddings/weight").dtype(), DataType::INT8);
   ASSERT_EQ(quantized.get_variable("tower/shared_layers_0/semantic_embedding/weight").dtype(), DataType::INT8);
@@ -193,7 +191,7 @@ TEST(DramaTowerTest, Int8EmbeddingTablesUsePerRowScales) {
   compare_caches(ac, bc);
 }
 
-TEST(DramaTowerTest, SamplingDropsCrossingTokenAndKeepsHighest) {
+TEST_F(DramaTowerTest, SamplingDropsCrossingTokenAndKeepsHighest) {
   const std::vector<float> logits{std::log(.6f), std::log(.3f), std::log(.1f)};
   layers::DramaSamplingOptions options;
   options.temperature = 1;
@@ -211,7 +209,7 @@ TEST(DramaTowerTest, SamplingDropsCrossingTokenAndKeepsHighest) {
   EXPECT_EQ(layers::sample_drama_token({2, 2, 2}, options, rng), 0);
 }
 
-TEST(DramaTowerTest, SamplingDistributionAndSeedReproducibility) {
+TEST_F(DramaTowerTest, SamplingDistributionAndSeedReproducibility) {
   layers::DramaSamplingOptions options;
   options.temperature = 1;
   options.top_k = 3;
@@ -228,9 +226,7 @@ TEST(DramaTowerTest, SamplingDistributionAndSeedReproducibility) {
   EXPECT_NEAR(count0 / 4000., 2. / 3, .03);
 }
 
-TEST(DramaTowerTest, SampledEosIsNeverResampledAndCodeIdsStayInRange) {
-  TinyTowerModel model;
-  layers::DramaTower tower(model, "tower", config());
+TEST_F(DramaTowerTest, SampledEosIsNeverResampledAndCodeIdsStayInRange) {
   layers::DramaSamplingOptions options;
   options.top_k = 1;
   options.top_p = 1;
@@ -253,9 +249,7 @@ TEST(DramaTowerTest, SampledEosIsNeverResampledAndCodeIdsStayInRange) {
   }
 }
 
-TEST(DramaTowerTest, RepetitionResamplesSemanticOnceWithinLastSixteenTokens) {
-  TinyTowerModel model;
-  layers::DramaTower tower(model, "tower", config());
+TEST_F(DramaTowerTest, RepetitionResamplesSemanticOnceWithinLastSixteenTokens) {
   layers::DramaSamplingOptions options;
   options.temperature = 1;
   options.top_k = 1;
@@ -289,9 +283,7 @@ TEST(DramaTowerTest, RepetitionResamplesSemanticOnceWithinLastSixteenTokens) {
   }
 }
 
-TEST(DramaTowerTest, ResidualCodesAreSampledAndRequestSeedsReproduceFrames) {
-  TinyTowerModel model;
-  layers::DramaTower tower(model, "tower", config());
+TEST_F(DramaTowerTest, ResidualCodesAreSampledAndRequestSeedsReproduceFrames) {
   layers::DramaSamplingOptions options;
   options.temperature = 1;
   options.top_k = 3;
@@ -318,7 +310,7 @@ TEST(DramaTowerTest, ResidualCodesAreSampledAndRequestSeedsReproduceFrames) {
   EXPECT_GT(residual_codes.size(), 1);
 }
 
-TEST(DramaTowerTest, SamplingRejectsInvalidOptionsAndNonfiniteLogits) {
+TEST_F(DramaTowerTest, SamplingRejectsInvalidOptionsAndNonfiniteLogits) {
   std::mt19937_64 rng(0);
   layers::DramaSamplingOptions options;
   options.temperature = 0;

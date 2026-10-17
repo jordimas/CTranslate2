@@ -5,6 +5,7 @@
 namespace ctranslate2 {
   namespace layers {
 
+    // Expands the time resolution of codec latents before waveform decoding.
     // Offline CPU float32 latent upsampling after Fish DAC's post transformer.
     // Each block: transpose k2/s2 -> causal ConvNeXt. Input/output [1,C,T].
     // Parameters are materialized float32, held by the model for layer lifetime.
@@ -15,6 +16,7 @@ namespace ctranslate2 {
       void operator()(const StorageView& input, StorageView& output) const;
 
     private:
+      // Combines temporal upsampling with a causal ConvNeXt block.
       struct Block {
         Block(const models::Model& model, const std::string& scope);
         Dense pw1, pw2;

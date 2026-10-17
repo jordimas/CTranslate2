@@ -5,6 +5,7 @@
 namespace ctranslate2 {
   namespace ops {
 
+    // Updates recurrent attention memory and reads it for each query.
     // CPU float32 recurrent gated-delta update. Inputs are contiguous:
     //   query, key: [batch, time, key_heads, key_dim]
     //   value: [batch, time, value_heads, value_dim]

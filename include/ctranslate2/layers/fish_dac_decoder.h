@@ -6,6 +6,7 @@
 #include "fish_dac.h"
 
 namespace ctranslate2 { namespace layers {
+  // Decodes discrete audio codebook tokens into a complete waveform.
   // Complete offline decoder-only graph, using independently converted official
   // weights. Output CPU float32 [1,1,2048*T] at 44100 Hz; no delay trimming.
   class FishDACDecoder {

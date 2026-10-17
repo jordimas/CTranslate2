@@ -6,6 +6,7 @@
 namespace ctranslate2 {
   namespace layers {
 
+    // Routes each token through selected experts and combines their outputs.
     // CPU float32 activation baseline: [rows, hidden] -> [rows, hidden].
     // Computes only selected routed experts, plus a sigmoid-gated shared expert.
     // Model variables must outlive this layer and remain unchanged. Requires
@@ -21,6 +22,7 @@ namespace ctranslate2 {
       void operator()(const StorageView& input, StorageView& output) const;
 
     private:
+      // Applies a gated feed-forward network for one routed or shared expert.
       struct Expert {
         Expert(const models::Model& model, const std::string& scope);
         void operator()(const StorageView& input, StorageView& output) const;

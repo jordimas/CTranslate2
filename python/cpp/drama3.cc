@@ -2,12 +2,6 @@
 #include <pybind11/numpy.h>
 #include <ctranslate2/models/drama3.h>
 
-// Older pybind11 can silently allocate rank-one NumPy 2 arrays with stride 0,
-// exposing the first audio sample repeatedly despite a correct native buffer.
-#if PYBIND11_VERSION_HEX < 0x020C0000
-#error "Drama3 requires pybind11 >= 2.12 for NumPy 2 compatible audio arrays"
-#endif
-
 namespace ctranslate2 { namespace python {
   void register_drama3(py::module& m) {
     py::class_<models::Drama3>(m,"Drama3")

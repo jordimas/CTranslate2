@@ -6,6 +6,7 @@
 namespace ctranslate2 {
   namespace layers {
 
+    // Controls temperature and candidate filtering during token sampling.
     struct DramaSamplingOptions {
       float temperature = .8f;
       float top_p = .8f;
@@ -20,6 +21,7 @@ namespace ctranslate2 {
                                const DramaSamplingOptions& options,
                                std::mt19937_64& rng);
 
+    // Configures audio codebooks, tower layers, and semantic token boundaries.
     struct DramaTowerConfig {
       GatedSelfAttentionConfig attention{0, 0, 0, 0};
       dim_t num_codebooks = 10;
@@ -29,12 +31,14 @@ namespace ctranslate2 {
       int32_t semantic_begin = 0, semantic_end = 0, eos_id = 0;
     };
 
+    // Retains attention caches across audio frame generation steps.
     struct DramaTowerState {
       std::vector<GatedSelfAttentionCache> shared;
       std::vector<GatedSelfAttentionCache> residual;
       dim_t length = 0, capacity = 0;
     };
 
+    // Predicts audio codebook tokens from backbone outputs and preceding audio frames.
     // Native batch-one CPU float32 tower with INT32 frames [T,1+num_codebooks].
     // Frame columns are [main token,code0,...]. Weights/model must outlive layer;
     // converted projection matrices remain unpacked (Dense supports INT8).
@@ -63,6 +67,7 @@ namespace ctranslate2 {
                          StorageView& next_frame) const;
 
     private:
+      // Implements one gated-attention and feed-forward block in the audio tower.
       struct TowerLayer;
       void validate_frames(const StorageView& frames, dim_t rows) const;
       void validate_hidden(const StorageView& hidden) const;

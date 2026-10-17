@@ -2,8 +2,10 @@ import abc
 import argparse
 import gc
 import itertools
+import json
 import os
 
+from pathlib import Path
 from typing import List, Optional
 
 import numpy as np
@@ -102,6 +104,52 @@ class TransformersConverter(Converter):
         self._revision = revision
         self._low_cpu_mem_usage = low_cpu_mem_usage
         self._trust_remote_code = trust_remote_code
+
+    def _get_drama3_converter(self):
+        # Fish Speech checkpoints are not Transformers AutoModel classes, but
+        # can still use this converter's public API and command-line interface.
+        path = Path(self._model_name_or_path)
+        config_path = path / "config.json"
+        if not config_path.is_file():
+            return None
+        with config_path.open(encoding="utf-8") as config_file:
+            config = json.load(config_file)
+        if config.get("model_type") != "fish_omni":
+            return None
+        if (
+            self._activation_scales
+            or self._copy_files
+            or self._load_as_float16
+            or self._low_cpu_mem_usage
+        ):
+            raise ValueError(
+                "Drama 3 does not support activation_scales, copy_files, "
+                "load_as_float16, or low_cpu_mem_usage"
+            )
+        from ctranslate2.converters.drama3 import Drama3Converter
+
+        return Drama3Converter(path)
+
+    def inspect(self, quantization=None):
+        """Audit a local Drama 3 checkpoint without loading weight payloads."""
+        converter = self._get_drama3_converter()
+        if converter is None:
+            raise ValueError(
+                "Dry-run inspection is only supported for local Drama 3 checkpoints"
+            )
+        return converter.inspect(quantization)
+
+    def convert(self, output_dir, vmap=None, quantization=None, force=False):
+        converter = self._get_drama3_converter()
+        if converter is None:
+            return super().convert(
+                output_dir, vmap=vmap, quantization=quantization, force=force
+            )
+        output = converter.convert(
+            output_dir, vmap=vmap, quantization=quantization, force=force
+        )
+        self.conversion_report = converter.conversion_report
+        return output
 
     def _load(self):
         with torch.no_grad():
@@ -3714,6 +3762,14 @@ def main():
     )
 
     Converter.declare_arguments(parser)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Audit a local Drama 3 checkpoint without loading weights.",
+    )
+    parser.add_argument(
+        "--report", type=Path, help="Write a Drama 3 conversion report as JSON."
+    )
     args = parser.parse_args()
     converter = TransformersConverter(
         args.model,
@@ -3724,7 +3780,24 @@ def main():
         low_cpu_mem_usage=args.low_cpu_mem_usage,
         trust_remote_code=args.trust_remote_code,
     )
-    converter.convert_from_args(args)
+    if args.dry_run or args.report:
+        if converter._get_drama3_converter() is None:
+            parser.error("--dry-run and --report require a local Drama 3 checkpoint")
+    if args.dry_run:
+        if args.vocab_mapping:
+            parser.error("Drama 3 does not support vocabulary mapping")
+        report = converter.inspect(args.quantization)
+        print(
+            json.dumps(
+                {key: value for key, value in report.items() if key != "mappings"},
+                indent=2,
+            )
+        )
+    else:
+        converter.convert_from_args(args)
+        report = getattr(converter, "conversion_report", None)
+    if args.report:
+        args.report.write_text(json.dumps(report, indent=2) + "\n")
 
 
 if __name__ == "__main__":

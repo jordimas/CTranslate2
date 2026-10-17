@@ -55,6 +55,8 @@ elif sys.platform == "linux":
     cflags.append("-fPIC")
     ldflags.append("-Wl,-rpath,/usr/local/lib64:/usr/local/lib")
 
+package_data["ctranslate2.converters"] = ["drama3_codec_manifest.json"]
+
 ctranslate2_module = Extension(
     "ctranslate2._ext",
     sources=glob.glob(os.path.join("cpp", "*.cc")),

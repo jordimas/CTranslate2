@@ -5,6 +5,7 @@
 namespace ctranslate2 {
   namespace ops {
 
+    // Selects the highest-scoring experts and normalizes their routing weights.
     // CPU float32 router logits [rows, experts] -> int32 expert_indices
     // and float32 routing_weights [rows, k]. Experts are sorted by descending
     // logit, breaking ties by ascending expert id. Weights are softmax over

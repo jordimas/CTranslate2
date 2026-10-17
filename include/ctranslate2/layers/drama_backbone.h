@@ -5,6 +5,7 @@
 namespace ctranslate2 {
   namespace layers {
 
+    // Configures the backbone blocks, context limit, and output token candidates.
     struct DramaBackboneConfig {
       std::vector<DramaBlockConfig> layers;
       float norm_epsilon = 1e-6f;
@@ -15,12 +16,14 @@ namespace ctranslate2 {
       std::vector<int32_t> lm_candidates;
     };
 
+    // Retains sequence state across all backbone blocks.
     struct DramaBackboneState {
       std::vector<DramaBlockState> layers;
       dim_t length = 0;
       dim_t capacity = 0;
     };
 
+    // Runs the Drama3 backbone to produce hidden states and next-token logits.
     // CPU float32 batch-one backbone over already embedded [time,hidden] rows.
     // Outputs final normalized hidden rows and full-vocabulary float32 logits.
     // Model variables must outlive this container; loading disables prepacking.

@@ -5,6 +5,7 @@
 namespace ctranslate2 {
   namespace layers {
 
+    // Mixes token information through recurrent linear attention and output gating.
     // Batch-one CPU float32 GatedDeltaNet. Dense handles supported quantized
     // projection weights; raw /weight variables and model lifetime are required.
     // State/history belong to the caller; no layer-internal sequence cache.

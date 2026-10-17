@@ -16,6 +16,7 @@ namespace ctranslate2 {
                                                    dim_t left_max_position,
                                                    dim_t right_max_position);
 
+    // Configures attention heads, rotary positions, and query/key normalization.
     struct GatedSelfAttentionConfig {
       dim_t num_heads;
       dim_t num_kv_heads;
@@ -27,6 +28,7 @@ namespace ctranslate2 {
       bool zero_centered_qk_norm = true;
     };
 
+    // Retains keys and values from earlier tokens for causal decoding.
     // Caller allocates CPU float32 [capacity, kv_heads, head_dim] keys/values.
     // Only [0,length) is initialized/read; reset length=0 to start a sequence.
     struct GatedSelfAttentionCache {
@@ -35,6 +37,7 @@ namespace ctranslate2 {
       dim_t length = 0;
     };
 
+    // Applies causal self-attention with a learned sigmoid gate on each output feature.
     // Batch-one causal attention with CPU float32 [time, hidden] activations.
     // Model must outlive this layer and keep unpacked matrices unchanged.
     // q_proj rows are per-head [query_d | gate_d]; k/v/o use ordinary Dense

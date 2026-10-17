@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 namespace ctranslate2 { namespace models {
+  // Loads Drama3 checkpoint weights and enforces their inference precision policy.
   // Resident CPU checkpoint; inference layers refer to unpacked expert weights.
   class Drama3Model : public Model {
   protected:
@@ -15,6 +16,7 @@ namespace ctranslate2 { namespace models {
     std::unique_ptr<Model> clone() const override;
   };
 
+  // Reports time spent in the native speech generation stages.
   // Wall-clock seconds from steady_clock. Total excludes waiting for the
   // request mutex and Python output copying; stage sums exclude bookkeeping.
   struct Drama3Timings {
@@ -25,6 +27,7 @@ namespace ctranslate2 { namespace models {
     double total_native_seconds = 0;
   };
 
+  // Returns generated audio, codebook tokens, completion status, and timings.
   struct Drama3Result {
     StorageView audio;
     StorageView codes;
@@ -33,6 +36,7 @@ namespace ctranslate2 { namespace models {
     Drama3Timings timings;
   };
 
+  // Coordinates prompt processing, audio token generation, and waveform decoding.
   // Single resident CPU model; sequential requests, independent per-call state.
   // Seeded sampling is the default; greedy decoding is available for diagnosis.
   class Drama3 {
@@ -45,6 +49,7 @@ namespace ctranslate2 { namespace models {
                           dim_t top_k = 30, float top_p = .8f, uint64_t seed = 0,
                           bool greedy = false);
   private:
+    // Owns the model components and request synchronization behind the public API.
     struct Impl;
     std::unique_ptr<Impl> _impl;
   };

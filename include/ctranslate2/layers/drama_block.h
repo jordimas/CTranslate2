@@ -9,6 +9,7 @@ namespace ctranslate2 {
 
     enum class DramaMixerKind { LinearAttention, FullAttention };
 
+    // Selects the attention mixer and expert routing dimensions for one block.
     struct DramaBlockConfig {
       DramaMixerKind kind = DramaMixerKind::LinearAttention;
       float norm_epsilon = 1e-6f;
@@ -18,12 +19,14 @@ namespace ctranslate2 {
       GatedSelfAttentionConfig attention{0, 0, 0, 0};
     };
 
+    // Retains recurrent or attention state for one backbone block.
     struct DramaBlockState {
       StorageView recurrent;
       StorageView history;
       GatedSelfAttentionCache attention;
     };
 
+    // Combines an attention mixer and sparse experts with normalization and residuals.
     // CPU float32 batch-one [time,hidden] backbone block. Model variables must
     // outlive this layer and remain unchanged; weight prepacking is disabled.
     // Each call advances caller-owned sequence state. On runtime failure after

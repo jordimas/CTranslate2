@@ -4,6 +4,7 @@
 
 namespace ctranslate2 {
   namespace layers {
+    // Configures the codec transformer depth, attention window, and normalization.
     struct FishDACTransformerConfig {
       dim_t heads = 16;
       dim_t layers = 8;
@@ -12,6 +13,7 @@ namespace ctranslate2 {
       float rope_theta = 10000.f;
     };
 
+    // Refines reconstructed codebook latents before temporal upsampling.
     // Offline CPU float32 codec post-transformer. Input/output [1,C,T].
     // Direct-gamma pre-RMSNorm -> packed contiguous Q,K,V projections -> adjacent
     // full-head RoPE -> causal attention over [t-window+1,t] -> output projection
@@ -27,6 +29,7 @@ namespace ctranslate2 {
                          FishDACTransformerConfig config = {});
       void operator()(const StorageView& input, StorageView& output) const;
     private:
+      // Groups the attention and feed-forward parameters of one codec transformer block.
       struct Block {
         const StorageView *attention_norm, *ffn_norm, *attention_scale, *ffn_scale;
         std::unique_ptr<Dense> qkv, out, gate, down, up;

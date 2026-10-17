@@ -171,6 +171,10 @@ class LayerSpec(FrozenAttr, metaclass=FrozenMeta):
         # When a variable is duplicated, keep the version that comes first in
         # the alphabetical order and alias the others.
         variables = self.variables(ordered=True)
+        quantizable = {}
+        for name, _ in variables:
+            scope, attr_name = _parent_scope(name)
+            quantizable[name] = hasattr(index_spec(self, scope), attr_name + "_scale")
         for name, value in reversed(variables):
             for other_name, other_value in variables:
                 if name == other_name:
@@ -180,6 +184,8 @@ class LayerSpec(FrozenAttr, metaclass=FrozenMeta):
                 scope, attr_name = _parent_scope(name)
                 if (
                     not value.is_scalar()
+                    # Equal values can differ after applying their precision policies.
+                    and quantizable[name] == quantizable[other_name]
                     and value.equal(other_value)
                     and attr_name not in SKIP_CREATING_ALIAS
                 ):

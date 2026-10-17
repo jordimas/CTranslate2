@@ -3,21 +3,22 @@
 
 PyTorch is a conversion-only optional dependency. Safe loading requires
 weights_only=True and mmap=True; there is no unsafe pickle fallback. Weights are
-folded and emitted one bounded row chunk at a time. This utility supplies tensor
+folded in row chunks and retained as FLOAT32 arrays in memory. This utility supplies tensor
 conversion, not a runnable model graph. audio.cpp and GGML are never imported.
 
 Mapping: strip codec_weights/, replace dots by slashes, prepend --scope (codec).
 Example: decoder.model.0.conv.weight -> codec/decoder/model/0/conv/weight.
-write_codec_tensors can share an existing writer with a full model conversion.
+load_codec_tensors supplies arrays for standard ModelSpec conversion.
 """
 import argparse
 from collections import Counter
-import importlib.util
 import json
 import math
 from pathlib import Path
 
 import numpy as np
+
+from ctranslate2.specs.drama3_spec import Drama3Spec
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -137,20 +138,21 @@ def state_schema(state):
                      for name, value in state.items()}}
 
 
-def write_codec_tensors(state, writer, manifest=None, scope="codec", chunk_rows=32):
-    """Emit decoder tensors into an existing writer; does not finish it.
-
-    The caller must declare the complete variable count when constructing the
-    writer. The returned plan contains no arrays and can be kept as an audit.
-    """
+def load_codec_tensors(state, manifest=None, scope="codec", chunk_rows=32):
+    """Load decoder weights as whole FLOAT32 arrays for standard ModelSpec."""
     if type(chunk_rows) is not int or chunk_rows < 1:
         raise ValueError("chunk_rows must be positive")
     manifest = load_manifest() if manifest is None else manifest
     plan = conversion_plan(state_schema(state), manifest, scope)
+    tensors = {}
     for item in plan:
-        writer.write_tensor(item["target"], item["shape"], "float32",
-                            tensor_chunks(state, item, chunk_rows))
-    return plan
+        value = np.empty(item["shape"], dtype=np.float32)
+        start = 0
+        for chunk in tensor_chunks(state, item, chunk_rows):
+            value[start:start + len(chunk)] = chunk
+            start += len(chunk)
+        tensors[item["target"]] = value
+    return tensors
 
 
 def load_checkpoint(path):
@@ -161,13 +163,6 @@ def load_checkpoint(path):
         raise ValueError("expected a flat tensor-only codec state dictionary")
     return state
 
-
-def load_writer():
-    path = ROOT / "python/ctranslate2/converters/drama3_writer.py"
-    spec = importlib.util.spec_from_file_location("drama3_writer", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.StreamingModelWriter
 
 
 def main():
@@ -192,9 +187,11 @@ def main():
         result = audit_schema(schema, manifest, args.scope)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
-            with load_writer()(args.output, args.model_name, 1, result["parameter_count"]) as writer:
-                write_codec_tensors(state, writer, manifest, args.scope, args.chunk_rows)
-                writer.finish()
+            model = Drama3Spec(load_codec_tensors(state, manifest, args.scope, args.chunk_rows),
+                               model_name=args.model_name)
+            model.validate()
+            model.optimize(quantization="float32")
+            model._serialize(str(args.output))
             result.update(output=str(args.output), model_name=args.model_name,
                           output_bytes=args.output.stat().st_size,
                           limitation="Variable fixture only; native codec graph still required")

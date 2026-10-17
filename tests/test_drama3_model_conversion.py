@@ -30,17 +30,25 @@ def shard(path, tensors):
     path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + data)
 
 
-class Recorder:
-    def __init__(self):
-        self.values = {}
-        self.max_rows = 0
+def optimized_variables(variables, quantization="int8_float32"):
+    spec = converter.Drama3Spec(variables)
+    spec.validate()
+    spec.optimize(quantization=quantization)
+    values = spec.variables()
 
-    def write_tensor(self, name, shape, dtype, chunks):
-        arrays = []
-        for chunk in chunks:
-            arrays.append(chunk.copy().reshape(-1))
-            self.max_rows = max(self.max_rows, chunk.shape[0])
-        self.values[name] = np.concatenate(arrays).reshape(shape)
+    def resolve(name):
+        value = values[name]
+        return resolve(value) if isinstance(value, str) else value.numpy()
+
+    return {name: resolve(name) for name in values}
+
+
+def expected_int8(values):
+    # Independent per-row symmetric INT8 expectation, including zero rows.
+    maxima = np.max(np.abs(values), axis=1)
+    maxima[maxima == 0] = 127
+    scales = np.float32(127) / maxima
+    return np.rint(values * scales[:, None]).astype(np.int8), scales
 
 
 class DramaModelConversionTest(unittest.TestCase):
@@ -81,14 +89,16 @@ class DramaModelConversionTest(unittest.TestCase):
             self.assertTrue(all(len(chunk) <= 3 for chunk in chunks))
             np.testing.assert_array_equal(np.concatenate(chunks), original[rows])
         metadata = {name: {**reader.tensors[name], "shard": path.name}}
-        plan = converter.build_plan(metadata, config())
+        plan = converter.build_plan(metadata, config(), "all_matrices_int8")
         self.assertEqual([item["shape"] for item in plan], [[8, 3], [2, 3], [2, 3]])
-        output = Recorder()
-        converter.write_model_tensors(output, plan, {path.name: reader}, config(), chunk_rows=3)
+        loaded, _ = converter.load_model_tensors(plan, {path.name: reader}, config(), chunk_rows=3)
         prefix = "tower/shared_layers_0/transformer_layer/attention/"
-        quantized, scales = converter.QUANTIZATION.quantize_int8_rows(original[[0, 1, 4, 5, 2, 3, 6, 7]])
-        np.testing.assert_array_equal(output.values[prefix + "q_proj/weight"], quantized)
-        np.testing.assert_array_equal(output.values[prefix + "q_proj/weight_scale"], scales)
+        np.testing.assert_array_equal(loaded[prefix + "q_proj/weight"], original[[0, 1, 4, 5, 2, 3, 6, 7]])
+        output = optimized_variables(loaded)
+        prefix = "tower/shared_layers_0/transformer_layer/attention/"
+        quantized, scales = expected_int8(original[[0, 1, 4, 5, 2, 3, 6, 7]])
+        np.testing.assert_array_equal(output[prefix + "q_proj/weight"], quantized)
+        np.testing.assert_array_equal(output[prefix + "q_proj/weight_scale"], scales)
 
     def test_cross_shard_fp8_scales_are_explicit_and_applied_before_int8(self):
         name = "model.language_model.layers.0.mlp.experts.0.gate_proj.weight"
@@ -101,13 +111,13 @@ class DramaModelConversionTest(unittest.TestCase):
         tensors = {n: {**t, "shard": p} for p, r in readers.items() for n, t in r.tensors.items()}
         plan = converter.build_plan(tensors, config())
         self.assertEqual(plan[0]["scale_shard"], scale_path.name)
-        output = Recorder()
-        converter.write_model_tensors(output, plan, readers, config(), chunk_rows=1)
+        loaded, _ = converter.load_model_tensors(plan, readers, config(), chunk_rows=1)
+        output = optimized_variables(loaded)
         expected = np.repeat(np.repeat(scales, 2, axis=0), 2, axis=1)
-        quantized, target_scales = converter.QUANTIZATION.quantize_int8_rows(expected)
+        quantized, target_scales = expected_int8(expected)
         target = "backbone/layers_0/mlp/experts_0/gate_proj/weight"
-        np.testing.assert_array_equal(output.values[target], quantized)
-        np.testing.assert_array_equal(output.values[target + "_scale"], target_scales)
+        np.testing.assert_array_equal(output[target], quantized)
+        np.testing.assert_array_equal(output[target + "_scale"], target_scales)
 
     def test_missing_or_wrong_source_scale_rejected(self):
         name = "lm_head.weight"
@@ -128,11 +138,25 @@ class DramaModelConversionTest(unittest.TestCase):
         shard(path, {name: (values, "F32")})
         reader = converter.READERS.SafeTensorMatrixReader(path)
         metadata = {name: {**reader.tensors[name], "shard": path.name}}
-        output = Recorder()
         plan = converter.build_plan(metadata, config())
         self.assertEqual(plan[0]["dtype"], "float32")
-        converter.write_model_tensors(output, plan, {path.name: reader}, config())
-        np.testing.assert_array_equal(output.values["backbone/layers_0/linear_attn/norm/weight"], values)
+        output, _ = converter.load_model_tensors(plan, {path.name: reader}, config())
+        np.testing.assert_array_equal(output["backbone/layers_0/linear_attn/norm/weight"], values)
+
+    def test_depthwise_convolution_preserves_rank_and_flat_chunk_contents(self):
+        name = "model.language_model.layers.0.linear_attn.conv1d.weight"
+        original = np.arange(24, dtype=np.float32).reshape(6, 1, 4)
+        path = self.root / "convolution.safetensors"
+        shard(path, {name: (original, "F32")})
+        reader = converter.READERS.SafeTensorMatrixReader(path)
+        metadata = {name: {**reader.tensors[name], "shard": path.name}}
+        plan = converter.build_plan(metadata, config())
+        loaded, _ = converter.load_model_tensors(plan, {path.name: reader}, config())
+        target = "backbone/layers_0/linear_attn/conv1d/weight"
+        np.testing.assert_array_equal(loaded[target], original)
+        optimized = optimized_variables(loaded)
+        np.testing.assert_array_equal(optimized[target], original)
+        self.assertNotIn(target + "_scale", optimized)
 
     def test_index_exact_coverage_and_path_guards(self):
         name = "lm_head.weight"
@@ -192,9 +216,10 @@ class DramaModelConversionTest(unittest.TestCase):
         self.assertEqual(wrapped.zeroed_rows, 1)
         list(wrapped.iter_matrix_rows("w"))
         self.assertEqual(wrapped.zeroed_rows, 1)  # second quantizer pass is not double-counted
-        quantized, scales = converter.QUANTIZATION.quantize_int8_rows(transformed)
-        self.assertTrue(np.isfinite(scales).all())
-        np.testing.assert_array_equal(quantized[0], [0, 0])
+        output = optimized_variables({"test/weight": transformed,
+                                      "test/weight_scale": converter.model_spec.OPTIONAL})
+        self.assertTrue(np.isfinite(output["test/weight_scale"]).all())
+        np.testing.assert_array_equal(output["test/weight"][0], [0, 0])
 
 
 if __name__ == "__main__":

@@ -20,8 +20,9 @@ class MixedPrecisionConversionTest(unittest.TestCase):
                  'model.language_model.embed_tokens.weight', 'lm_head.weight',
                  'audio_decoder_mtp.heads.0.weight']
         tensors = {name: {'shape': (2, 2), 'dtype': 'F32', 'shard': 'a'} for name in names}
-        default = c.build_plan(tensors, base.config())
+        default = c.build_plan(tensors, base.config(), "all_matrices_int8")
         mixed = c.build_plan(tensors, base.config(), POLICY)
+        self.assertEqual(c.build_plan(tensors, base.config()), mixed)
         self.assertTrue(all(x['dtype'] == 'int8' for x in default))
         for item in mixed:
             self.assertEqual(item['dtype'], 'int8' if '.experts.3.' in item['source'] else 'float32')
@@ -40,14 +41,14 @@ class MixedPrecisionConversionTest(unittest.TestCase):
             reader = c.READERS.SafeTensorMatrixReader(path)
             tensors = {name: {**metadata, 'shard': path.name} for name, metadata in reader.tensors.items()}
             plan = c.build_plan(tensors, base.config(), POLICY)
-            output = base.Recorder()
-            stats = c.write_model_tensors(output, plan, {path.name: reader}, base.config(), chunk_rows=3)
+            loaded, stats = c.load_model_tensors(plan, {path.name: reader}, base.config(), chunk_rows=3)
+            output = base.optimized_variables(loaded)
             prefix = 'tower/shared_layers_0/transformer_layer/attention/'
-            np.testing.assert_array_equal(output.values[prefix+'q_proj/weight'], original[[0,1,4,5,2,3,6,7]])
-            np.testing.assert_array_equal(output.values[prefix+'k_proj/weight'], original[[8,9]])
-            np.testing.assert_array_equal(output.values[prefix+'v_proj/weight'], original[[10,11]])
-            np.testing.assert_array_equal(output.values['backbone/layers_0/linear_attn/in_proj_qkv/weight'], tiny)
-            self.assertFalse(any(name.endswith('_scale') for name in output.values))
+            np.testing.assert_array_equal(output[prefix+'q_proj/weight'], original[[0,1,4,5,2,3,6,7]])
+            np.testing.assert_array_equal(output[prefix+'k_proj/weight'], original[[8,9]])
+            np.testing.assert_array_equal(output[prefix+'v_proj/weight'], original[[10,11]])
+            np.testing.assert_array_equal(output['backbone/layers_0/linear_attn/in_proj_qkv/weight'], tiny)
+            self.assertFalse(any(name.endswith('_scale') for name in output))
             self.assertEqual(stats['zeroed_rows'], 0)
 
     def test_fp8_sensitive_matrix_uses_original_cross_shard_block_scales(self):
@@ -56,14 +57,15 @@ class MixedPrecisionConversionTest(unittest.TestCase):
             name = 'lm_head.weight'; scale_name = name+'_scale_inv'
             weights, scales = root/'weights.safetensors', root/'scales.safetensors'
             base.shard(weights, {name: (np.full((4,4), 0x38, np.uint8), 'F8_E4M3FN')})
-            inverse = np.array([[.5,1],[2,4]], np.float32)
+            inverse = np.array([[.500123,1.000321],[2.00321,4.00213]], np.float32)
             base.shard(scales, {scale_name: (inverse, 'F32')})
             readers = {p.name:c.READERS.SafeTensorMatrixReader(p) for p in (weights,scales)}
             tensors = {n:{**t,'shard':p} for p,r in readers.items() for n,t in r.tensors.items()}
-            plan = c.build_plan(tensors, base.config(), POLICY); output = base.Recorder()
-            c.write_model_tensors(output, plan, readers, base.config(), chunk_rows=1)
-            np.testing.assert_array_equal(output.values['backbone/lm_head/weight'], np.repeat(np.repeat(inverse,2,0),2,1))
-            self.assertEqual(len(output.values),1)
+            plan = c.build_plan(tensors, base.config(), POLICY)
+            loaded, _ = c.load_model_tensors(plan, readers, base.config(), chunk_rows=1)
+            output = base.optimized_variables(loaded)
+            np.testing.assert_array_equal(output['backbone/lm_head/weight'], np.repeat(np.repeat(inverse,2,0),2,1))
+            self.assertEqual(len(output),1)
 
     def test_rejects_unknown_policy_before_reading_checkpoint_and_nonfinite_matrices(self):
         for policy in ('unsupported',None,False):

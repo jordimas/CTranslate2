@@ -19,19 +19,6 @@ def manifest(name="decoder.conv.weight", shape=(2, 1, 2)):
                          "expected_logical_shape": list(shape)}]}
 
 
-class RecordingWriter:
-    def __init__(self):
-        self.tensors = []
-        self.rows = []
-
-    def write_tensor(self, name, shape, dtype, chunks):
-        parts = []
-        for part in chunks:
-            self.rows.append(part.shape[0])
-            parts.append(part.copy())
-        self.tensors.append((name, shape, dtype, np.concatenate(parts)))
-
-
 class CodecConversionTest(unittest.TestCase):
     def test_independent_scalar_weight_norm(self):
         direction = np.array([[[3, 4]], [[0, -5]]], np.float32)
@@ -62,11 +49,11 @@ class CodecConversionTest(unittest.TestCase):
                         "decoder.conv.parametrizations.weight.original1")
                     state = {names[0]: g, names[1]: direction}
                     expected = np.array([[[6, 8]], [[0, -2]]], np.float32)
-                recorder = RecordingWriter()
-                plan = converter.write_codec_tensors(state, recorder, manifest(), chunk_rows=1)
-                self.assertEqual(plan[0]["target"], "codec/decoder/conv/weight")
-                self.assertEqual(recorder.rows, [1, 1])
-                np.testing.assert_array_equal(recorder.tensors[0][3], expected)
+                tensors = converter.load_codec_tensors(state, manifest(), chunk_rows=1)
+                self.assertEqual(list(tensors), ["codec/decoder/conv/weight"])
+                actual = tensors["codec/decoder/conv/weight"]
+                self.assertEqual(actual.dtype, np.float32)
+                np.testing.assert_array_equal(actual, expected)
 
     def test_shape_and_dtype_audit_guards(self):
         for state in ({"decoder.conv.weight": np.ones((2, 2), np.float32)},
@@ -98,18 +85,19 @@ class CodecConversionTest(unittest.TestCase):
         m = manifest("decoder.alpha", (1, 2, 1))
         m["tensors"].append({"required_for_inference": False, "source_name": "ignored"})
         state = {"decoder.alpha": np.array([[[.2], [-.3]]], np.float32)}
-        recorder = RecordingWriter()
-        converter.write_codec_tensors(state, recorder, m)
-        np.testing.assert_array_equal(recorder.tensors[0][3], state["decoder.alpha"])
-        self.assertEqual(len(recorder.tensors), 1)
+        tensors = converter.load_codec_tensors(state, m)
+        np.testing.assert_array_equal(tensors["codec/decoder/alpha"], state["decoder.alpha"])
+        self.assertEqual(len(tensors), 1)
 
     def test_ct2_binary_v6_fixture(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "model.bin"
             state = {"decoder.conv.weight": np.array([[[3, 4]], [[5, 6]]], np.float32)}
-            with converter.load_writer()(path, "Drama3CodecFixture", 1, 1) as writer:
-                converter.write_codec_tensors(state, writer, manifest(), chunk_rows=1)
-                writer.finish()
+            model = converter.Drama3Spec(converter.load_codec_tensors(state, manifest(), chunk_rows=1),
+                                         model_name="Drama3CodecFixture")
+            model.validate()
+            model.optimize(quantization="float32")
+            model.save(directory)
             data = memoryview(path.read_bytes())
             self.assertEqual(struct.unpack_from("<I", data)[0], 6)
             pos = 4

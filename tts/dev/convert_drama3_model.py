@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
-"""Bounded official Drama 3 -> CT2 binary-v6 converter (CPU layout version 1).
+"""Convert Drama3 using standard in-memory CTranslate2 model specifications.
 
-By default matrix weights become per-row INT8 plus multiplicative CT2 scales; vectors,
-depthwise convolutions and the decoder-only codec are float32. Source FP8 scales
-are explicit named tensors, independent of destination INT8 scales. Torch is
-used only for safe mmap conversion of codec.pth, never inference.
-The optional experts_int8_sensitive_float32 diagnostic policy keeps all matrices
-except routed experts in float32 directly from the official checkpoint.
-
-Use --dry-run --report plan.json to inspect header mappings without reading
-weight payloads. A completed package is published atomically without replacing
-an existing destination. Linux renameat2 or Windows no-replace rename is needed.
+Source FP8 weights are decoded directly to F32, without BF16 staging. All model
+and codec weights are retained before standard optimize() and save(). This
+requires more than 134 GiB RAM for the official checkpoint, plus overhead.
 """
 import argparse
 import ctypes
@@ -25,6 +18,9 @@ import shutil
 import tempfile
 
 import numpy as np
+
+from ctranslate2.specs import model_spec
+from ctranslate2.specs.drama3_spec import Drama3Spec
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -44,7 +40,6 @@ def helper(name, development=False):
 
 
 READERS = helper("drama3_weights")
-QUANTIZATION = helper("drama3_quantization")
 
 
 def unique_json(path):
@@ -164,7 +159,7 @@ def routed_expert_matrix(target):
     return re.fullmatch(r"backbone/layers_[0-9]+/mlp/experts_[0-9]+/(gate_proj|up_proj|down_proj)/weight", target) is not None
 
 
-def build_plan(tensors, config, quantization_policy="all_matrices_int8"):
+def build_plan(tensors, config, quantization_policy="experts_int8_sensitive_float32"):
     validate_quantization_policy(quantization_policy)
     audio = config["audio_decoder_config"]
     heads, kv_heads, head_dim = audio["n_head"], audio["n_local_heads"], audio["head_dim"]
@@ -276,9 +271,10 @@ class TinyRowReader:
             yield chunk
 
 
-def write_model_tensors(writer, plan, readers, config, chunk_rows=128):
+def load_model_tensors(plan, readers, config, chunk_rows=128):
+    """Populate F32 parameters and mark weights for standard INT8 optimization."""
     audio = config["audio_decoder_config"]
-    tiny_rows = []
+    variables, tiny_rows = {}, []
     for index, item in enumerate(plan):
         source = readers[item["shard"]]
         if item["tower_slice"]:
@@ -286,34 +282,42 @@ def write_model_tensors(writer, plan, readers, config, chunk_rows=128):
                                        audio["n_head"], audio["n_local_heads"], audio["head_dim"])
         if item["dtype"] == "int8":
             source = TinyRowReader(source)
-            try:
-                QUANTIZATION.write_int8_matrix(
-                    writer, source, item["source"], item["target"][:-len("/weight")],
-                    chunk_rows=chunk_rows, inverse_scale=item["inverse_scale"],
-                    scale_reader=readers[item["scale_shard"]] if item["scale_shard"] else None,
-                    block_size=config["quantization_config"]["weight_block_size"])
-            except (ValueError, RuntimeError) as error:
-                raise ValueError(f"{item['source']} -> {item['target']}: {error}") from error
-            if source.zeroed_rows:
-                tiny_rows.append({"source": item["source"], "target": item["target"],
-                                  "zeroed_rows": source.zeroed_rows,
-                                  "max_abs_perturbation": source.max_abs_perturbation})
-        elif len(item["shape"]) == 2:
-            # Read original BF16/F32 or explicitly dequantized official FP8.
-            # Never reconstruct sensitive weights from the existing INT8 model.
+            variables[item["target"] + "_scale"] = model_spec.OPTIONAL
+        if len(item["shape"]) == 2:
             chunks = source.iter_matrix_rows(
                 item["source"], chunk_rows=chunk_rows, inverse_scale=item["inverse_scale"],
                 scale_reader=readers[item["scale_shard"]] if item["scale_shard"] else None,
                 block_size=config["quantization_config"]["weight_block_size"])
-            writer.write_tensor(item["target"], item["shape"], "float32", finite_matrix_chunks(chunks))
+            chunks = finite_matrix_chunks(chunks)
         else:
-            writer.write_tensor(item["target"], item["shape"], "float32", float_chunks(source, item["source"]))
+            chunks = float_chunks(source, item["source"])
+        value = np.empty(item["shape"], dtype=np.float32)
+        flat = value.reshape(-1)
+        offset = 0
+        for chunk in chunks:
+            flat[offset:offset + chunk.size] = chunk.reshape(-1)
+            offset += chunk.size
+        variables[item["target"]] = value
+        if item["dtype"] == "int8" and source.zeroed_rows:
+            tiny_rows.append({"source": item["source"], "target": item["target"],
+                              "zeroed_rows": source.zeroed_rows,
+                              "max_abs_perturbation": source.max_abs_perturbation})
         if (index + 1) % 1000 == 0:
-            print(f"Converted {index + 1}/{len(plan)} model tensor mappings", flush=True)
-    return {"zeroed_rows": sum(item["zeroed_rows"] for item in tiny_rows),
-            "threshold_inclusive": float(TINY_ROW_LIMIT),
-            "max_abs_perturbation": max((item["max_abs_perturbation"] for item in tiny_rows), default=0.),
-            "sources": tiny_rows}
+            print(f"Loaded {index + 1}/{len(plan)} model tensors", flush=True)
+    return variables, {"zeroed_rows": sum(item["zeroed_rows"] for item in tiny_rows),
+                       "threshold_inclusive": float(TINY_ROW_LIMIT),
+                       "max_abs_perturbation": max((item["max_abs_perturbation"] for item in tiny_rows), default=0.),
+                       "sources": tiny_rows}
+
+
+def available_memory():
+    """Linux preflight; other platforms rely on their normal allocation errors."""
+    meminfo = Path("/proc/meminfo")
+    if meminfo.is_file():
+        for line in meminfo.read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) * 1024
+    return None
 
 
 def publish_directory(staging, destination):
@@ -335,8 +339,11 @@ def publish_directory(staging, destination):
 
 
 def convert(source, output, report=None, dry_run=False, chunk_rows=128,
-            source_revision=SOURCE_REVISION, quantization_policy="all_matrices_int8"):
+            source_revision=SOURCE_REVISION, quantization_policy="experts_int8_sensitive_float32",
+            quantization="int8_float32"):
     validate_quantization_policy(quantization_policy)
+    if quantization not in ("int8_float32", "float32"):
+        raise ValueError("quantization must be int8_float32 or float32")
     if type(chunk_rows) is not int or chunk_rows < 1:
         raise ValueError("chunk_rows must be positive")
     source, output = Path(source), Path(output)
@@ -348,6 +355,9 @@ def convert(source, output, report=None, dry_run=False, chunk_rows=128,
     source_file(source, "codec.pth")
     readers, tensors = inspect_shards(source)
     plan = build_plan(tensors, config, quantization_policy)
+    if quantization == "float32":
+        for item in plan:
+            item["dtype"] = "float32"
     codec = helper("convert_drama3_codec", development=True)
     codec_manifest = codec.load_manifest()
     codec_count = sum(t["required_for_inference"] for t in codec_manifest["tensors"])
@@ -356,7 +366,11 @@ def convert(source, output, report=None, dry_run=False, chunk_rows=128,
                         + (4 * item["shape"][0] if item["dtype"] == "int8" else 0) for item in plan)
     payload_bytes += sum(math.prod(t["expected_logical_shape"]) * 4
                          for t in codec_manifest["tensors"] if t["required_for_inference"])
-    result = {"model_name": "Drama3Spec", "ct2_layout_version": 1,
+    float32_bytes = sum(math.prod(item["shape"]) * 4 for item in plan)
+    float32_bytes += sum(math.prod(t["expected_logical_shape"]) * 4
+                         for t in codec_manifest["tensors"] if t["required_for_inference"])
+    result = {"estimated_float32_loading_bytes": float32_bytes, "quantization": quantization,
+              "model_name": "Drama3Spec", "ct2_layout_version": 1,
               "source_revision": source_revision, "source_shards": len(readers),
               "source_tensor_count": len(tensors), "model_mapping_count": len(plan),
               "codec_parameter_count": codec_count, "variable_count": count,
@@ -370,25 +384,33 @@ def convert(source, output, report=None, dry_run=False, chunk_rows=128,
         return result
     if os.path.lexists(output):
         raise FileExistsError(output)
+    available = available_memory()
+    if available is not None and float32_bytes + 2 * 1024**3 > available:
+        raise MemoryError(f"Standard F32 conversion needs at least {float32_bytes / 1024**3:.2f} GiB "
+                          f"for weights plus overhead; only {available / 1024**3:.2f} GiB is available. "
+                          "No weights were loaded; use a machine with more RAM.")
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix="." + output.name + ".", dir=output.parent))
     try:
         state = codec.load_checkpoint(source / "codec.pth")
         codec.conversion_plan(codec.state_schema(state), codec_manifest)
-        Writer = helper("drama3_writer").StreamingModelWriter
-        with Writer(staging / "model.bin", "Drama3Spec", 1, count) as writer:
-            result["tiny_row_zeroing"] = write_model_tensors(writer, plan, readers, config, chunk_rows)
-            codec.write_codec_tensors(state, writer, codec_manifest, chunk_rows=min(chunk_rows, 32))
-            writer.finish()
+        variables, result["tiny_row_zeroing"] = load_model_tensors(plan, readers, config, chunk_rows)
+        variables.update(codec.load_codec_tensors(state, codec_manifest, chunk_rows=min(chunk_rows, 32)))
+        del state
         package_config = {"model_type": "drama3", "ct2_layout_version": 1,
                           "source_config": config, "source_revision": source_revision,
                           "activation_dtype": "float32",
-                          "matrix_dtype": "int8" if quantization_policy == "all_matrices_int8" else "mixed",
+                          "matrix_dtype": "float32" if quantization == "float32" else
+                          ("int8" if quantization_policy == "all_matrices_int8" else "mixed"),
                           "quantization_policy": quantization_policy}
-        (staging / "config.json").write_text(json.dumps(package_config, indent=2) + "\n")
-        shutil.copy2(source / "config.json", staging / "source_config.json")
+        spec = Drama3Spec(variables, package_config)
+        del variables
+        spec.validate()
+        spec.optimize(quantization=quantization)
+        spec.register_file(source / "config.json", "source_config.json")
         for name in ASSETS:
-            shutil.copy2(source_file(source, name), staging / name)
+            spec.register_file(source_file(source, name))
+        spec.save(staging)
         result.update(output=str(output), output_bytes=(staging / "model.bin").stat().st_size)
         (staging / "conversion.json").write_text(json.dumps(result, indent=2) + "\n")
         publish_directory(staging, output)
@@ -407,15 +429,16 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--report", type=Path)
     parser.add_argument("--chunk-rows", type=int, default=128)
+    parser.add_argument("--quantization", choices=("int8_float32", "float32"), default="int8_float32")
     parser.add_argument("--source-revision", default=SOURCE_REVISION)
     parser.add_argument("--quantization-policy", choices=QUANTIZATION_POLICIES,
-                        default="all_matrices_int8",
+                        default="experts_int8_sensitive_float32",
                         help="optional sensitivity diagnostic: preserve non-routed matrices from original source as float32")
     args = parser.parse_args()
     try:
         result = convert(args.source, args.output, args.report, args.dry_run,
-                         args.chunk_rows, args.source_revision, args.quantization_policy)
-    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as error:
+                         args.chunk_rows, args.source_revision, args.quantization_policy, args.quantization)
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError, MemoryError) as error:
         parser.exit(1, f"Drama 3 conversion failed: {error}\n")
     print(json.dumps({key: value for key, value in result.items() if key != "mappings"}, indent=2))
 

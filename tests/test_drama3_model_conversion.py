@@ -9,6 +9,7 @@ import unittest
 import numpy as np
 
 from ctranslate2.converters import drama3 as converter
+from ctranslate2.converters.converter import publish_directory
 
 
 def config():
@@ -177,10 +178,10 @@ class DramaModelConversionTest(unittest.TestCase):
         (staging / "marker").write_text("complete")
         destination.mkdir()
         with self.assertRaises(FileExistsError):
-            converter.publish_directory(staging, destination)
+            publish_directory(staging, destination)
         self.assertTrue((staging / "marker").exists())
         destination.rmdir()
-        converter.publish_directory(staging, destination)
+        publish_directory(staging, destination)
         self.assertEqual((destination / "marker").read_text(), "complete")
         self.assertFalse(staging.exists())
 

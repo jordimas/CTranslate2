@@ -137,27 +137,30 @@ class TransformersConverter(Converter):
             )
         from ctranslate2.converters import drama3
 
-        return drama3.inspect_checkpoint(
+        self.conversion_report = drama3.inspect_checkpoint(
             path,
             quantization=quantization or "int8_float32",
-            **getattr(self, "_drama3_options", {}),
         )[-1]
+        return self.conversion_report
 
     def convert(self, output_dir, vmap=None, quantization=None, force=False):
         path = self._get_drama3_path()
-        if path is None:
-            return super().convert(
-                output_dir, vmap=vmap, quantization=quantization, force=force
-            )
-        from ctranslate2.converters import drama3
-
-        return drama3.convert_model(
-            self,
-            super().convert,
-            output_dir,
-            vmap=vmap,
-            quantization=quantization,
-            force=force,
+        self._atomic_conversion = path is not None
+        self.conversion_report = None
+        if path is not None:
+            output_dir = str(output_dir)
+            if vmap is not None:
+                raise ValueError("Drama 3 does not support vocabulary mapping")
+            quantization = quantization or "int8_float32"
+            if quantization not in ("int8_float32", "float32"):
+                raise ValueError("quantization must be int8_float32 or float32")
+            self._drama3_quantization = quantization
+            if path.resolve().is_relative_to(Path(output_dir).resolve()):
+                raise ValueError(
+                    "output directory must not contain the source checkpoint"
+                )
+        return super().convert(
+            output_dir, vmap=vmap, quantization=quantization, force=force
         )
 
     def _load(self):
@@ -168,7 +171,6 @@ class TransformersConverter(Converter):
             spec, self.conversion_report = drama3.load_spec(
                 path,
                 quantization=getattr(self, "_drama3_quantization", "int8_float32"),
-                **getattr(self, "_drama3_options", {}),
             )
             return spec
         with torch.no_grad():
@@ -3816,7 +3818,7 @@ def main():
         converter.convert_from_args(args)
         report = getattr(converter, "conversion_report", None)
     if args.report:
-        args.report.write_text(json.dumps(report, indent=2) + "\n")
+        converter.write_report(args.report)
 
 
 if __name__ == "__main__":

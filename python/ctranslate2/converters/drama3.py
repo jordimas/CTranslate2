@@ -4,20 +4,17 @@
 Source weights are decoded in F32; quantized routed experts are retained in
 BF16 until standard optimization. Sensitive tensors and codec weights stay F32.
 """
-import ctypes
-import errno
-import importlib
+
 import json
 import math
-import os
 import re
-import shutil
-import tempfile
 
 from pathlib import Path
 
 import numpy as np
 
+from ctranslate2.converters import drama3_codec as codec
+from ctranslate2.converters import drama3_weights as READERS
 from ctranslate2.specs import model_spec
 from ctranslate2.specs.drama3_spec import Drama3Spec
 
@@ -32,16 +29,6 @@ ASSETS = (
     "LICENSE",
     "README.md",
 )
-
-
-def helper(name, development=False):
-    # Keep the development helper names available to existing diagnostics.
-    if name == "convert_drama3_codec":
-        name = "drama3_codec"
-    return importlib.import_module("ctranslate2.converters." + name)
-
-
-READERS = helper("drama3_weights")
 
 
 def unique_json(path):
@@ -256,9 +243,11 @@ def build_plan(tensors, config, quantization_policy="experts_int8_sensitive_floa
                     prefix + kind + "/weight",
                     kind,
                     (
-                        2 * heads * head_dim
-                        if kind == "q_proj"
-                        else kv_heads * head_dim,
+                        (
+                            2 * heads * head_dim
+                            if kind == "q_proj"
+                            else kv_heads * head_dim
+                        ),
                         shape[1],
                     ),
                 )
@@ -309,9 +298,9 @@ def build_plan(tensors, config, quantization_policy="experts_int8_sensitive_floa
                     "shape": list(output_shape),
                     "dtype": "int8" if quantized else "float32",
                     "inverse_scale": inverse_scale,
-                    "scale_shard": tensors[inverse_scale]["shard"]
-                    if inverse_scale
-                    else None,
+                    "scale_shard": (
+                        tensors[inverse_scale]["shard"] if inverse_scale else None
+                    ),
                     "tower_slice": kind,
                 }
             )
@@ -400,9 +389,9 @@ def load_model_tensors(plan, readers, config, chunk_rows=128):
                 item["source"],
                 chunk_rows=chunk_rows,
                 inverse_scale=item["inverse_scale"],
-                scale_reader=readers[item["scale_shard"]]
-                if item["scale_shard"]
-                else None,
+                scale_reader=(
+                    readers[item["scale_shard"]] if item["scale_shard"] else None
+                ),
                 block_size=config["quantization_config"]["weight_block_size"],
             )
             chunks = finite_matrix_chunks(chunks)
@@ -446,42 +435,6 @@ def load_model_tensors(plan, readers, config, chunk_rows=128):
     }
 
 
-def available_memory():
-    """Linux preflight; other platforms rely on their normal allocation errors."""
-    meminfo = Path("/proc/meminfo")
-    if meminfo.is_file():
-        for line in meminfo.read_text().splitlines():
-            if line.startswith("MemAvailable:"):
-                return int(line.split()[1]) * 1024
-    return None
-
-
-def publish_directory(staging, destination):
-    """Atomic no-replace publication, including the existing-empty-dir case."""
-    if os.name == "nt":
-        os.rename(staging, destination)
-        return
-    libc = ctypes.CDLL(None, use_errno=True)
-    rename = getattr(libc, "renameat2", None)
-    if rename is None:
-        raise RuntimeError(
-            "atomic no-replace directory publication requires renameat2 on this platform"
-        )
-    rename.argtypes = [
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_uint,
-    ]
-    rename.restype = ctypes.c_int
-    if rename(-100, os.fsencode(staging), -100, os.fsencode(destination), 1):
-        code = ctypes.get_errno()
-        if code == errno.EEXIST:
-            raise FileExistsError(destination)
-        raise OSError(code, os.strerror(code), str(destination))
-
-
 def inspect_checkpoint(
     source,
     chunk_rows=128,
@@ -506,26 +459,20 @@ def inspect_checkpoint(
     if quantization == "float32":
         for item in plan:
             item["dtype"] = "float32"
-    codec = helper("convert_drama3_codec", development=True)
     codec_manifest = codec.load_manifest()
-    codec_count = sum(t["required_for_inference"] for t in codec_manifest["tensors"])
+    codec_tensors = [
+        t for t in codec_manifest["tensors"] if t["required_for_inference"]
+    ]
+    codec_count = len(codec_tensors)
+    codec_bytes = sum(math.prod(t["expected_logical_shape"]) * 4 for t in codec_tensors)
     count = sum(2 if item["dtype"] == "int8" else 1 for item in plan) + codec_count
     payload_bytes = sum(
         math.prod(item["shape"]) * (1 if item["dtype"] == "int8" else 4)
         + (4 * item["shape"][0] if item["dtype"] == "int8" else 0)
         for item in plan
     )
-    payload_bytes += sum(
-        math.prod(t["expected_logical_shape"]) * 4
-        for t in codec_manifest["tensors"]
-        if t["required_for_inference"]
-    )
-    float32_bytes = sum(math.prod(item["shape"]) * 4 for item in plan)
-    float32_bytes += sum(
-        math.prod(t["expected_logical_shape"]) * 4
-        for t in codec_manifest["tensors"]
-        if t["required_for_inference"]
-    )
+    payload_bytes += codec_bytes
+    float32_bytes = sum(math.prod(item["shape"]) * 4 for item in plan) + codec_bytes
     loading_bytes = float32_bytes - sum(
         math.prod(item["shape"]) * 2
         for item in plan
@@ -554,7 +501,7 @@ def inspect_checkpoint(
             for dtype in ("int8", "float32")
         },
     }
-    return config, readers, plan, codec, codec_manifest, result
+    return config, readers, plan, codec_manifest, result
 
 
 def load_spec(
@@ -566,17 +513,17 @@ def load_spec(
 ):
     """Load Drama3 weights into the standard model specification."""
     model_path = Path(model_path)
-    config, readers, plan, codec, manifest, result = inspect_checkpoint(
+    config, readers, plan, manifest, result = inspect_checkpoint(
         model_path, chunk_rows, source_revision, quantization_policy, quantization
     )
     state = codec.load_checkpoint(model_path / "codec.pth")
-    codec.conversion_plan(codec.state_schema(state), manifest)
+    codec_variables = codec.load_codec_tensors(
+        state, manifest, chunk_rows=min(chunk_rows, 32)
+    )
     variables, result["tiny_row_zeroing"] = load_model_tensors(
         plan, readers, config, chunk_rows
     )
-    variables.update(
-        codec.load_codec_tensors(state, manifest, chunk_rows=min(chunk_rows, 32))
-    )
+    variables.update(codec_variables)
     package_config = {
         "model_type": "drama3",
         "ct2_layout_version": 1,
@@ -595,71 +542,3 @@ def load_spec(
     for name in ASSETS:
         spec.register_file(source_file(model_path, name))
     return spec, dict(result, dry_run=False)
-
-
-def convert_model(
-    converter, standard_convert, output_dir, vmap=None, quantization=None, force=False
-):
-    """Publish a complete Drama3 package using the base Converter conversion flow."""
-    # Use Converter for validation, optimization and saving; publish only a
-    # complete package so failed conversions leave no partial destination.
-    if vmap is not None:
-        raise ValueError("Drama 3 does not support vocabulary mapping")
-    quantization = quantization or "int8_float32"
-    if quantization not in ("int8_float32", "float32"):
-        raise ValueError("quantization must be int8_float32 or float32")
-    converter._drama3_quantization = quantization
-    output = Path(output_dir)
-    if os.path.lexists(output) and not force:
-        raise FileExistsError(f"{output} already exists; use --force to overwrite")
-    if Path(converter._model_name_or_path).resolve().is_relative_to(output.resolve()):
-        raise ValueError("output directory must not contain the source checkpoint")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix="." + output.name + ".", dir=output.parent))
-    try:
-        standard_convert(str(staging), quantization=quantization, force=True)
-        converter.conversion_report.update(
-            output=str(output), output_bytes=(staging / "model.bin").stat().st_size
-        )
-        (staging / "conversion.json").write_text(
-            json.dumps(converter.conversion_report, indent=2) + "\n"
-        )
-        if force and os.path.lexists(output):
-            if output.is_symlink() or not output.is_dir():
-                raise ValueError("--force requires an existing regular directory")
-            shutil.rmtree(output)
-        publish_directory(staging, output)
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
-    return str(output_dir)
-
-
-def convert(
-    source,
-    output,
-    report=None,
-    dry_run=False,
-    chunk_rows=128,
-    source_revision=SOURCE_REVISION,
-    quantization_policy="experts_int8_sensitive_float32",
-    quantization="int8_float32",
-):
-    """Compatibility interface for development diagnostics."""
-    from ctranslate2.converters.transformers import TransformersConverter
-
-    validate_quantization_policy(quantization_policy)
-    converter = TransformersConverter(str(source))
-    converter._drama3_options = dict(
-        quantization_policy=quantization_policy,
-        chunk_rows=chunk_rows,
-        source_revision=source_revision,
-    )
-    if dry_run:
-        result = converter.inspect(quantization)
-    else:
-        converter.convert(str(output), quantization=quantization)
-        result = converter.conversion_report
-    if report:
-        Path(report).write_text(json.dumps(result, indent=2) + "\n")
-    return result

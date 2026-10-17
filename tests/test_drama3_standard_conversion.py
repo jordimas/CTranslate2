@@ -71,17 +71,18 @@ class StandardConversionTest(unittest.TestCase):
         (self.source / shard).write_bytes(struct.pack("<Q", len(encoded)) + encoded + data)
         (self.source / "model.safetensors.index.json").write_text(
             json.dumps({"weight_map": {name: shard for name in tensors}}))
-        codec = c.helper("convert_drama3_codec", development=True)
+        codec = c.codec
         manifest = {"tensors": [{"required_for_inference": True,
                                 "source_name": "codec_weights/decoder.weight",
                                 "expected_logical_shape": [1, 2]}]}
         self.codec = np.array([[.234567, -.345678]], np.float32)
         self.enterContext(patch.object(codec, "load_manifest", return_value=manifest))
         self.enterContext(patch.object(codec, "load_checkpoint", return_value={"decoder.weight": self.codec}))
-        self.enterContext(patch.object(c, "helper", return_value=codec))
 
     def test_standard_quantization_and_serialization_preserve_sensitive_weights(self):
-        result = c.convert(self.source, self.output)
+        converter = TransformersConverter(self.source)
+        converter.convert(str(self.output))
+        result = converter.conversion_report
         values = read_model(self.output / "model.bin")
         expert = "backbone/layers_0/mlp/experts_0/up_proj/weight"
         original = np.array([[1, -1], [.5, .25]], np.float32) * np.float32(1.0001)
@@ -108,21 +109,24 @@ class StandardConversionTest(unittest.TestCase):
         self.assertEqual(report["estimated_float32_loading_bytes"] - report["estimated_loading_bytes"], 8)
 
     def test_float32_conversion_preserves_scaled_fp8_without_quantization(self):
-        c.convert(self.source, self.output, quantization="float32")
+        TransformersConverter(self.source).convert(str(self.output), quantization="float32")
         values = read_model(self.output / "model.bin")
         expected = np.array([[1, -1], [.5, .25]], np.float32) * np.float32(1.0001)
         np.testing.assert_array_equal(values["backbone/layers_0/mlp/experts_0/up_proj/weight"], expected)
         self.assertFalse(any(name.endswith("_scale") for name in values))
 
-    def test_low_reported_memory_does_not_block_conversion(self):
-        with patch.object(c, "available_memory", return_value=1):
-            c.convert(self.source, self.output)
-        self.assertTrue((self.output / "model.bin").is_file())
+    def test_invalid_codec_is_rejected_before_loading_backbone(self):
+        with patch.object(c.codec, "conversion_plan", side_effect=ValueError("invalid codec")), \
+                patch.object(c, "load_model_tensors") as load:
+            with self.assertRaisesRegex(ValueError, "invalid codec"):
+                TransformersConverter(self.source).convert(str(self.output))
+        load.assert_not_called()
+        self.assertFalse(self.output.exists())
 
     def test_failure_removes_partial_package(self):
         with patch.object(c.Drama3Spec, "save", side_effect=RuntimeError("write failed")):
             with self.assertRaisesRegex(RuntimeError, "write failed"):
-                c.convert(self.source, self.output)
+                TransformersConverter(self.source).convert(str(self.output))
         self.assertFalse(self.output.exists())
         self.assertEqual(list(self.output.parent.glob(".converted.*")), [])
 

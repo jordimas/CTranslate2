@@ -1,11 +1,69 @@
 import abc
 import argparse
+import ctypes
+import errno
+import json
 import os
 import shutil
+import tempfile
 
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Optional
 
 from ctranslate2.specs.model_spec import ACCEPTED_MODEL_TYPES, ModelSpec
+
+
+def publish_directory(staging, destination):
+    """Atomic no-replace publication, including the existing-empty-dir case."""
+    if os.name == "nt":
+        os.rename(staging, destination)
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename = getattr(libc, "renameat2", None)
+    if rename is None:
+        raise RuntimeError(
+            "atomic no-replace directory publication requires renameat2 on this platform"
+        )
+    rename.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    rename.restype = ctypes.c_int
+    if rename(-100, os.fsencode(staging), -100, os.fsencode(destination), 1):
+        code = ctypes.get_errno()
+        if code == errno.EEXIST:
+            raise FileExistsError(destination)
+        raise OSError(code, os.strerror(code), str(destination))
+
+
+@contextmanager
+def _output_directory(output_dir, force=False, atomic=False):
+    """Stage atomic conversions; keep the existing flow for other converters."""
+    output = Path(output_dir)
+    staging = (
+        Path(tempfile.mkdtemp(prefix="." + output.name + ".", dir=output.parent))
+        if atomic
+        else output
+    )
+    try:
+        if not atomic:
+            if output.exists():
+                shutil.rmtree(output)
+            output.mkdir(parents=True)
+        yield staging
+        if atomic:
+            if force and os.path.lexists(output):
+                if output.is_symlink() or not output.is_dir():
+                    raise ValueError("--force requires an existing regular directory")
+                shutil.rmtree(output)
+            publish_directory(staging, output)
+    finally:
+        if atomic:
+            shutil.rmtree(staging, ignore_errors=True)
 
 
 class Converter(abc.ABC):
@@ -80,7 +138,14 @@ class Converter(abc.ABC):
           NotImplementedError: If the converter cannot convert this model to the
             CTranslate2 format.
         """
-        if os.path.exists(output_dir) and not force:
+        atomic = getattr(self, "_atomic_conversion", False)
+        if atomic:
+            Path(output_dir).parent.mkdir(parents=True, exist_ok=True)
+        if os.path.lexists(output_dir) and not force:
+            if atomic:
+                raise FileExistsError(
+                    f"{output_dir} already exists; use --force to overwrite"
+                )
             raise RuntimeError(
                 "output directory %s already exists, use --force to override"
                 % output_dir
@@ -97,12 +162,20 @@ class Converter(abc.ABC):
         model_spec.validate()
         model_spec.optimize(quantization=quantization)
 
-        # Create model directory.
-        if os.path.exists(output_dir):
-            shutil.rmtree(output_dir)
-        os.makedirs(output_dir)
-        model_spec.save(output_dir)
+        with _output_directory(output_dir, force=force, atomic=atomic) as staging:
+            model_spec.save(str(staging))
+            report = getattr(self, "conversion_report", None)
+            if report is not None:
+                report.update(
+                    output=str(output_dir),
+                    output_bytes=(staging / "model.bin").stat().st_size,
+                )
+                self.write_report(staging / "conversion.json")
         return output_dir
+
+    def write_report(self, path):
+        """Write the current inspection or conversion report as JSON."""
+        Path(path).write_text(json.dumps(self.conversion_report, indent=2) + "\n")
 
     @abc.abstractmethod
     def _load(self):

@@ -59,7 +59,7 @@ TEST(Conv1DDilationTest, ScalarReferenceWithGroupsPaddingAndStride) {
                            << " bias=" << with_bias);
               StorageView input({2, 4, length});
               StorageView weight({4, 4 / groups, 3});
-              StorageView bias({4});
+              StorageView bias(Shape{4});
               for (dim_t i = 0; i < input.size(); ++i)
                 input.data<float>()[i] = float(i % 17 - 8) / 7;
               for (dim_t i = 0; i < weight.size(); ++i)

@@ -52,7 +52,7 @@ namespace {
 TEST(Drama3BackboneParityTest, ActualGdnWeightsMatchIndependentFunctionalOracle) {
   const char* path = std::getenv("CT2_DRAMA3_BACKBONE_FIXTURE");
   if (!path)
-    GTEST_SKIP() << "Generate fixture with tts/dev/make_backbone_parity_fixture.py";
+    GTEST_SKIP() << "Set CT2_DRAMA3_BACKBONE_FIXTURE to an independent backbone fixture";
   const std::string directory(path);
   std::ifstream stream(directory + "/manifest.json");
   ASSERT_TRUE(stream.good());

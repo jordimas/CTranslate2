@@ -17,7 +17,7 @@ namespace {
 TEST(Drama3SerializationTest, PythonModelSpecNativeReader) {
   const char* directory = std::getenv("CT2_DRAMA3_SERIALIZATION_FIXTURE");
   if (!directory)
-    GTEST_SKIP() << "Generate fixture with tts/dev/make_serialization_fixture.py";
+    GTEST_SKIP() << "Set CT2_DRAMA3_SERIALIZATION_FIXTURE to a standard serialization fixture";
   models::register_model<Drama3SerializationFixture>("Drama3SerializationFixture");
   const auto model = models::Model::load(directory, Device::CPU, 0,
                                          ComputeType::INT8_FLOAT32);

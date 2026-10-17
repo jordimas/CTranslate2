@@ -11,5 +11,5 @@ python/dist/
 docs/build/
 docs/python/
 
-# Standalone Python interface repository.
-/tts/faster_tts/
+# Local TTS development tools, models, samples, and benchmarks.
+/tts/

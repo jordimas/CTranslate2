@@ -51,7 +51,7 @@ namespace {
 TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndependentOracle) {
   const char* path = std::getenv("CT2_DRAMA3_ATTENTION_FIXTURE");
   if (!path)
-    GTEST_SKIP() << "Generate fixture with tts/dev/make_attention_parity_fixture.py";
+    GTEST_SKIP() << "Set CT2_DRAMA3_ATTENTION_FIXTURE to an independent attention fixture";
   models::register_model<AttentionParityFixture>("Drama3AttentionParityFixture");
   for (const auto* kind : {"backbone", "tower"}) {
     const std::string directory = std::string(path) + "/" + kind;

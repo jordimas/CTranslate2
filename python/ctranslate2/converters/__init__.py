@@ -1,5 +1,4 @@
 from ctranslate2.converters.converter import Converter
-from ctranslate2.converters.drama3 import Drama3Converter
 from ctranslate2.converters.fairseq import FairseqConverter
 from ctranslate2.converters.marian import MarianConverter
 from ctranslate2.converters.openai_gpt2 import OpenAIGPT2Converter

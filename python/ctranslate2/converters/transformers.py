@@ -105,7 +105,7 @@ class TransformersConverter(Converter):
         self._low_cpu_mem_usage = low_cpu_mem_usage
         self._trust_remote_code = trust_remote_code
 
-    def _get_drama3_converter(self):
+    def _get_drama3_path(self):
         # Fish Speech checkpoints are not Transformers AutoModel classes, but
         # can still use this converter's public API and command-line interface.
         path = Path(self._model_name_or_path)
@@ -126,32 +126,51 @@ class TransformersConverter(Converter):
                 "Drama 3 does not support activation_scales, copy_files, "
                 "load_as_float16, or low_cpu_mem_usage"
             )
-        from ctranslate2.converters.drama3 import Drama3Converter
-
-        return Drama3Converter(path)
+        return path
 
     def inspect(self, quantization=None):
         """Audit a local Drama 3 checkpoint without loading weight payloads."""
-        converter = self._get_drama3_converter()
-        if converter is None:
+        path = self._get_drama3_path()
+        if path is None:
             raise ValueError(
                 "Dry-run inspection is only supported for local Drama 3 checkpoints"
             )
-        return converter.inspect(quantization)
+        from ctranslate2.converters import drama3
+
+        return drama3.inspect_checkpoint(
+            path,
+            quantization=quantization or "int8_float32",
+            **getattr(self, "_drama3_options", {}),
+        )[-1]
 
     def convert(self, output_dir, vmap=None, quantization=None, force=False):
-        converter = self._get_drama3_converter()
-        if converter is None:
+        path = self._get_drama3_path()
+        if path is None:
             return super().convert(
                 output_dir, vmap=vmap, quantization=quantization, force=force
             )
-        output = converter.convert(
-            output_dir, vmap=vmap, quantization=quantization, force=force
+        from ctranslate2.converters import drama3
+
+        return drama3.convert_model(
+            self,
+            super().convert,
+            output_dir,
+            vmap=vmap,
+            quantization=quantization,
+            force=force,
         )
-        self.conversion_report = converter.conversion_report
-        return output
 
     def _load(self):
+        path = self._get_drama3_path()
+        if path is not None:
+            from ctranslate2.converters import drama3
+
+            spec, self.conversion_report = drama3.load_spec(
+                path,
+                quantization=getattr(self, "_drama3_quantization", "int8_float32"),
+                **getattr(self, "_drama3_options", {}),
+            )
+            return spec
         with torch.no_grad():
             config = transformers.AutoConfig.from_pretrained(
                 self._model_name_or_path, trust_remote_code=self._trust_remote_code
@@ -3781,7 +3800,7 @@ def main():
         trust_remote_code=args.trust_remote_code,
     )
     if args.dry_run or args.report:
-        if converter._get_drama3_converter() is None:
+        if converter._get_drama3_path() is None:
             parser.error("--dry-run and --report require a local Drama 3 checkpoint")
     if args.dry_run:
         if args.vocab_mapping:

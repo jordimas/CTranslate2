@@ -14,6 +14,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 from ctranslate2.converters import drama3 as c
+from ctranslate2.converters import Converter, TransformersConverter
 
 
 def read_model(path):
@@ -97,13 +98,13 @@ class StandardConversionTest(unittest.TestCase):
         self.assertEqual((self.output / "tokenizer.json").read_bytes(), (self.source / "tokenizer.json").read_bytes())
 
     def test_experts_are_stored_in_bf16_before_optimization(self):
-        spec = c.Drama3Converter(self.source)._load()
+        spec = TransformersConverter(self.source)._load()
         values = spec.variables()
         expert = values["backbone/layers_0/mlp/experts_0/up_proj/weight"]
         self.assertEqual(expert.dtype, torch.bfloat16)
         self.assertEqual(expert.numel() * expert.element_size(), 8)
         np.testing.assert_array_equal(values["backbone/lm_head/weight"], self.sensitive)
-        report = c.Drama3Converter(self.source).inspect()
+        report = TransformersConverter(self.source).inspect()
         self.assertEqual(report["estimated_float32_loading_bytes"] - report["estimated_loading_bytes"], 8)
 
     def test_float32_conversion_preserves_scaled_fp8_without_quantization(self):
@@ -127,8 +128,8 @@ class StandardConversionTest(unittest.TestCase):
 
 
     def test_standard_api_and_force(self):
-        converter = c.Drama3Converter(self.source)
-        self.assertIsInstance(converter, c.Converter)
+        converter = TransformersConverter(self.source)
+        self.assertIsInstance(converter, Converter)
         report = converter.inspect()
         self.assertTrue(report['dry_run'])
         self.assertFalse(self.output.exists())
@@ -142,7 +143,7 @@ class StandardConversionTest(unittest.TestCase):
         self.assertFalse(any(key.endswith('_scale') for key in values))
 
     def test_force_failure_preserves_old_output(self):
-        converter = c.Drama3Converter(self.source)
+        converter = TransformersConverter(self.source)
         converter.convert(str(self.output))
         previous = (self.output / 'model.bin').read_bytes()
         with patch.object(c.Drama3Spec, 'save', side_effect=RuntimeError('write failed')):
@@ -151,9 +152,9 @@ class StandardConversionTest(unittest.TestCase):
         self.assertEqual((self.output / 'model.bin').read_bytes(), previous)
 
     def test_reject_unsupported_quantization_before_loading(self):
-        with patch.object(c.Drama3Converter, '_load') as load:
+        with patch.object(TransformersConverter, '_load') as load:
             with self.assertRaisesRegex(ValueError, 'quantization'):
-                c.Drama3Converter(self.source).convert(str(self.output), quantization='float16')
+                TransformersConverter(self.source).convert(str(self.output), quantization='float16')
         load.assert_not_called()
 
     def test_transformers_converter_dispatches_local_drama3(self):
@@ -164,6 +165,27 @@ class StandardConversionTest(unittest.TestCase):
         values = read_model(self.output / "model.bin")
         np.testing.assert_array_equal(values["backbone/lm_head/weight"], self.sensitive)
         self.assertEqual(converter.conversion_report["model_name"], "Drama3Spec")
+
+    def test_repeated_conversion_restores_default_quantization(self):
+        converter = TransformersConverter(self.source)
+        converter.convert(str(self.output), quantization="float32")
+        converter.convert(str(self.output), force=True)
+        values = read_model(self.output / "model.bin")
+        self.assertEqual(values["backbone/layers_0/mlp/experts_0/up_proj/weight"].dtype, "int8")
+        self.assertEqual(converter.conversion_report["quantization"], "int8_float32")
+
+    def test_transformers_cli_conversion_writes_report(self):
+        from ctranslate2.converters.transformers import main
+        report = self.output.parent / "report.json"
+        argv = ["ct2-transformers-converter", "--model", str(self.source),
+                "--output_dir", str(self.output), "--quantization", "float32",
+                "--report", str(report)]
+        with patch("sys.argv", argv):
+            main()
+        values = read_model(self.output / "model.bin")
+        np.testing.assert_array_equal(values["backbone/lm_head/weight"], self.sensitive)
+        self.assertEqual(json.loads(report.read_text()),
+                         json.loads((self.output / "conversion.json").read_text()))
 
     def test_transformers_cli_dry_run_writes_report_without_loading(self):
         from ctranslate2.converters.transformers import main
@@ -180,7 +202,7 @@ class StandardConversionTest(unittest.TestCase):
     def test_transformers_other_models_keep_standard_conversion(self):
         from ctranslate2.converters import TransformersConverter
         (self.source / "config.json").write_text('{"model_type": "llama"}')
-        with patch.object(c.Converter, "convert", return_value=str(self.output)) as convert:
+        with patch.object(Converter, "convert", return_value=str(self.output)) as convert:
             result = TransformersConverter(str(self.source)).convert(
                 str(self.output), quantization="float16", force=True)
         self.assertEqual(result, str(self.output))

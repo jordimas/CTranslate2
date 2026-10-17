@@ -18,7 +18,6 @@ from pathlib import Path
 
 import numpy as np
 
-from ctranslate2.converters.converter import Converter
 from ctranslate2.specs import model_spec
 from ctranslate2.specs.drama3_spec import Drama3Spec
 
@@ -558,110 +557,82 @@ def inspect_checkpoint(
     return config, readers, plan, codec, codec_manifest, result
 
 
-class Drama3Converter(Converter):
-    """Convert a local official Fish Speech Drama 3 checkpoint.
+def load_spec(
+    model_path,
+    quantization="int8_float32",
+    chunk_rows=128,
+    source_revision=SOURCE_REVISION,
+    quantization_policy="experts_int8_sensitive_float32",
+):
+    """Load Drama3 weights into the standard model specification."""
+    model_path = Path(model_path)
+    config, readers, plan, codec, manifest, result = inspect_checkpoint(
+        model_path, chunk_rows, source_revision, quantization_policy, quantization
+    )
+    state = codec.load_checkpoint(model_path / "codec.pth")
+    codec.conversion_plan(codec.state_schema(state), manifest)
+    variables, result["tiny_row_zeroing"] = load_model_tensors(
+        plan, readers, config, chunk_rows
+    )
+    variables.update(
+        codec.load_codec_tensors(state, manifest, chunk_rows=min(chunk_rows, 32))
+    )
+    package_config = {
+        "model_type": "drama3",
+        "ct2_layout_version": 1,
+        "source_config": config,
+        "source_revision": source_revision,
+        "activation_dtype": "float32",
+        "matrix_dtype": (
+            "float32"
+            if quantization == "float32"
+            else ("int8" if quantization_policy == "all_matrices_int8" else "mixed")
+        ),
+        "quantization_policy": quantization_policy,
+    }
+    spec = Drama3Spec(variables, package_config)
+    spec.register_file(model_path / "config.json", "source_config.json")
+    for name in ASSETS:
+        spec.register_file(source_file(model_path, name))
+    return spec, dict(result, dry_run=False)
 
-    Source tensors are loaded in FLOAT32 before standard ModelSpec optimization.
-    PyTorch is needed only to read codec.pth. No Fish Speech installation or
-    development checkout is required.
-    """
 
-    def __init__(
-        self,
-        model_path,
-        quantization_policy="experts_int8_sensitive_float32",
-        chunk_rows=128,
-        source_revision=SOURCE_REVISION,
-    ):
-        validate_quantization_policy(quantization_policy)
-        self.model_path = Path(model_path)
-        self.quantization_policy = quantization_policy
-        self.chunk_rows = chunk_rows
-        self.source_revision = source_revision
-        self.conversion_report = None
-        self._quantization = "int8_float32"
-
-    def _inspect(self, quantization):
-        return inspect_checkpoint(
-            self.model_path,
-            self.chunk_rows,
-            self.source_revision,
-            self.quantization_policy,
-            quantization or "int8_float32",
+def convert_model(
+    converter, standard_convert, output_dir, vmap=None, quantization=None, force=False
+):
+    """Publish a complete Drama3 package using the base Converter conversion flow."""
+    # Use Converter for validation, optimization and saving; publish only a
+    # complete package so failed conversions leave no partial destination.
+    if vmap is not None:
+        raise ValueError("Drama 3 does not support vocabulary mapping")
+    quantization = quantization or "int8_float32"
+    if quantization not in ("int8_float32", "float32"):
+        raise ValueError("quantization must be int8_float32 or float32")
+    converter._drama3_quantization = quantization
+    output = Path(output_dir)
+    if os.path.lexists(output) and not force:
+        raise FileExistsError(f"{output} already exists; use --force to overwrite")
+    if Path(converter._model_name_or_path).resolve().is_relative_to(output.resolve()):
+        raise ValueError("output directory must not contain the source checkpoint")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix="." + output.name + ".", dir=output.parent))
+    try:
+        standard_convert(str(staging), quantization=quantization, force=True)
+        converter.conversion_report.update(
+            output=str(output), output_bytes=(staging / "model.bin").stat().st_size
         )
-
-    def inspect(self, quantization=None):
-        """Audit mappings and estimate memory without loading weight payloads."""
-        return self._inspect(quantization)[-1]
-
-    def _load(self):
-        config, readers, plan, codec, manifest, result = self._inspect(
-            self._quantization
+        (staging / "conversion.json").write_text(
+            json.dumps(converter.conversion_report, indent=2) + "\n"
         )
-        state = codec.load_checkpoint(self.model_path / "codec.pth")
-        codec.conversion_plan(codec.state_schema(state), manifest)
-        variables, result["tiny_row_zeroing"] = load_model_tensors(
-            plan, readers, config, self.chunk_rows
-        )
-        variables.update(
-            codec.load_codec_tensors(
-                state, manifest, chunk_rows=min(self.chunk_rows, 32)
-            )
-        )
-        package_config = {
-            "model_type": "drama3",
-            "ct2_layout_version": 1,
-            "source_config": config,
-            "source_revision": self.source_revision,
-            "activation_dtype": "float32",
-            "matrix_dtype": "float32"
-            if self._quantization == "float32"
-            else (
-                "int8" if self.quantization_policy == "all_matrices_int8" else "mixed"
-            ),
-            "quantization_policy": self.quantization_policy,
-        }
-        spec = Drama3Spec(variables, package_config)
-        spec.register_file(self.model_path / "config.json", "source_config.json")
-        for name in ASSETS:
-            spec.register_file(source_file(self.model_path, name))
-        self.conversion_report = dict(result, dry_run=False)
-        return spec
-
-    def convert(self, output_dir, vmap=None, quantization=None, force=False):
-        # Use Converter for validation, optimization and saving; publish only a
-        # complete package so failed conversions leave no partial destination.
-        if vmap is not None:
-            raise ValueError("Drama 3 does not support vocabulary mapping")
-        self._quantization = quantization or "int8_float32"
-        if self._quantization not in ("int8_float32", "float32"):
-            raise ValueError("quantization must be int8_float32 or float32")
-        output = Path(output_dir)
-        if os.path.lexists(output) and not force:
-            raise FileExistsError(f"{output} already exists; use --force to overwrite")
-        if self.model_path.resolve().is_relative_to(output.resolve()):
-            raise ValueError("output directory must not contain the source checkpoint")
-        output.parent.mkdir(parents=True, exist_ok=True)
-        staging = Path(
-            tempfile.mkdtemp(prefix="." + output.name + ".", dir=output.parent)
-        )
-        try:
-            super().convert(str(staging), quantization=self._quantization, force=True)
-            self.conversion_report.update(
-                output=str(output), output_bytes=(staging / "model.bin").stat().st_size
-            )
-            (staging / "conversion.json").write_text(
-                json.dumps(self.conversion_report, indent=2) + "\n"
-            )
-            if force and os.path.lexists(output):
-                if output.is_symlink() or not output.is_dir():
-                    raise ValueError("--force requires an existing regular directory")
-                shutil.rmtree(output)
-            publish_directory(staging, output)
-        except BaseException:
-            shutil.rmtree(staging, ignore_errors=True)
-            raise
-        return str(output_dir)
+        if force and os.path.lexists(output):
+            if output.is_symlink() or not output.is_dir():
+                raise ValueError("--force requires an existing regular directory")
+            shutil.rmtree(output)
+        publish_directory(staging, output)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return str(output_dir)
 
 
 def convert(
@@ -675,8 +646,14 @@ def convert(
     quantization="int8_float32",
 ):
     """Compatibility interface for development diagnostics."""
-    converter = Drama3Converter(
-        source, quantization_policy, chunk_rows, source_revision
+    from ctranslate2.converters.transformers import TransformersConverter
+
+    validate_quantization_policy(quantization_policy)
+    converter = TransformersConverter(str(source))
+    converter._drama3_options = dict(
+        quantization_policy=quantization_policy,
+        chunk_rows=chunk_rows,
+        source_revision=source_revision,
     )
     if dry_run:
         result = converter.inspect(quantization)

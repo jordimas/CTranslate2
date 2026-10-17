@@ -1,4 +1,4 @@
-"""Standalone unittest coverage; no native CT2 extension or PyTorch required."""
+"""Standalone coverage of Drama3 checkpoint reads without the CT2 extension."""
 import importlib.util
 import json
 from pathlib import Path
@@ -21,7 +21,7 @@ def write_tensors(path, tensors):
         data = np.asarray(data, dtype=weights.STORAGE_DTYPES[dtype])
         start = len(payload)
         payload.extend(data.tobytes())
-        header[name] = {"dtype": dtype, "shape": list(data.shape),
+        header[name] = {"dtype": "F8_E4M3" if dtype == "F8_E4M3FN" else dtype, "shape": list(data.shape),
                         "data_offsets": [start, len(payload)]}
     encoded = json.dumps(header).encode()
     path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + payload)
@@ -77,6 +77,29 @@ class Drama3WeightsTest(unittest.TestCase):
                             + [[17, 17, 17, 19, 19, 19, 23]], dtype=np.float32)
         np.testing.assert_array_equal(result, expected)
 
+    def test_library_written_fp8_and_bfloat16_preserve_storage_and_values(self):
+        import torch
+        from safetensors.torch import save_file
+
+        tensors = (
+            torch.arange(256, dtype=torch.uint8).view(torch.float8_e4m3fn).reshape(16, 16),
+            torch.tensor([0, 0x8000, 0x3f80, 0xc020, 1, 0x7f80, 0x7fc0],
+                         dtype=torch.uint16).view(torch.bfloat16).reshape(1, 7),
+        )
+        for tensor in tensors:
+            with self.subTest(dtype=tensor.dtype):
+                save_file({"matrix": tensor}, str(self.path))
+                reader = weights.SafeTensorMatrixReader(self.path)
+                storage_dtype = torch.uint8 if tensor.element_size() == 1 else torch.uint16
+                np.testing.assert_array_equal(reader._map("matrix"),
+                                              tensor.view(storage_dtype).numpy())
+                chunks = list(reader.iter_matrix_rows("matrix", chunk_rows=3))
+                actual = np.concatenate(chunks)
+                expected = tensor.float().numpy()
+                np.testing.assert_array_equal(actual, expected)
+                np.testing.assert_array_equal(np.signbit(actual[actual == 0]),
+                                              np.signbit(expected[expected == 0]))
+
     def test_invalid_scales_and_arguments(self):
         write_tensors(self.path, {"matrix": ("F8_E4M3FN", np.ones((2, 3), np.uint8)),
                                   "badshape": ("F32", [[1, 2]]),
@@ -105,7 +128,7 @@ class Drama3WeightsTest(unittest.TestCase):
             self.path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + bytes(16))
             with self.subTest(entry=entry), self.assertRaises(ValueError):
                 weights.SafeTensorMatrixReader(self.path)
-        for data in (b"short", struct.pack("<Q", weights.MAX_HEADER_BYTES + 1),
+        for data in (b"short", struct.pack("<Q", 100_000_001),
                      struct.pack("<Q", 13) + b'{"x":1,"x":2}'):
             self.path.write_bytes(data)
             with self.assertRaises(ValueError):

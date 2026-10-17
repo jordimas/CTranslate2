@@ -63,7 +63,7 @@ class StandardConversionTest(unittest.TestCase):
         data, header = b"", {}
         for name, (value, dtype) in tensors.items():
             payload = value.tobytes()
-            header[name] = {"shape": list(value.shape), "dtype": dtype,
+            header[name] = {"shape": list(value.shape), "dtype": "F8_E4M3" if dtype == "F8_E4M3FN" else dtype,
                             "data_offsets": [len(data), len(data) + len(payload)]}
             data += payload
         encoded = json.dumps(header).encode()

@@ -2,19 +2,16 @@
 
 Rank-two matrices and explicitly selected rank-three expert matrices are supported.
 No tensor-name conventions or automatic quantization-scale matching are assumed.
-Files must remain immutable throughout reading. No PyTorch or native CT2 import
-is needed by this module.
+Files must remain immutable throughout reading. Safetensors validates and maps
+shards; PyTorch exposes FP8/BF16 storage as NumPy byte/word views.
 """
-
-import json
-import math
-import struct
 
 from pathlib import Path
 
 import numpy as np
 
-MAX_HEADER_BYTES = 64 * 1024 * 1024
+from safetensors import SafetensorError, safe_open
+
 STORAGE_DTYPES = {
     "F32": "<f4",
     "F16": "<f2",
@@ -69,7 +66,7 @@ class SafeTensorMatrixReader:
     """Inspect one immutable safetensors shard, mapping only requested tensors.
 
     Conversion buffers scale with chunk_rows * matrix columns plus relevant
-    block-scale rows. A memmap reserves virtual address space, not a full dense
+    block-scale rows. The library maps the file without allocating a full dense
     tensor buffer. Consumers must process/discard chunks rather than collect them
     if bounded working memory is required.
     """
@@ -78,79 +75,36 @@ class SafeTensorMatrixReader:
         self.path = Path(path)
         stat = self.path.stat()
         self._identity = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
-        with self.path.open("rb") as stream:
-            prefix = stream.read(8)
-            if len(prefix) != 8:
-                raise ValueError("missing safetensors length prefix")
-            length = struct.unpack("<Q", prefix)[0]
-            if not 2 <= length <= MAX_HEADER_BYTES or length > stat.st_size - 8:
-                raise ValueError("invalid or oversized safetensors header")
-            header = json.loads(stream.read(length), object_pairs_hook=_unique_object)
-        if not isinstance(header, dict):
-            raise ValueError("safetensors header must be an object")
-        metadata = header.pop("__metadata__", {})
-        if not isinstance(metadata, dict) or any(
-            not isinstance(v, str) for v in metadata.values()
-        ):
-            raise ValueError("safetensors metadata must contain strings")
-        self.data_start = 8 + length
-        self.tensors = {}
-        intervals = []
-        for name, tensor in header.items():
-            if not isinstance(tensor, dict):
-                raise ValueError(f"invalid tensor description: {name}")
-            dtype, shape, span = (
-                tensor.get("dtype"),
-                tensor.get("shape"),
-                tensor.get("data_offsets"),
-            )
-            if not isinstance(dtype, str) or dtype not in STORAGE_DTYPES:
-                raise ValueError(f"unsupported safetensors dtype for {name}: {dtype}")
-            if not isinstance(shape, list) or any(
-                not _is_int(d) or d < 0 for d in shape
-            ):
-                raise ValueError(f"invalid shape: {name}")
-            if (
-                not isinstance(span, list)
-                or len(span) != 2
-                or any(not _is_int(d) for d in span)
-            ):
-                raise ValueError(f"invalid offsets: {name}")
-            start, end = span
-            expected_bytes = math.prod(shape) * np.dtype(STORAGE_DTYPES[dtype]).itemsize
-            if (
-                not 0 <= start <= end <= stat.st_size - self.data_start
-                or end - start != expected_bytes
-            ):
-                raise ValueError(f"invalid byte span: {name}")
-            intervals.append((start, end))
-            self.tensors[name] = {
-                "dtype": dtype,
-                "shape": tuple(shape),
-                "data_offsets": (start, end),
-            }
-        cursor = 0
-        for start, end in sorted(intervals):
-            if start != cursor:
-                raise ValueError("safetensors spans overlap or have holes")
-            cursor = end
-        if cursor != stat.st_size - self.data_start:
-            raise ValueError("safetensors spans do not cover payload")
+        try:
+            self._shard = safe_open(self.path, framework="pt", device="cpu")
+            self.tensors = {}
+            for name in self._shard.keys():
+                tensor = self._shard.get_slice(name)
+                dtype = tensor.get_dtype()
+                if dtype not in STORAGE_DTYPES:
+                    raise ValueError(
+                        f"unsupported safetensors dtype for {name}: {dtype}"
+                    )
+                self.tensors[name] = {
+                    "dtype": dtype,
+                    "shape": tuple(tensor.get_shape()),
+                }
+        except SafetensorError as error:
+            raise ValueError(f"invalid safetensors shard: {error}") from error
 
     def _map(self, name):
+        import torch
+
         stat = self.path.stat()
         if (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns) != self._identity:
             raise ValueError("checkpoint shard changed after header inspection")
-        tensor = self.tensors[name]
-        if math.prod(tensor["shape"]) == 0:
-            return np.empty(tensor["shape"], dtype=STORAGE_DTYPES[tensor["dtype"]])
-        return np.memmap(
-            self.path,
-            mode="r",
-            dtype=STORAGE_DTYPES[tensor["dtype"]],
-            offset=self.data_start + tensor["data_offsets"][0],
-            shape=tensor["shape"],
-        )
+        tensor = self._shard.get_tensor(name)
+        # Reinterpret unsupported NumPy dtypes without copying or decoding a bank.
+        if tensor.dtype == torch.bfloat16:
+            tensor = tensor.view(torch.uint16)
+        elif tensor.dtype == torch.float8_e4m3fn:
+            tensor = tensor.view(torch.uint8)
+        return tensor.numpy()
 
     def iter_dequantized_rows(
         self, name, chunk_rows=128, inverse_scale=None, block_size=(128, 128)

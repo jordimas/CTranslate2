@@ -3,7 +3,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/drama_attention.h"
+#include "ctranslate2/layers/attention.h"
 
 namespace {
 
@@ -36,11 +36,11 @@ namespace {
     }
   };
 
-  layers::DramaAttentionConfig config(bool interleaved = false, dim_t rotary = 4) {
+  layers::GatedSelfAttentionConfig config(bool interleaved = false, dim_t rotary = 4) {
     return {2, 1, 4, rotary, 100.f, 1e-5f, interleaved, true};
   }
 
-  layers::DramaAttentionCache cache(dim_t capacity) {
+  layers::GatedSelfAttentionCache cache(dim_t capacity) {
     return {StorageView({capacity, 1, 4}, DataType::FLOAT32),
             StorageView({capacity, 1, 4}, DataType::FLOAT32), 0};
   }
@@ -89,12 +89,12 @@ namespace {
 
 }
 
-TEST(DramaAttentionTest, IndependentGroupedAttentionAndBothRopeLayouts) {
+TEST(GatedSelfAttentionTest, IndependentGroupedAttentionAndBothRopeLayouts) {
   TinyAttentionModel model;
   const auto x = inputs();
   for (const bool interleaved : {false, true}) {
     for (const dim_t rotary : {0, 2, 4}) {
-      layers::DramaAttention layer(model, "attn", config(interleaved, rotary));
+      layers::GatedSelfAttention layer(model, "attn", config(interleaved, rotary));
       auto state = cache(3);
       StorageView output;
       layer(x, state, output);
@@ -106,9 +106,9 @@ TEST(DramaAttentionTest, IndependentGroupedAttentionAndBothRopeLayouts) {
   }
 }
 
-TEST(DramaAttentionTest, CachedStepsMatchPrefill) {
+TEST(GatedSelfAttentionTest, CachedStepsMatchPrefill) {
   TinyAttentionModel model;
-  layers::DramaAttention layer(model, "attn", config());
+  layers::GatedSelfAttention layer(model, "attn", config());
   const auto x = inputs();
   auto full_cache = cache(3), step_cache = cache(3);
   StorageView full;
@@ -123,9 +123,9 @@ TEST(DramaAttentionTest, CachedStepsMatchPrefill) {
   expect_storage_eq(step_cache.values, full_cache.values);
 }
 
-TEST(DramaAttentionTest, PerHeadQueryGatePacking) {
+TEST(GatedSelfAttentionTest, PerHeadQueryGatePacking) {
   TinyAttentionModel model(0.f, 1.f);
-  layers::DramaAttention layer(model, "attn", config());
+  layers::GatedSelfAttention layer(model, "attn", config());
   auto state = cache(1);
   StorageView input({1, 4}, std::vector<float>{1, -1, .5f, -2}), output;
   layer(input, state, output);
@@ -136,12 +136,12 @@ TEST(DramaAttentionTest, PerHeadQueryGatePacking) {
   }
 }
 
-TEST(DramaAttentionTest, DirectAndZeroCenteredGammaAgree) {
+TEST(GatedSelfAttentionTest, DirectAndZeroCenteredGammaAgree) {
   TinyAttentionModel zero_centered(0), direct(1);
   auto cfg = config();
-  layers::DramaAttention a(zero_centered, "attn", cfg);
+  layers::GatedSelfAttention a(zero_centered, "attn", cfg);
   cfg.zero_centered_qk_norm = false;
-  layers::DramaAttention b(direct, "attn", cfg);
+  layers::GatedSelfAttention b(direct, "attn", cfg);
   auto ac = cache(3), bc = cache(3);
   StorageView ay, by;
   const auto x = inputs();
@@ -150,9 +150,9 @@ TEST(DramaAttentionTest, DirectAndZeroCenteredGammaAgree) {
   expect_storage_eq(ay, by);
 }
 
-TEST(DramaAttentionTest, CapacityAndShapeGuardsDoNotUpdateCache) {
+TEST(GatedSelfAttentionTest, CapacityAndShapeGuardsDoNotUpdateCache) {
   TinyAttentionModel model;
-  layers::DramaAttention layer(model, "attn", config());
+  layers::GatedSelfAttention layer(model, "attn", config());
   auto state = cache(2);
   const auto x = inputs();
   StorageView y;
@@ -164,12 +164,12 @@ TEST(DramaAttentionTest, CapacityAndShapeGuardsDoNotUpdateCache) {
   EXPECT_THROW(layer(x, state, y), std::invalid_argument);
   auto cfg = config();
   cfg.rotary_dim = 3;
-  EXPECT_THROW((layers::DramaAttention(model, "attn", cfg)), std::invalid_argument);
+  EXPECT_THROW((layers::GatedSelfAttention(model, "attn", cfg)), std::invalid_argument);
 }
 
-TEST(DramaAttentionTest, EmptyAndAliasingAndNonfiniteGuards) {
+TEST(GatedSelfAttentionTest, EmptyAndAliasingAndNonfiniteGuards) {
   TinyAttentionModel model;
-  layers::DramaAttention layer(model, "attn", config());
+  layers::GatedSelfAttention layer(model, "attn", config());
   auto state = cache(3);
   StorageView empty({0, 4}, DataType::FLOAT32), output;
   layer(empty, state, output);
@@ -182,4 +182,50 @@ TEST(DramaAttentionTest, EmptyAndAliasingAndNonfiniteGuards) {
   x.data<float>()[0] = std::numeric_limits<float>::quiet_NaN();
   EXPECT_THROW(layer(x, state, output), std::invalid_argument);
   EXPECT_EQ(state.length, 0);
+}
+
+TEST(GatedSelfAttentionTest, MultiTokenContinuationMatchesFullCausalAttention) {
+  TinyAttentionModel model;
+  const auto x = inputs();
+  for (const bool interleaved : {false, true}) {
+    for (const dim_t rotary : {0, 2, 4}) {
+      layers::GatedSelfAttention layer(model, "attn", config(interleaved, rotary));
+      auto full_cache = cache(3), chunk_cache = cache(3);
+      StorageView full, output;
+      layer(x, full_cache, full);
+      StorageView prefix({1, 4}, const_cast<float*>(x.data<float>()));
+      layer(prefix, chunk_cache, output);
+      StorageView continuation({2, 4}, const_cast<float*>(x.data<float>()) + 4);
+      layer(continuation, chunk_cache, output);
+      const auto expected = reference(x, interleaved, rotary);
+      for (dim_t i = 0; i < output.size(); ++i) {
+        EXPECT_NEAR(output.data<float>()[i], full.data<float>()[4 + i], 2e-6);
+        EXPECT_NEAR(output.data<float>()[i], expected[4 + i], 2e-6);
+      }
+      EXPECT_EQ(chunk_cache.length, 3);
+      expect_storage_eq(chunk_cache.keys, full_cache.keys);
+      expect_storage_eq(chunk_cache.values, full_cache.values);
+    }
+  }
+}
+
+TEST(GatedSelfAttentionTest, ProjectionOverflowDoesNotCommitCacheOrOutput) {
+  TinyAttentionModel model;
+  // Finite parameters and finite input whose projection overflows.
+  auto& weights = const_cast<StorageView&>(model.get_variable("attn/q_proj/weight"));
+  weights.data<float>()[0] = std::numeric_limits<float>::max();
+  layers::GatedSelfAttention layer(model, "attn", config());
+  auto state = cache(3);
+  std::fill_n(state.keys.data<float>(), state.keys.size(), 7.f);
+  std::fill_n(state.values.data<float>(), state.values.size(), 9.f);
+  StorageView input({1, 4}, std::vector<float>{2.f, 1.f, -1.f, .5f});
+  StorageView output({1, 4}, 11.f);
+  EXPECT_THROW(layer(input, state, output), std::runtime_error);
+  EXPECT_EQ(state.length, 0);
+  for (dim_t i = 0; i < state.keys.size(); ++i) {
+    EXPECT_EQ(state.keys.data<float>()[i], 7.f);
+    EXPECT_EQ(state.values.data<float>()[i], 9.f);
+  }
+  for (dim_t i = 0; i < output.size(); ++i)
+    EXPECT_EQ(output.data<float>()[i], 11.f);
 }

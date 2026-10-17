@@ -53,8 +53,8 @@ namespace ctranslate2 { namespace models {
   }
 
   namespace {
-    layers::DramaAttentionConfig attention_config(const nlohmann::json& cfg, bool tower) {
-      layers::DramaAttentionConfig result;
+    layers::GatedSelfAttentionConfig attention_config(const nlohmann::json& cfg, bool tower) {
+      layers::GatedSelfAttentionConfig result;
       result.num_heads = cfg.at(tower ? "n_head" : "num_attention_heads").get<dim_t>();
       result.num_kv_heads = cfg.at(tower ? "n_local_heads" : "num_key_value_heads").get<dim_t>();
       result.head_dim = cfg.at("head_dim").get<dim_t>();

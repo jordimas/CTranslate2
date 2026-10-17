@@ -1,4 +1,5 @@
 #include "ctranslate2/layers/drama_tower.h"
+#include "ctranslate2/ops/rms_norm.h"
 
 #include <algorithm>
 #include <cmath>
@@ -68,22 +69,6 @@ namespace ctranslate2 {
                       : x - y < static_cast<uintptr_t>(b.reserved_memory());
       }
 
-      void norm(const StorageView& input, const StorageView& gamma, float epsilon, StorageView& output) {
-        output.resize_as(input);
-        const dim_t dim = input.dim(1);
-        for (dim_t t = 0; t < input.dim(0); ++t) {
-          float square = 0;
-          for (dim_t d = 0; d < dim; ++d) {
-            const float x = input.data<float>()[t * dim + d];
-            square += x * x;
-          }
-          const float scale = 1.f / std::sqrt(square / dim + epsilon);
-          for (dim_t d = 0; d < dim; ++d)
-            output.data<float>()[t * dim + d] = input.data<float>()[t * dim + d]
-              * scale * (1.f + gamma.data<float>()[d]);
-        }
-      }
-
       void validate_embedding(const models::Model& model, const std::string& scope,
                               const StorageView& weights) {
         if (weights.device() != Device::CPU
@@ -113,7 +98,7 @@ namespace ctranslate2 {
       const StorageView& ffn_norm;
       const StorageView& final_norm;
       Dense eh_proj, gate, up, down;
-      DramaAttention attention;
+      GatedSelfAttention attention;
       float epsilon;
       dim_t dim;
 
@@ -161,7 +146,7 @@ namespace ctranslate2 {
 
       void operator()(const StorageView& hidden, const StorageView& next_frames,
                       dim_t code_column, int32_t semantic_begin, int32_t semantic_end,
-                      const StorageView* shared_input, DramaAttentionCache& cache,
+                      const StorageView* shared_input, GatedSelfAttentionCache& cache,
                       StorageView& output) const {
         const dim_t rows = hidden.dim(0), columns = next_frames.dim(1);
         StorageView e(hidden.shape(), 0.f);
@@ -178,8 +163,8 @@ namespace ctranslate2 {
               + (shared_input ? shared_input->data<float>()[t * dim + d] : 0.f);
         }
         StorageView en, hn;
-        norm(e, enorm, epsilon, en);
-        norm(hidden, hnorm, epsilon, hn);
+        ops::RMSNorm(epsilon, true)(enorm, e, en);
+        ops::RMSNorm(epsilon, true)(hnorm, hidden, hn);
         StorageView joined({rows, 2 * dim}, DataType::FLOAT32);
         for (dim_t t = 0; t < rows; ++t)
           for (dim_t d = 0; d < dim; ++d) {
@@ -193,11 +178,11 @@ namespace ctranslate2 {
         }
         eh_proj(joined, mixed);
         StorageView normalized, attended;
-        norm(mixed, attention_norm, epsilon, normalized);
+        ops::RMSNorm(epsilon, true)(attention_norm, mixed, normalized);
         attention(normalized, cache, attended);
         for (dim_t i = 0; i < mixed.size(); ++i)
           mixed.data<float>()[i] += attended.data<float>()[i];
-        norm(mixed, ffn_norm, epsilon, normalized);
+        ops::RMSNorm(epsilon, true)(ffn_norm, mixed, normalized);
         StorageView gates, ups, activated, projected;
         gate(normalized, gates);
         up(normalized, ups);
@@ -207,7 +192,7 @@ namespace ctranslate2 {
         down(activated, projected);
         for (dim_t i = 0; i < mixed.size(); ++i)
           mixed.data<float>()[i] += projected.data<float>()[i];
-        norm(mixed, final_norm, epsilon, output);
+        ops::RMSNorm(epsilon, true)(final_norm, mixed, output);
       }
     };
 
@@ -258,7 +243,7 @@ namespace ctranslate2 {
         throw std::invalid_argument("DramaTower requires positive cache capacity");
       DramaTowerState fresh;
       fresh.capacity = max_tokens;
-      auto allocate = [&](size_t count, std::vector<DramaAttentionCache>& caches) {
+      auto allocate = [&](size_t count, std::vector<GatedSelfAttentionCache>& caches) {
         for (size_t i = 0; i < count; ++i) {
           const Shape shape{max_tokens, _config.attention.num_kv_heads, _config.attention.head_dim};
           caches.push_back({StorageView(shape, DataType::FLOAT32), StorageView(shape, DataType::FLOAT32), 0});

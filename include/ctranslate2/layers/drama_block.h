@@ -1,6 +1,6 @@
 #pragma once
 
-#include "drama_attention.h"
+#include "attention.h"
 #include "gated_delta.h"
 #include "moe.h"
 
@@ -15,13 +15,13 @@ namespace ctranslate2 {
       dim_t num_experts = 0;
       dim_t top_k = 0;
       dim_t key_heads = 0, value_heads = 0, key_dim = 0, value_dim = 0;
-      DramaAttentionConfig attention{0, 0, 0, 0};
+      GatedSelfAttentionConfig attention{0, 0, 0, 0};
     };
 
     struct DramaBlockState {
       StorageView recurrent;
       StorageView history;
-      DramaAttentionCache attention;
+      GatedSelfAttentionCache attention;
     };
 
     // CPU float32 batch-one [time,hidden] backbone block. Model variables must
@@ -44,7 +44,7 @@ namespace ctranslate2 {
       const StorageView& _post_norm;
       SparseMoE _moe;
       std::unique_ptr<GatedDeltaNet> _linear;
-      std::unique_ptr<DramaAttention> _attention;
+      std::unique_ptr<GatedSelfAttention> _attention;
     };
 
   }

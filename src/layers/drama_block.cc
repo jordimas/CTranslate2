@@ -1,4 +1,5 @@
 #include "ctranslate2/layers/drama_block.h"
+#include "ctranslate2/ops/rms_norm.h"
 
 #include <cmath>
 #include <cstdint>
@@ -15,23 +16,6 @@ namespace ctranslate2 {
         const auto y = reinterpret_cast<uintptr_t>(b.buffer());
         return x <= y ? y - x < static_cast<uintptr_t>(a.reserved_memory())
                       : x - y < static_cast<uintptr_t>(b.reserved_memory());
-      }
-
-      void normalize(const StorageView& input, const StorageView& gamma,
-                     float epsilon, StorageView& output) {
-        output.resize_as(input);
-        const dim_t hidden = input.dim(1);
-        for (dim_t row = 0; row < input.dim(0); ++row) {
-          float square = 0;
-          for (dim_t d = 0; d < hidden; ++d) {
-            const float x = input.data<float>()[row * hidden + d];
-            square += x * x;
-          }
-          const float reciprocal_rms = 1.f / std::sqrt(square / hidden + epsilon);
-          for (dim_t d = 0; d < hidden; ++d)
-            output.data<float>()[row * hidden + d] = input.data<float>()[row * hidden + d]
-              * reciprocal_rms * (1.f + gamma.data<float>()[d]);
-        }
       }
 
     }
@@ -58,7 +42,7 @@ namespace ctranslate2 {
                                                 config.key_heads, config.value_heads,
                                                 config.key_dim, config.value_dim, config.norm_epsilon);
       else if (config.kind == DramaMixerKind::FullAttention)
-        _attention = std::make_unique<DramaAttention>(model, scope + "/self_attn", config.attention);
+        _attention = std::make_unique<GatedSelfAttention>(model, scope + "/self_attn", config.attention);
       else
         throw std::invalid_argument("DramaBlock mixer kind is invalid");
       if ((_linear && _linear->output_size() != output_size())
@@ -104,14 +88,14 @@ namespace ctranslate2 {
           throw std::invalid_argument("DramaBlock input must be finite");
       }
       StorageView normalized, mixed;
-      normalize(input, _input_norm, _config.norm_epsilon, normalized);
+      ops::RMSNorm(_config.norm_epsilon, true)(_input_norm, input, normalized);
       if (_linear)
         (*_linear)(normalized, state.recurrent, state.history, mixed);
       else
         (*_attention)(normalized, state.attention, mixed);
       for (dim_t i = 0; i < mixed.size(); ++i)
         mixed.data<float>()[i] += input.data<float>()[i];
-      normalize(mixed, _post_norm, _config.norm_epsilon, normalized);
+      ops::RMSNorm(_config.norm_epsilon, true)(_post_norm, mixed, normalized);
       StorageView expert_output;
       _moe(normalized, expert_output);
       for (dim_t i = 0; i < expert_output.size(); ++i)

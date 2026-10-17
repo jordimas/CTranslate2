@@ -4,7 +4,7 @@
 #include <fstream>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/drama_attention.h"
+#include "ctranslate2/layers/attention.h"
 #include "ctranslate2/models/model_factory.h"
 
 namespace {
@@ -60,9 +60,9 @@ TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndepende
     const auto manifest = nlohmann::json::parse(stream);
     const auto model = models::Model::load(directory, Device::CPU, 0, ComputeType::FLOAT32);
     const dim_t hidden = manifest.at("hidden"), kv_heads = manifest.at("kv_heads"), dim = manifest.at("head_dim");
-    layers::DramaAttentionConfig cfg{manifest.at("heads"), kv_heads, dim, manifest.at("rotary_dim"),
+    layers::GatedSelfAttentionConfig cfg{manifest.at("heads"), kv_heads, dim, manifest.at("rotary_dim"),
                                      manifest.at("rope_base"), manifest.at("norm_epsilon"), manifest.at("interleaved"), true};
-    layers::DramaAttention layer(*model, "attn", cfg);
+    layers::GatedSelfAttention layer(*model, "attn", cfg);
     for (const auto& fixture : manifest.at("cases")) {
       const dim_t steps = fixture.at("steps");
       const std::string label = std::string(kind) + "_t" + std::to_string(steps);
@@ -72,7 +72,7 @@ TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndepende
       };
       auto input = get("input", {steps, hidden});
       auto make_cache = [&]() {
-        return layers::DramaAttentionCache{StorageView({steps, kv_heads, dim}, DataType::FLOAT32),
+        return layers::GatedSelfAttentionCache{StorageView({steps, kv_heads, dim}, DataType::FLOAT32),
                                             StorageView({steps, kv_heads, dim}, DataType::FLOAT32), 0};
       };
       auto cache = make_cache(), incremental = make_cache();

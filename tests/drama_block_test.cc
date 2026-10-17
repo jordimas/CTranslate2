@@ -93,8 +93,8 @@ TEST(DramaBlockTest, IndependentCompositionHasTwoPrenormResiduals) {
     const auto normalized = independent_norm(input, {.1, -.2});
     StorageView mixed;
     if (attention) {
-      layers::DramaAttention mixer(model, block_scope + "/self_attn", cfg.attention);
-      layers::DramaAttentionCache cache{StorageView({3, 1, 2}, DataType::FLOAT32),
+      layers::GatedSelfAttention mixer(model, block_scope + "/self_attn", cfg.attention);
+      layers::GatedSelfAttentionCache cache{StorageView({3, 1, 2}, DataType::FLOAT32),
                                          StorageView({3, 1, 2}, DataType::FLOAT32), 0};
       mixer(normalized, cache, mixed);
     } else {

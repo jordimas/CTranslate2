@@ -1,4 +1,5 @@
 #include "ctranslate2/layers/gated_delta.h"
+#include "ctranslate2/ops/rms_norm.h"
 
 #include <algorithm>
 #include <cmath>
@@ -211,16 +212,10 @@ namespace ctranslate2 {
       require_finite(a);
       StorageView core;
       ops::GatedDeltaNet()(query, key, value, a, beta, next_state, core);
-      for (dim_t row = 0; row < steps * _value_heads; ++row) {
-        auto* values = core.data<float>() + row * _value_dim;
-        float mean = 0;
-        for (dim_t i = 0; i < _value_dim; ++i)
-          mean += values[i] * values[i];
-        const auto inverse = 1.f / std::sqrt(mean / _value_dim + _rms_epsilon);
-        for (dim_t i = 0; i < _value_dim; ++i) {
-          const auto gate = z.data<float>()[row * _value_dim + i];
-          values[i] *= inverse * _norm_weight.data<float>()[i] * gate * sigmoid(gate);
-        }
+      ops::RMSNorm{_rms_epsilon}(_norm_weight, core, core);
+      for (dim_t i = 0; i < core.size(); ++i) {
+        const auto gate = z.data<float>()[i];
+        core.data<float>()[i] *= gate * sigmoid(gate);
       }
       core.reshape({steps, _value_width});
       StorageView result;

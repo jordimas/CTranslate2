@@ -5,7 +5,6 @@
 #include "common.h"
 #include "moe.h"
 #include "gated_delta.h"
-#include "drama_attention.h"
 #include "drama_block.h"
 #include "drama_backbone.h"
 #include "drama_tower.h"

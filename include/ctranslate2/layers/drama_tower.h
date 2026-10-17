@@ -1,6 +1,6 @@
 #pragma once
 
-#include "drama_attention.h"
+#include "attention.h"
 #include <random>
 
 namespace ctranslate2 {
@@ -21,7 +21,7 @@ namespace ctranslate2 {
                                std::mt19937_64& rng);
 
     struct DramaTowerConfig {
-      DramaAttentionConfig attention{0, 0, 0, 0};
+      GatedSelfAttentionConfig attention{0, 0, 0, 0};
       dim_t num_codebooks = 10;
       dim_t vocab_size = 4096;
       dim_t shared_layers = 4;
@@ -30,8 +30,8 @@ namespace ctranslate2 {
     };
 
     struct DramaTowerState {
-      std::vector<DramaAttentionCache> shared;
-      std::vector<DramaAttentionCache> residual;
+      std::vector<GatedSelfAttentionCache> shared;
+      std::vector<GatedSelfAttentionCache> residual;
       dim_t length = 0, capacity = 0;
     };
 

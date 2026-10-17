@@ -1,4 +1,5 @@
 #include "ctranslate2/layers/drama_backbone.h"
+#include "ctranslate2/ops/rms_norm.h"
 
 #include <cmath>
 #include <cstdint>
@@ -127,18 +128,8 @@ namespace ctranslate2 {
         (*_layers[i])(current, state.layers[i], next);
         current = std::move(next);
       }
-      StorageView normalized(current.shape(), DataType::FLOAT32);
-      for (dim_t t = 0; t < current.dim(0); ++t) {
-        float square = 0;
-        for (dim_t d = 0; d < output_size(); ++d) {
-          const float value = current.data<float>()[t * output_size() + d];
-          square += value * value;
-        }
-        const float scale = 1.f / std::sqrt(square / output_size() + _config.norm_epsilon);
-        for (dim_t d = 0; d < output_size(); ++d)
-          normalized.data<float>()[t * output_size() + d] = current.data<float>()[t * output_size() + d]
-            * scale * (1.f + _norm.data<float>()[d]);
-      }
+      StorageView normalized;
+      ops::RMSNorm(_config.norm_epsilon, true)(_norm, current, normalized);
       StorageView projected;
       if (embedded.dim(0) == 0)
         projected.resize({0, vocabulary_size()});

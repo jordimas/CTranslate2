@@ -137,7 +137,6 @@ set(SOURCES
   src/layers/common.cc
   src/layers/moe.cc
   src/layers/gated_delta.cc
-  src/layers/drama_attention.cc
   src/layers/drama_block.cc
   src/layers/drama_backbone.cc
   src/layers/drama_tower.cc

@@ -72,11 +72,8 @@ class StandardConversionTest(unittest.TestCase):
         (self.source / "model.safetensors.index.json").write_text(
             json.dumps({"weight_map": {name: shard for name in tensors}}))
         codec = c.codec
-        manifest = {"tensors": [{"required_for_inference": True,
-                                "source_name": "codec_weights/decoder.weight",
-                                "expected_logical_shape": [1, 2]}]}
         self.codec = np.array([[.234567, -.345678]], np.float32)
-        self.enterContext(patch.object(codec, "load_manifest", return_value=manifest))
+        self.enterContext(patch.object(codec, "codec_parameter_shapes", return_value={"decoder.weight": (1, 2)}))
         self.enterContext(patch.object(codec, "load_checkpoint", return_value={"decoder.weight": self.codec}))
 
     def test_standard_quantization_and_serialization_preserve_sensitive_weights(self):

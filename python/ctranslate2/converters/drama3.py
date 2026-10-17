@@ -459,12 +459,11 @@ def inspect_checkpoint(
     if quantization == "float32":
         for item in plan:
             item["dtype"] = "float32"
-    codec_manifest = codec.load_manifest()
-    codec_tensors = [
-        t for t in codec_manifest["tensors"] if t["required_for_inference"]
-    ]
-    codec_count = len(codec_tensors)
-    codec_bytes = sum(math.prod(t["expected_logical_shape"]) * 4 for t in codec_tensors)
+    codec_plan = codec.conversion_plan(
+        codec.state_schema(codec.load_checkpoint(source / "codec.pth"))
+    )
+    codec_count = len(codec_plan)
+    codec_bytes = sum(math.prod(t["shape"]) * 4 for t in codec_plan)
     count = sum(2 if item["dtype"] == "int8" else 1 for item in plan) + codec_count
     payload_bytes = sum(
         math.prod(item["shape"]) * (1 if item["dtype"] == "int8" else 4)
@@ -501,7 +500,7 @@ def inspect_checkpoint(
             for dtype in ("int8", "float32")
         },
     }
-    return config, readers, plan, codec_manifest, result
+    return config, readers, plan, codec_plan, result
 
 
 def load_spec(
@@ -513,12 +512,12 @@ def load_spec(
 ):
     """Load Drama3 weights into the standard model specification."""
     model_path = Path(model_path)
-    config, readers, plan, manifest, result = inspect_checkpoint(
+    config, readers, plan, codec_plan, result = inspect_checkpoint(
         model_path, chunk_rows, source_revision, quantization_policy, quantization
     )
     state = codec.load_checkpoint(model_path / "codec.pth")
     codec_variables = codec.load_codec_tensors(
-        state, manifest, chunk_rows=min(chunk_rows, 32)
+        state, plan=codec_plan, chunk_rows=min(chunk_rows, 32)
     )
     variables, result["tiny_row_zeroing"] = load_model_tensors(
         plan, readers, config, chunk_rows

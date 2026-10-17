@@ -4,14 +4,12 @@ Fold weight normalization in row chunks and retain FLOAT32 arrays. PyTorch is
 needed only to safely load the tensor-only checkpoint with memory mapping.
 """
 
-import json
 import math
-
-from pathlib import Path
 
 import numpy as np
 
-DEFAULT_MANIFEST = Path(__file__).with_name("drama3_codec_manifest.json")
+from ctranslate2.specs.drama3_spec import codec_parameter_shapes
+
 FLOAT_TYPES = {
     "float32",
     "float16",
@@ -23,28 +21,11 @@ FLOAT_TYPES = {
 }
 
 
-def load_manifest(path=DEFAULT_MANIFEST):
-    return json.loads(Path(path).read_text(encoding="utf-8"))
-
-
-def conversion_plan(schema, manifest):
+def conversion_plan(schema):
     """Resolve direct/legacy/parametrized tensors using only names and shapes."""
     keys = schema.get("keys", schema)
     plan, targets = [], set()
-    for tensor in manifest["tensors"]:
-        if not tensor["required_for_inference"]:
-            continue
-        source = tensor["source_name"]
-        if not source.startswith("codec_weights/"):
-            raise ValueError("manifest tensor is outside codec_weights/")
-        source = source[len("codec_weights/") :]
-        shape = tensor["expected_logical_shape"]
-        if not shape or any(
-            type(d) is not int or d <= 0 or d > 2**32 - 1 for d in shape
-        ):
-            raise ValueError("invalid manifest shape: " + source)
-        if math.prod(shape) * 4 > 2**32 - 1:
-            raise ValueError("codec tensor exceeds CT2-v6 byte limit")
+    for source, shape in codec_parameter_shapes().items():
         candidates = []
         if source in keys:
             candidates.append(("direct", source, None))
@@ -67,8 +48,8 @@ def conversion_plan(schema, manifest):
         if len(candidates) != 1:
             raise ValueError("missing or ambiguous official tensor: " + source)
         style, value_key, magnitude_key = candidates[0]
-        if list(keys[value_key]["shape"]) != shape:
-            raise ValueError("official shape differs from codec manifest: " + source)
+        if tuple(keys[value_key]["shape"]) != shape:
+            raise ValueError("unsupported codec weight shape: " + source)
         selected = [value_key]
         if magnitude_key:
             if list(keys[magnitude_key]["shape"]) != [shape[0]] + [1] * (
@@ -88,7 +69,7 @@ def conversion_plan(schema, manifest):
             {
                 "source_name": source,
                 "target": target,
-                "shape": shape,
+                "shape": list(keys[value_key]["shape"]),
                 "style": style,
                 "value_key": value_key,
                 "magnitude_key": magnitude_key,
@@ -157,12 +138,11 @@ def state_schema(state):
     }
 
 
-def load_codec_tensors(state, manifest=None, chunk_rows=32):
+def load_codec_tensors(state, plan=None, chunk_rows=32):
     """Load decoder weights as whole FLOAT32 arrays for standard ModelSpec."""
     if type(chunk_rows) is not int or chunk_rows < 1:
         raise ValueError("chunk_rows must be positive")
-    manifest = load_manifest() if manifest is None else manifest
-    plan = conversion_plan(state_schema(state), manifest)
+    plan = conversion_plan(state_schema(state)) if plan is None else plan
     tensors = {}
     for item in plan:
         value = np.empty(item["shape"], dtype=np.float32)

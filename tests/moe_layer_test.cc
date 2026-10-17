@@ -1,0 +1,173 @@
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
+#include "test_utils.h"
+#include "ctranslate2/layers/moe.h"
+#include "cpu/backend.h"
+
+namespace {
+
+  class TinyMoEModel : public models::Model {
+  public:
+    explicit TinyMoEModel(float unused_expert_scale = 100.f) {
+      register_variable("moe/router/weight", StorageView({3, 1}, std::vector<float>{0, 1, -1}));
+      register_variable("moe/shared_expert_gate/weight", StorageView({1, 1}, 0.f));
+      add_expert("moe/shared_expert", 6.f);
+      add_expert("moe/experts_0", 2.f);
+      add_expert("moe/experts_1", 4.f);
+      add_expert("moe/experts_2", unused_expert_scale);
+      set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
+    }
+
+    void replace(const std::string& name, StorageView value) {
+      remove_variable(name);
+      register_variable(name, std::move(value));
+    }
+
+    void install_explicit_int8_weights() {
+      const auto variables = get_variables();
+      for (const auto& pair : variables) {
+        if (pair.first.size() < 7 || pair.first.substr(pair.first.size() - 7) != "/weight")
+          continue;
+        const auto& original = pair.second;
+        StorageView quantized(original.shape(), DataType::INT8);
+        // These fixture weights are small integers. Scale=1 means the stored
+        // INT8 value is exactly the original coefficient, independent of CT2's
+        // weight-quantization implementation.
+        for (dim_t i = 0; i < original.size(); ++i)
+          quantized.data<int8_t>()[i] = static_cast<int8_t>(original.data<float>()[i]);
+        auto compensation = ops::Gemm::compensate_u8_input(quantized, true,
+                                                          quantized.dim(1), quantized.dim(0), 1.f);
+        replace(pair.first, std::move(quantized));
+        register_variable(pair.first + "_scale", StorageView({original.dim(0)}, 1.f));
+        register_variable(pair.first + "_compensation", std::move(compensation));
+      }
+      set_compute_type(ComputeType::INT8_FLOAT32, Device::CPU, 0, false);
+    }
+
+  protected:
+    bool is_packable(const std::string&) const override { return false; }
+    std::unique_ptr<models::Model> clone() const override {
+      return std::make_unique<TinyMoEModel>(*this);
+    }
+
+  private:
+    void add_expert(const std::string& scope, float scale) {
+      register_variable(scope + "/gate_proj/weight", StorageView({1, 1}, 1.f));
+      register_variable(scope + "/up_proj/weight", StorageView({1, 1}, 1.f));
+      register_variable(scope + "/down_proj/weight", StorageView({1, 1}, scale));
+    }
+  };
+
+}
+
+TEST(SparseMoETest, IndependentScalarEquation) {
+  TinyMoEModel model;
+  layers::SparseMoE layer(model, "moe", 3, 2);
+  EXPECT_EQ(layer.output_type(), DataType::FLOAT32);
+  EXPECT_EQ(layer.output_size(), 1);
+  StorageView input({3, 1}, std::vector<float>{1, -1, .5f}), output;
+  layer(input, output);
+  ASSERT_EQ(output.shape(), input.shape());
+  for (dim_t r = 0; r < 3; ++r) {
+    const double x = input.data<float>()[r];
+    const double selected = x > 0 ? 4 : 100;
+    const double probability = std::exp(std::abs(x)) / (1 + std::exp(std::abs(x)));
+    const double ffn = x * x / (1 + std::exp(-x));
+    const double expected = ffn * (probability * selected + (1 - probability) * 2 + .5 * 6);
+    EXPECT_NEAR(output.data<float>()[r], expected, 1e-5);
+  }
+}
+
+TEST(SparseMoETest, UnselectedExpertDoesNotAffectOutput) {
+  TinyMoEModel model_a(100.f), model_b(-10000.f);
+  layers::SparseMoE layer_a(model_a, "moe", 3, 1), layer_b(model_b, "moe", 3, 1);
+  StorageView input({2, 1}, std::vector<float>{1, 2}), a, b;
+  layer_a(input, a);
+  layer_b(input, b);
+  expect_storage_eq(a, b);
+}
+
+TEST(SparseMoETest, SharedGateIsInputDependent) {
+  TinyMoEModel model;
+  model.replace("moe/shared_expert_gate/weight", StorageView({1, 1}, 2.f));
+  layers::SparseMoE layer(model, "moe", 3, 1);
+  StorageView input({1, 1}, 1.f), output;
+  layer(input, output);
+  const double ffn = 1 / (1 + std::exp(-1.));
+  EXPECT_NEAR(output.data<float>()[0], ffn * (4 + 6 / (1 + std::exp(-2.))), 1e-6);
+}
+
+TEST(SparseMoETest, EmptyRows) {
+  TinyMoEModel model;
+  layers::SparseMoE layer(model, "moe", 3, 2);
+  StorageView input({0, 1}, DataType::FLOAT32), output;
+  layer(input, output);
+  EXPECT_EQ(output.shape(), input.shape());
+}
+
+TEST(SparseMoETest, ConstructorGuards) {
+  TinyMoEModel model;
+  EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 0)), std::invalid_argument);
+  EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 4)), std::invalid_argument);
+  EXPECT_THROW((layers::SparseMoE(model, "moe", 2, 1)), std::invalid_argument);
+  model.replace("moe/experts_0/up_proj/weight", StorageView({2, 1}, 1.f));
+  EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
+}
+
+TEST(SparseMoETest, InputAndAliasingGuards) {
+  TinyMoEModel model;
+  layers::SparseMoE layer(model, "moe", 3, 1);
+  StorageView rank3({1, 1, 1}, 1.f), wrong_width({1, 2}, 1.f), integers({1, 1}, int32_t(1)), output;
+  EXPECT_THROW(layer(rank3, output), std::invalid_argument);
+  EXPECT_THROW(layer(wrong_width, output), std::invalid_argument);
+  EXPECT_THROW(layer(integers, output), std::invalid_argument);
+  StorageView input({1, 1}, 1.f);
+  EXPECT_THROW(layer(input, input), std::invalid_argument);
+  StorageView allocation({8}, 0.f);
+  StorageView view({1, 1}, allocation.data<float>() + 3);
+  allocation.clear();
+  EXPECT_THROW(layer(view, allocation), std::invalid_argument);
+  input.data<float>()[0] = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_THROW(layer(input, output), std::invalid_argument);
+}
+
+TEST(SparseMoETest, ExplicitInt8WeightsIndependentQuantizedReference) {
+  if (!mayiuse_int8(Device::CPU))
+    GTEST_SKIP() << "CPU INT8 GEMM is unavailable in this build";
+  TinyMoEModel model;
+  model.install_explicit_int8_weights();
+  ASSERT_EQ(model.get_variable("moe/experts_1/down_proj/weight").dtype(), DataType::INT8);
+  layers::SparseMoE layer(model, "moe", 3, 2);
+  StorageView input({4, 1}, std::vector<float>{1, -1, .37f, -2.1f}), output;
+  layer(input, output);
+  // An independent scalar simulation of each dynamic-INT8 Dense invocation.
+  // This fixture Model has binary_version=0, so activation quantization uses
+  // truncation, not rounding. Scale=127/maxabs and the explicit weight scale=1.
+  const bool unsigned_activation = cpu::prefer_u8s8s32_gemm();
+  auto linear = [unsigned_activation](float value, int32_t weight) {
+    const float scale = value == 0.f ? 1.f : 127.f / std::abs(value);
+    // Legacy U8 quantization offsets before truncation, then compensates the
+    // integer dot product. Its boundary behavior differs from signed casting.
+    const int32_t quantized = unsigned_activation
+      ? static_cast<int32_t>(value * scale + 128.f) - 128
+      : static_cast<int32_t>(value * scale);
+    return static_cast<float>(quantized * weight) * (1.f / scale);
+  };
+  auto expert = [&](float value, int32_t down) {
+    const float gate = linear(value, 1);
+    const float up = linear(value, 1);
+    const float activation = (gate / (1.f + std::exp(-gate))) * up;
+    return linear(activation, down);
+  };
+  for (dim_t r = 0; r < input.dim(0); ++r) {
+    const float value = input.data<float>()[r];
+    const double router_max = std::abs(linear(value, 1));
+    const float probability = static_cast<float>(1. / (1. + std::exp(-router_max)));
+    const int32_t chosen_down = value > 0 ? 4 : 100;
+    const float expected = probability * expert(value, chosen_down)
+      + (1.f - probability) * expert(value, 2) + .5f * expert(value, 6);
+    EXPECT_NEAR(output.data<float>()[r], expected, 1e-4 * std::max(1.f, std::abs(expected)));
+  }
+}

@@ -2,8 +2,10 @@ import abc
 import argparse
 import gc
 import itertools
+import json
 import os
 
+from pathlib import Path
 from typing import List, Optional
 
 import numpy as np
@@ -103,7 +105,73 @@ class TransformersConverter(Converter):
         self._low_cpu_mem_usage = low_cpu_mem_usage
         self._trust_remote_code = trust_remote_code
 
+    def _get_drama3_path(self):
+        # Fish Speech checkpoints are not Transformers AutoModel classes, but
+        # can still use this converter's public API and command-line interface.
+        path = Path(self._model_name_or_path)
+        config_path = path / "config.json"
+        if not config_path.is_file():
+            return None
+        with config_path.open(encoding="utf-8") as config_file:
+            config = json.load(config_file)
+        if config.get("model_type") != "fish_omni":
+            return None
+        if (
+            self._activation_scales
+            or self._copy_files
+            or self._load_as_float16
+            or self._low_cpu_mem_usage
+        ):
+            raise ValueError(
+                "Drama 3 does not support activation_scales, copy_files, "
+                "load_as_float16, or low_cpu_mem_usage"
+            )
+        return path
+
+    def inspect(self, quantization=None):
+        """Audit a local Drama 3 checkpoint without loading weight payloads."""
+        path = self._get_drama3_path()
+        if path is None:
+            raise ValueError(
+                "Dry-run inspection is only supported for local Drama 3 checkpoints"
+            )
+        from ctranslate2.converters import drama3
+
+        self.conversion_report = drama3.inspect_checkpoint(
+            path,
+            quantization=quantization,
+        )[-1]
+        return self.conversion_report
+
+    def convert(self, output_dir, vmap=None, quantization=None, force=False):
+        path = self._get_drama3_path()
+        self._atomic_conversion = path is not None
+        self.conversion_report = None
+        if path is not None:
+            output_dir = str(output_dir)
+            if vmap is not None:
+                raise ValueError("Drama 3 does not support vocabulary mapping")
+            quantization = quantization or "float32"
+            from ctranslate2.converters import drama3
+            drama3.resolve_quantization(drama3.FP8_POLICY, quantization)
+            self._drama3_quantization = quantization
+            if path.resolve().is_relative_to(Path(output_dir).resolve()):
+                raise ValueError(
+                    "output directory must not contain the source checkpoint"
+                )
+        return super().convert(
+            output_dir, vmap=vmap, quantization=quantization, force=force
+        )
+
     def _load(self):
+        path = self._get_drama3_path()
+        if path is not None:
+            from ctranslate2.converters import drama3
+
+            spec, self.conversion_report = drama3.load_spec(
+                path, quantization=getattr(self, "_drama3_quantization", None)
+            )
+            return spec
         with torch.no_grad():
             config = transformers.AutoConfig.from_pretrained(
                 self._model_name_or_path, trust_remote_code=self._trust_remote_code
@@ -3714,6 +3782,14 @@ def main():
     )
 
     Converter.declare_arguments(parser)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Audit a local Drama 3 checkpoint without loading weights.",
+    )
+    parser.add_argument(
+        "--report", type=Path, help="Write a Drama 3 conversion report as JSON."
+    )
     args = parser.parse_args()
     converter = TransformersConverter(
         args.model,
@@ -3724,7 +3800,24 @@ def main():
         low_cpu_mem_usage=args.low_cpu_mem_usage,
         trust_remote_code=args.trust_remote_code,
     )
-    converter.convert_from_args(args)
+    if args.dry_run or args.report:
+        if converter._get_drama3_path() is None:
+            parser.error("--dry-run and --report require a local Drama 3 checkpoint")
+    if args.dry_run:
+        if args.vocab_mapping:
+            parser.error("Drama 3 does not support vocabulary mapping")
+        report = converter.inspect(args.quantization)
+        print(
+            json.dumps(
+                {key: value for key, value in report.items() if key != "mappings"},
+                indent=2,
+            )
+        )
+    else:
+        converter.convert_from_args(args)
+        report = getattr(converter, "conversion_report", None)
+    if args.report:
+        converter.write_report(args.report)
 
 
 if __name__ == "__main__":

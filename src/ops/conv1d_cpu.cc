@@ -36,7 +36,8 @@ namespace ctranslate2 {
                               const_cast<void*>(weight.buffer()));
 
       dnnl::memory::dims stride{_stride};
-      dnnl::memory::dims dilation{_dilation > 1 ? _dilation : 0};
+      // oneDNN counts inserted holes; the public operator counts sample spacing.
+      dnnl::memory::dims dilation{_dilation - 1};
       dnnl::memory::dims padding{_padding};
 
       std::unique_ptr<dnnl::convolution_forward::primitive_desc> conv_pd;
@@ -130,9 +131,6 @@ namespace ctranslate2 {
     void
     Conv1D::compute<Device::CPU, float>(const StorageView &input, const StorageView &weight, const StorageView *bias,
                                         StorageView &output, const StorageView *qscale) const {
-      if (_dilation != 1)
-        throw std::runtime_error("Dilation is not supported in this Conv1D implementation");
-
       compute_with_gemm(input, weight, output, qscale);
       // Add bias
       apply_bias_and_activation(output, bias, _activation_type, /*residual=*/nullptr, /*axis=*/-2);
@@ -218,6 +216,7 @@ namespace ctranslate2 {
       const dim_t batch_size = input.dim(0);
       const dim_t in_channels = input.dim(1);
       const dim_t input_length = input.dim(2);
+      const dim_t output_length = output.dim(2);
       auto* out = output.data <float>();
       const auto* in = input.data <float>();
       dim_t out_offset = 0;
@@ -226,11 +225,12 @@ namespace ctranslate2 {
       const dim_t in_group_stride = in_channels_per_group * input_length;
       for (dim_t batch_offset = 0; batch_offset < batch_size * in_batch_stride; batch_offset += in_batch_stride) {
         for (dim_t group_offset = batch_offset; group_offset < (batch_offset + _groups * in_group_stride); group_offset += in_group_stride) {
-          for (dim_t ti = -_padding; ti <= (input_length - kernel_size + _padding); ti += _stride) {
+          for (dim_t t = 0; t < output_length; ++t) {
+            const dim_t ti = t * _stride - _padding;
             for (dim_t c = group_offset; c < (group_offset + in_channels_per_group * input_length); c += input_length) {
-              for (int k = 0; k < kernel_size; k++) {
+              for (dim_t k = 0; k < kernel_size; k++) {
                 // Fill items in [0, input_length) range
-                auto window_i = k + ti;
+                const dim_t window_i = k * _dilation + ti;
                 if (0 <= window_i && window_i < input_length) {
                   out[out_offset] = in[window_i + c];
                 }

@@ -16,6 +16,7 @@ add_executable(ctranslate2_test
   drama3_serialization_test.cc
   drama3_model_test.cc
   drama3_mixed_precision_test.cc
+  dequantize_fp8_test.cc
   drama_attention_test.cc
   drama_block_test.cc
   drama_backbone_test.cc

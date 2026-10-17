@@ -139,6 +139,7 @@ namespace ctranslate2 {
       const StorageView* _bias;
       const StorageView* _qscale;
       const StorageView* _qzero;
+      const StorageView* _fp8_scale_inv;
       const StorageView* _u8_shift_compensation;
       StorageView _partial_weight;
       StorageView _partial_bias;

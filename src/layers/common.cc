@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "ctranslate2/ops/activation.h"
+#include "ctranslate2/ops/dequantize_fp8.h"
 #include "cpu/backend.h"
 #include "dispatch.h"
 
@@ -272,8 +273,10 @@ namespace ctranslate2 {
       , _bias(model.get_variable_if_exists(scope + "/bias"))
       , _qscale(model.get_variable_if_exists(scope + "/weight_scale"))
       , _qzero(model.get_variable_if_exists(scope + "/weight_zero"))
+      , _fp8_scale_inv(model.get_variable_if_exists(scope + "/weight_scale_inv"))
       , _u8_shift_compensation((_weight.device() == Device::CPU
                                 && _weight.dtype() == DataType::INT8
+                                && !_fp8_scale_inv
                                 && cpu::prefer_u8s8s32_gemm())
                                ? &model.get_variable(scope + "/weight_compensation")
                                : nullptr)
@@ -283,7 +286,8 @@ namespace ctranslate2 {
       , _partial_u8_shift_compensation(_weight.device(), DataType::INT32)
       , _output_type(get_default_float_type(model.effective_compute_type()))
       , _quant_method(model.quant_method())
-      , _quantized_gemm(_weight.dtype() == DataType::INT16 || _weight.dtype() == DataType::INT8)
+      , _quantized_gemm(!_fp8_scale_inv
+                        && (_weight.dtype() == DataType::INT16 || _weight.dtype() == DataType::INT8))
       , _gemm_op(/*alpha=*/1,
                  /*beta=*/0,
                  /*trans_a=*/false,
@@ -300,6 +304,11 @@ namespace ctranslate2 {
       , _activation_type(activation_type)
       , _is_layer_out(is_layer_out)
     {
+      if (_fp8_scale_inv
+          && (model.config.value("fp8_format", std::string()) != "e4m3fn_block128"
+              || _weight.device() != Device::CPU || _weight.dtype() != DataType::INT8
+              || _packed_weight || _qscale || _qzero || _output_type != DataType::FLOAT32))
+        throw std::invalid_argument("Block FP8 Dense requires explicit E4M3FN metadata and unpacked CPU float32 compute");
     }
 
     DataType Dense::output_type() const {
@@ -312,6 +321,8 @@ namespace ctranslate2 {
 
     void Dense::select_weights(const StorageView* index, const StorageView* extra_bias) {
       if (index) {
+        if (_fp8_scale_inv)
+          throw std::invalid_argument("Selecting block FP8 Dense weights is unsupported");
         if (_packed_weight)
           throw std::runtime_error("Can't select pre-packed weight");
         ops::Gather()(_weight, *index, _partial_weight);
@@ -350,7 +361,13 @@ namespace ctranslate2 {
         bias = nullptr;
         residual = nullptr;
       }
-      if (_quantized_gemm) {
+      if (_fp8_scale_inv) {
+        if (input.device() != Device::CPU || input.dtype() != DataType::FLOAT32 || affected_by_tp)
+          throw std::invalid_argument("Block FP8 Dense requires CPU float32 input without tensor parallelism");
+        StorageView decoded;
+        ops::DequantizeFP8()(*weight, *_fp8_scale_inv, decoded);
+        _gemm_op(input, decoded, output, nullptr, bias, residual);
+      } else if (_quantized_gemm) {
         const auto device = input.device();
         StorageView qinput(_weight.dtype(), device);
         StorageView qinput_scale(_qscale->dtype(), device);

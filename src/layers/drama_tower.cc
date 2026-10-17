@@ -13,7 +13,7 @@ namespace ctranslate2 {
 
     int32_t sample_drama_token(const std::vector<float>& logits,
                                const DramaSamplingOptions& options,
-                               std::mt19937_64& rng) {
+                               std::mt19937& rng) {
       if (logits.empty() || logits.size() > size_t(std::numeric_limits<int32_t>::max())
           || !std::isfinite(options.temperature) || options.temperature <= 0
           || !std::isfinite(options.top_p) || options.top_p < 0 || options.top_p > 1
@@ -23,36 +23,42 @@ namespace ctranslate2 {
         if (!std::isfinite(value))
           throw std::invalid_argument("Drama sampling logits must be finite");
       }
+      const float temperature = std::max(options.temperature, 1e-5f);
       std::vector<int32_t> order(logits.size());
       std::iota(order.begin(), order.end(), 0);
+      std::vector<float> values(logits.size()), probabilities(logits.size());
+      for (size_t i = 0; i < logits.size(); ++i)
+        values[i] = logits[i] / temperature;
       std::sort(order.begin(), order.end(), [&](int32_t a, int32_t b) {
-        return logits[a] > logits[b] || (logits[a] == logits[b] && a < b);
+        return values[a] > values[b];
       });
-      const double temperature = std::max(options.temperature, 1e-5f);
-      const double maximum = logits[order[0]];
-      std::vector<double> probabilities(logits.size());
-      double full_sum = 0;
+      float sum = 0;
       for (size_t rank = 0; rank < order.size(); ++rank)
-        full_sum += probabilities[rank] = std::exp((double(logits[order[rank]]) - maximum) / temperature);
-      double cumulative = 0, kept_sum = 0;
-      size_t kept = 0;
+        sum += probabilities[rank] = std::exp(values[order[rank]] - values[order[0]]);
+      double cumulative = 0;
+      float kept_sum = 0;
       for (size_t rank = 0; rank < order.size(); ++rank) {
-        cumulative += probabilities[rank] / full_sum;
-        if (rank && (cumulative > options.top_p || rank >= size_t(options.top_k)))
-          break;
+        cumulative += probabilities[rank] / sum;
+        if (rank && (float(cumulative) > options.top_p || rank >= size_t(options.top_k)))
+          probabilities[rank] = 0;
         kept_sum += probabilities[rank];
-        ++kept;
       }
-      // Categorical-equivalent to PyTorch's exponential-race draw, without
-      // promising identical random sequences between the two implementations.
-      const double threshold = std::generate_canonical<double, 53>(rng) * kept_sum;
-      double sum = 0;
-      for (size_t rank = 0; rank < kept; ++rank) {
-        sum += probabilities[rank];
-        if (threshold < sum)
-          return order[rank];
+      // Match the tested Torch CPU exponential stream in sorted-rank order,
+      // including masked ranks. Different platforms may round softmax differently.
+      float best = -1;
+      int32_t chosen = order[0];
+      for (size_t rank = 0; rank < order.size(); ++rank) {
+        const uint64_t hi = rng(), lo = rng();
+        const uint64_t bits = (hi << 32) | lo;
+        const double uniform = double(bits & ((uint64_t(1) << 53) - 1)) * 0x1.0p-53;
+        const float noise = float(-std::log1p(-uniform));
+        const float score = (probabilities[rank] / kept_sum) / noise;
+        if (score > best) {
+          best = score;
+          chosen = order[rank];
+        }
       }
-      return order[kept - 1];
+      return chosen;
     }
     namespace {
 
@@ -387,7 +393,7 @@ namespace ctranslate2 {
     void DramaTower::decode_sample(const StorageView& logits, const StorageView& hidden,
                                    const StorageView& previous_frame, DramaTowerState& state,
                                    const std::vector<int32_t>& history_main_tokens,
-                                   const DramaSamplingOptions& options, std::mt19937_64& rng,
+                                   const DramaSamplingOptions& options, std::mt19937& rng,
                                    StorageView& next_frame) const {
       decode_impl(logits, hidden, previous_frame, state, next_frame, &history_main_tokens, &options, &rng);
     }
@@ -396,7 +402,7 @@ namespace ctranslate2 {
                                  const StorageView& previous_frame, DramaTowerState& state,
                                  StorageView& next_frame,
                                  const std::vector<int32_t>* history_main_tokens,
-                                 const DramaSamplingOptions* options, std::mt19937_64* rng) const {
+                                 const DramaSamplingOptions* options, std::mt19937* rng) const {
       validate_hidden(hidden);
       validate_frames(previous_frame, 1);
       validate_state(state, 1);

@@ -26,7 +26,8 @@ namespace {
     }
   }
   models::ModelMemoryReader fixture(nlohmann::json config = {
-      {"model_type", "drama3"}, {"ct2_layout_version", 1}, {"source_config", nlohmann::json::object()}}) {
+      {"model_type", "drama3"}, {"ct2_layout_version", 1}, {"source_config", nlohmann::json::object()},
+      {"quantization_policy", "experts_fp8_sensitive_float32"}, {"fp8_format", "e4m3fn_block128"}}) {
     // Deliberately a model-loading fixture, not a complete inference graph.
     std::string bytes;
     append_integer(bytes, 6, 4);
@@ -48,33 +49,21 @@ namespace {
   }
 }
 
-TEST(Drama3ModelTest, RegistersNativeSpecAndRetainsFloatCodecWhileQuantizingMatrices) {
-  if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "CPU backend does not support INT8";
-  auto reader = fixture();
-  const auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::INT8_FLOAT32);
-  ASSERT_NE(dynamic_cast<const models::Drama3Model*>(model.get()), nullptr);
-  EXPECT_EQ(model->effective_compute_type(), ComputeType::INT8_FLOAT32);
-  EXPECT_EQ(model->get_variable("backbone/projection/weight").dtype(), DataType::INT8);
-  EXPECT_EQ(model->get_variable("tower/codebook_embeddings/weight").dtype(), DataType::INT8);
-  EXPECT_EQ(model->get_variable("backbone/projection/weight_scale").dtype(), DataType::FLOAT32);
-  expect_storage_eq(model->get_variable("backbone/norm/weight"), StorageView({2}, std::vector<float>{.25f, -.5f}));
-  const auto& pointwise = model->get_variable("codec/quantizer/upsample/0/1/pwconv1/weight");
-  expect_storage_eq(pointwise, StorageView({2, 2}, std::vector<float>{.125f, -.25f, .5f, -1}));
-  EXPECT_EQ(pointwise.dtype(), DataType::FLOAT32);
-  EXPECT_EQ(model->get_variable_if_exists("codec/quantizer/upsample/0/1/pwconv1/weight_scale"), nullptr);
-  EXPECT_EQ(model->get_variable("codec/decoder/model/0/conv/weight").dtype(), DataType::FLOAT32);
-  for (const auto& variable : model->get_variables())
-    EXPECT_EQ(variable.first.find("weight_packed"), std::string::npos) << variable.first;
-}
-
 TEST(Drama3ModelTest, SupportsFloat32LoadingWithoutQuantizingCodecOrBackbone) {
   auto reader = fixture();
   const auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32);
+  ASSERT_NE(dynamic_cast<const models::Drama3Model*>(model.get()), nullptr);
   EXPECT_EQ(model->device(), Device::CPU);
   EXPECT_EQ(model->effective_compute_type(), ComputeType::FLOAT32);
   expect_storage_eq(model->get_variable("backbone/projection/weight"),
                     StorageView({2, 2}, std::vector<float>{1, -2, 3, -4}));
   EXPECT_EQ(model->get_variable_if_exists("backbone/projection/weight_scale"), nullptr);
+  expect_storage_eq(model->get_variable("backbone/norm/weight"), StorageView({2}, std::vector<float>{.25f, -.5f}));
+  expect_storage_eq(model->get_variable("codec/quantizer/upsample/0/1/pwconv1/weight"),
+                    StorageView({2, 2}, std::vector<float>{.125f, -.25f, .5f, -1}));
+  EXPECT_EQ(model->get_variable("codec/decoder/model/0/conv/weight").dtype(), DataType::FLOAT32);
+  for (const auto& variable : model->get_variables())
+    EXPECT_EQ(variable.first.find("weight_packed"), std::string::npos) << variable.first;
 }
 
 TEST(Drama3ModelTest, RejectsInvalidLayoutAndMissingSourceConfiguration) {
@@ -92,8 +81,9 @@ TEST(Drama3ModelTest, RejectsInvalidLayoutAndMissingSourceConfiguration) {
   }
 }
 
-TEST(Drama3ModelTest, RejectsUnsupportedInt16ExecutionMode) {
+TEST(Drama3ModelTest, SupportsInt16WhenAvailable) {
   if (!mayiuse_int16(Device::CPU)) GTEST_SKIP() << "INT16 unavailable before model-specific validation";
   auto reader = fixture();
-  EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::INT16), std::invalid_argument);
+  const auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::INT16);
+  EXPECT_EQ(model->effective_compute_type(), ComputeType::INT16);
 }

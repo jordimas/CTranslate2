@@ -175,26 +175,37 @@ class LayerSpec(FrozenAttr, metaclass=FrozenMeta):
         for name, _ in variables:
             scope, attr_name = _parent_scope(name)
             quantizable[name] = hasattr(index_spec(self, scope), attr_name + "_scale")
-        for name, value in reversed(variables):
-            for other_name, other_value in variables:
-                if name == other_name:
-                    break
-                # Because variables can be transformed on load (e.g. transposed),
-                # we use an element-wise equality check.
-                scope, attr_name = _parent_scope(name)
-                if (
-                    not value.is_scalar()
-                    # Equal values can differ after applying their precision policies.
-                    and quantizable[name] == quantizable[other_name]
-                    and value.equal(other_value)
-                    and attr_name not in SKIP_CREATING_ALIAS
-                ):
-                    # Replace variable value by the alias name.
-                    spec = index_spec(self, scope)
-                    setattr(spec, attr_name, other_name)
-                    break
+        candidates = {}
+        for name, value in variables:
+            if value.is_scalar():
+                continue
+            samples = ()
+            if value.num_bytes():
+                index = (0,) * (len(value.shape) - 1) + (slice(0, 8),)
+                if isinstance(value, NumpyVariable):
+                    samples = value.array[index].tolist()
+                elif isinstance(value, PyTorchVariable):
+                    samples = value.tensor[index].tolist()
+                # Equal signed zeros share a bucket; NaNs still reach the exact
+                # equality check, which can recognize an identical array object.
+                samples = tuple(None if x != x else x for x in samples)
+            key = (
+                type(value),
+                value.dtype,
+                tuple(value.shape),
+                quantizable[name],
+                samples,
+            )
+            bucket = candidates.setdefault(key, [])
+            scope, attr_name = _parent_scope(name)
+            if attr_name not in SKIP_CREATING_ALIAS:
+                for other_name, other_value in bucket:
+                    if value.equal(other_value):
+                        setattr(index_spec(self, scope), attr_name, other_name)
+                        break
+            bucket.append((name, value))
 
-    def _quantize(self, quantization):
+    def _quantize(self, quantization, variable_filter=None):
         """Possibly quantizes the variable of the layer."""
         if quantization is not None and quantization not in ACCEPTED_MODEL_TYPES:
             raise ValueError(
@@ -203,6 +214,8 @@ class LayerSpec(FrozenAttr, metaclass=FrozenMeta):
             )
 
         def _quantize(spec, name, value):
+            if variable_filter is not None and not variable_filter(name):
+                return
             if not isinstance(value, Variable) or value.is_scalar():
                 return
 

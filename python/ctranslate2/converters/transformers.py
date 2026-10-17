@@ -139,7 +139,7 @@ class TransformersConverter(Converter):
 
         self.conversion_report = drama3.inspect_checkpoint(
             path,
-            quantization=quantization or "int8_float32",
+            quantization=quantization,
         )[-1]
         return self.conversion_report
 
@@ -151,9 +151,9 @@ class TransformersConverter(Converter):
             output_dir = str(output_dir)
             if vmap is not None:
                 raise ValueError("Drama 3 does not support vocabulary mapping")
-            quantization = quantization or "int8_float32"
-            if quantization not in ("int8_float32", "float32"):
-                raise ValueError("quantization must be int8_float32 or float32")
+            quantization = quantization or "float32"
+            from ctranslate2.converters import drama3
+            drama3.resolve_quantization(drama3.FP8_POLICY, quantization)
             self._drama3_quantization = quantization
             if path.resolve().is_relative_to(Path(output_dir).resolve()):
                 raise ValueError(
@@ -169,8 +169,7 @@ class TransformersConverter(Converter):
             from ctranslate2.converters import drama3
 
             spec, self.conversion_report = drama3.load_spec(
-                path,
-                quantization=getattr(self, "_drama3_quantization", "int8_float32"),
+                path, quantization=getattr(self, "_drama3_quantization", None)
             )
             return spec
         with torch.no_grad():

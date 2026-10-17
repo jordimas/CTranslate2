@@ -5,6 +5,7 @@
 #include "ctranslate2/layers/drama_tower.h"
 #include "ctranslate2/layers/fish_dac_decoder.h"
 #include "ctranslate2/utils.h"
+#include "ctranslate2/ops/dequantize_fp8.h"
 
 #include <algorithm>
 #include <chrono>
@@ -13,36 +14,79 @@
 namespace ctranslate2 { namespace models {
   namespace {
     std::string quantization_policy(const nlohmann::json& config) {
-      const auto policy = config.value("quantization_policy", std::string("all_matrices_int8"));
-      if (policy != "all_matrices_int8" && policy != "experts_int8_sensitive_float32")
+      const auto policy = config.value("quantization_policy", std::string());
+      if (policy != "experts_fp8_sensitive_float32" && policy != "standard")
         throw std::invalid_argument("Unknown Drama3 quantization policy: " + policy);
       return policy;
     }
   }
   bool Drama3Model::is_quantizable(const std::string& name) const {
     // Model::set_compute_type runs before initialize. Enforce this policy here
-    // so loading INT8 experts cannot silently re-quantize preserved F32 matrices.
+    // so the source FP8 bytes and sensitive F32 matrices remain untouched.
     const auto policy = quantization_policy(config);
     if (name.compare(0,6,"codec/") == 0 || name.size() < 7
         || name.compare(name.size()-7,7,"/weight") != 0) return false;
     const auto* variable = get_variable_if_exists(name);
     if (!variable || variable->rank() != 2) return false;
-    if (policy == "experts_int8_sensitive_float32") {
-      static const std::regex routed("backbone/layers_[0-9]+/mlp/experts_[0-9]+/(gate_proj|up_proj|down_proj)/weight");
-      return std::regex_match(name, routed);
+    if (policy == "standard") return true;
+    static const std::regex routed("backbone/layers_[0-9]+/mlp/experts_[0-9]+/(gate_proj|up_proj|down_proj)/weight");
+    const auto* inverse_scale = get_variable_if_exists(name + "_scale_inv");
+    // INT8 is a byte container here, not CTranslate2 integer quantization.
+    // Leave the original FP8 encoding and all sensitive matrices untouched.
+    if (std::regex_match(name, routed)) {
+      if (config.value("fp8_format", std::string()) != "e4m3fn_block128"
+          || variable->dtype() != DataType::INT8 || !inverse_scale
+          || inverse_scale->dtype() != DataType::FLOAT32
+          || inverse_scale->shape() != Shape{(variable->dim(0)+127)/128, (variable->dim(1)+127)/128}
+          || get_variable_if_exists(name + "_scale"))
+        throw std::invalid_argument("Drama3 FP8 experts require original E4M3FN bytes and 128x128 block scales");
+    } else if (variable->dtype() != DataType::FLOAT32 || inverse_scale) {
+      throw std::invalid_argument("Drama3 FP8 policy requires float32 sensitive matrices");
     }
-    return true;
+    return false;
   }
   bool Drama3Model::is_linear_weight(const std::string& name) const {
     return is_quantizable(name) && name.find("embedding") == std::string::npos;
   }
+  void Drama3Model::register_variable(std::string name, StorageView variable) {
+    const std::string suffix = "/weight_scale_inv";
+    if (name.size() >= suffix.size() && name.compare(name.size()-suffix.size(), suffix.size(), suffix) == 0)
+      _fp8_weights.push_back(name.substr(0, name.size()-10));
+    Model::register_variable(std::move(name), std::move(variable));
+  }
+
+  void Drama3Model::set_compute_type(ComputeType type, Device device, int index, bool update_weight) {
+    const auto policy = quantization_policy(config);
+    if (device != Device::CPU)
+      throw std::invalid_argument("Drama3 currently supports CPU execution only");
+    if (policy == "experts_fp8_sensitive_float32") {
+      // Resolve before decoding, so unsupported requests fail without expanding
+      // the checkpoint. DEFAULT retains the original FP8 storage.
+      const auto resolved = resolve_compute_type(type, ComputeType::FLOAT32, device, index);
+      if (update_weight && resolved != ComputeType::FLOAT32) {
+        for (const auto& name : _fp8_weights) {
+          is_quantizable(name);  // Validate FP8 metadata before replacing it.
+          StorageView decoded;
+          ops::DequantizeFP8()(get_variable(name), get_variable(name + "_scale_inv"), decoded);
+          remove_variable(name);
+          Model::register_variable(name, std::move(decoded));
+          remove_variable(name + "_scale_inv");
+        }
+        _fp8_weights.clear();
+        config["quantization_policy"] = "standard";
+        config.erase("fp8_format");
+      }
+    } else if (!_fp8_weights.empty()) {
+      throw std::invalid_argument("Drama3 standard quantization cannot contain FP8 inverse scales");
+    }
+    Model::set_compute_type(type, device, index, update_weight);
+  }
   void Drama3Model::initialize(ModelReader&) {
     quantization_policy(config);
+    if (get_default_float_type(effective_compute_type()) != DataType::FLOAT32)
+      throw std::invalid_argument("Drama3 CPU graph requires float32 activations");
     if (device() != Device::CPU)
       throw std::invalid_argument("Drama3 currently supports CPU execution only");
-    if (effective_compute_type() != ComputeType::FLOAT32
-        && effective_compute_type() != ComputeType::INT8_FLOAT32)
-      throw std::invalid_argument("Drama3 requires float32 or int8_float32 compute");
     if (!config.is_object() || config.value("model_type",std::string()) != "drama3"
         || config.value("ct2_layout_version",0) != 1
         || !config.contains("source_config") || !config["source_config"].is_object())
@@ -93,8 +137,8 @@ namespace ctranslate2 { namespace models {
 
     Impl(const std::string& path, size_t count, const std::string& compute)
       : threads(count) {
-      if (!count || (compute != "int8_float32" && compute != "float32"))
-        throw std::invalid_argument("Drama3 requires positive intra_threads and int8_float32 or float32");
+      if (!count)
+        throw std::invalid_argument("Drama3 requires positive intra_threads");
       set_num_threads(threads);
       model = Model::load(path, Device::CPU, 0, str_to_compute_type(compute));
       if (!dynamic_cast<const Drama3Model*>(model.get()))
@@ -209,7 +253,7 @@ namespace ctranslate2 { namespace models {
     sampling.top_k = top_k;
     sampling.top_p = top_p;
     sampling.seed = seed;
-    std::mt19937_64 rng(seed);
+    std::mt19937 rng(static_cast<uint32_t>(seed));
     result.finish_reason = "length";
     for (dim_t step = 0; step < max_frames; ++step) {
       StorageView next(DataType::INT32);

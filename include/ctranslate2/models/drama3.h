@@ -11,9 +11,14 @@ namespace ctranslate2 { namespace models {
   protected:
     bool is_quantizable(const std::string& name) const override;
     bool is_linear_weight(const std::string& name) const override;
+    bool is_convertible(const StorageView&, const std::string&) const override { return false; }
     bool is_packable(const std::string&) const override { return false; }
+    void register_variable(std::string name, StorageView variable) override;
+    void set_compute_type(ComputeType type, Device device, int device_index, bool update_weight=true) override;
     void initialize(ModelReader&) override;
     std::unique_ptr<Model> clone() const override;
+  private:
+    std::vector<std::string> _fp8_weights;
   };
 
   // Reports time spent in the native speech generation stages.
@@ -42,7 +47,7 @@ namespace ctranslate2 { namespace models {
   class Drama3 {
   public:
     explicit Drama3(const std::string& model_path, size_t intra_threads = 8,
-                    const std::string& compute_type = "int8_float32");
+                    const std::string& compute_type = "default");
     ~Drama3();
     Drama3Result generate(const StorageView& prompt, dim_t max_frames = 512,
                           dim_t prefill_chunk_size = 16, float temperature = .8f,

@@ -197,7 +197,7 @@ TEST_F(DramaTowerTest, SamplingDropsCrossingTokenAndKeepsHighest) {
   options.temperature = 1;
   options.top_k = 3;
   options.top_p = .7f;
-  std::mt19937_64 rng(42);
+  std::mt19937 rng(42);
   // The .3 token crosses .7 and is dropped, rather than kept as in some other
   // nucleus samplers. Only token0 remains.
   for (int i = 0; i < 100; ++i)
@@ -215,7 +215,7 @@ TEST_F(DramaTowerTest, SamplingDistributionAndSeedReproducibility) {
   options.top_k = 3;
   options.top_p = .95f;
   const std::vector<float> logits{std::log(.6f), std::log(.3f), std::log(.1f)};
-  std::mt19937_64 a(1234), b(1234);
+  std::mt19937 a(1234), b(1234);
   int count0 = 0;
   for (int i = 0; i < 4000; ++i) {
     const auto token = layers::sample_drama_token(logits, options, a);
@@ -239,7 +239,7 @@ TEST_F(DramaTowerTest, SampledEosIsNeverResampledAndCodeIdsStayInRange) {
     layers::DramaTowerState state;
     tower.initialize_state(state, 1);
     StorageView next(DataType::INT32);
-    std::mt19937_64 rng(seed);
+    std::mt19937 rng(seed);
     tower.decode_sample(logits, hidden, previous, state, {1, 1, 1}, options, rng, next);
     EXPECT_EQ(next.data<int32_t>()[0], 1);
     for (dim_t c = 1; c < 4; ++c) {
@@ -265,13 +265,13 @@ TEST_F(DramaTowerTest, RepetitionResamplesSemanticOnceWithinLastSixteenTokens) {
   const std::vector<int32_t> candidate_ids{1, 5, 6, 7};
   const std::vector<float> candidate_logits{0, 0, .1f, 0};
   for (uint64_t seed = 0; seed < 16; ++seed) {
-    std::mt19937_64 reference_rng(seed);
+    std::mt19937 reference_rng(seed);
     EXPECT_EQ(candidate_ids[layers::sample_drama_token(candidate_logits, options, reference_rng)], 6);
     const auto expected_retry = candidate_ids[layers::sample_drama_token(candidate_logits, retry, reference_rng)];
     layers::DramaTowerState state;
     tower.initialize_state(state, 1);
     StorageView next(DataType::INT32);
-    std::mt19937_64 rng(seed);
+    std::mt19937 rng(seed);
     tower.decode_sample(logits, hidden, previous, state, {6}, options, rng, next);
     EXPECT_EQ(next.data<int32_t>()[0], expected_retry);
     tower.initialize_state(state, 1);
@@ -297,7 +297,7 @@ TEST_F(DramaTowerTest, ResidualCodesAreSampledAndRequestSeedsReproduceFrames) {
     tower.initialize_state(a, 1);
     tower.initialize_state(b, 1);
     StorageView af(DataType::INT32), bf(DataType::INT32);
-    std::mt19937_64 ar(seed), br(seed);
+    std::mt19937 ar(seed), br(seed);
     tower.decode_sample(logits, hidden, previous, a, {}, options, ar, af);
     tower.decode_sample(logits, hidden, previous, b, {}, options, br, bf);
     expect_storage_eq(af, bf);
@@ -311,7 +311,7 @@ TEST_F(DramaTowerTest, ResidualCodesAreSampledAndRequestSeedsReproduceFrames) {
 }
 
 TEST_F(DramaTowerTest, SamplingRejectsInvalidOptionsAndNonfiniteLogits) {
-  std::mt19937_64 rng(0);
+  std::mt19937 rng(0);
   layers::DramaSamplingOptions options;
   options.temperature = 0;
   EXPECT_THROW(layers::sample_drama_token({0, 1}, options, rng), std::invalid_argument);
@@ -324,4 +324,58 @@ TEST_F(DramaTowerTest, SamplingRejectsInvalidOptionsAndNonfiniteLogits) {
   options.top_k = 1;
   EXPECT_THROW(layers::sample_drama_token({}, options, rng), std::invalid_argument);
   EXPECT_THROW(layers::sample_drama_token({std::numeric_limits<float>::infinity()}, options, rng), std::invalid_argument);
+}
+
+TEST_F(DramaTowerTest, SamplingMatchesTorchCpuReferenceStream) {
+  // Torch 2.8 CPU fixtures: unique logits over two full 4097/4097/9x4096
+  // draw schedules. Also checks masked draws consume RNG and that
+  // high seed bits match Torch CPU's low-32-bit generator initialization.
+  const std::vector<std::vector<int32_t>> expected{
+    {1764, 3530, 2940, 2646, 2349, 1760, 2642, 2054, 1170, 1464, 1169,
+     2638, 579, 2932, 1753, 1752, 1752, 280, 3810, 1456, 1750, 1160},
+    {2648, 2646, 3235, 3823, 1467, 3233, 877, 3525, 1170, 3230, 873,
+     2639, 285, 3521, 2343, 3814, 1163, 2046, 1750, 3221, 1161, 1749}
+  };
+  const uint64_t seeds[]{0, 17, (uint64_t(1) << 32) + 17};
+  for (size_t run = 0; run < 3; ++run) {
+    std::mt19937 rng(static_cast<uint32_t>(seeds[run]));
+    for (size_t call = 0; call < 22; ++call) {
+      std::vector<float> logits(call % 11 < 2 ? 4097 : 4096, 0.f);
+      for (size_t i = 0; i < logits.size(); ++i)
+        logits[i] = (int((i * 17 + call * 13) % 5003) - 2501) / 128.f;
+      layers::DramaSamplingOptions options;
+      if (call % 11 == 1) {
+        options.temperature = 1.f;
+        options.top_p = .95f;
+      }
+      EXPECT_EQ(layers::sample_drama_token(logits, options, rng), expected[run == 0 ? 0 : 1][call])
+        << "seed=" << seeds[run] << " call=" << call;
+    }
+  }
+}
+
+TEST_F(DramaTowerTest, SamplingTiedCutoffIsSeededAndUniformWithinRetainedCandidates) {
+  // The identities of tied cutoff candidates depend on the sort implementation.
+  std::vector<float> logits(4097, -100.f);
+  for (size_t i = 0; i < 32; ++i)
+    logits[i] = 0.f;
+  layers::DramaSamplingOptions options;
+  options.top_p = 1.f;
+  std::mt19937 a(17), b(17);
+  std::vector<int> counts(32, 0);
+  for (size_t i = 0; i < 1000; ++i) {
+    const auto token = layers::sample_drama_token(logits, options, a);
+    EXPECT_EQ(token, layers::sample_drama_token(logits, options, b));
+    ASSERT_GE(token, 0);
+    ASSERT_LT(token, 32);
+    ++counts[token];
+  }
+  size_t retained = 0;
+  for (int count : counts) {
+    if (!count)
+      continue;
+    ++retained;
+    EXPECT_NEAR(count, 1000. / 30, 25);
+  }
+  EXPECT_EQ(retained, 30);
 }

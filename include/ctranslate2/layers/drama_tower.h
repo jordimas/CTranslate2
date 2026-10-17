@@ -16,10 +16,11 @@ namespace ctranslate2 {
     };
 
     // Returns an index into logits. Implements Fish's exclusion of the token
-    // crossing top_p; rank0 always survives. Stable ties prefer lower indices.
+    // crossing top_p; rank0 always survives. Uses the tested Torch CPU exponential
+    // race and seed stream; cross-platform bitwise parity is not guaranteed.
     int32_t sample_drama_token(const std::vector<float>& logits,
                                const DramaSamplingOptions& options,
-                               std::mt19937_64& rng);
+                               std::mt19937& rng);
 
     // Configures audio codebooks, tower layers, and semantic token boundaries.
     struct DramaTowerConfig {
@@ -63,7 +64,7 @@ namespace ctranslate2 {
       void decode_sample(const StorageView& logits, const StorageView& hidden,
                          const StorageView& previous_frame, DramaTowerState& state,
                          const std::vector<int32_t>& history_main_tokens,
-                         const DramaSamplingOptions& options, std::mt19937_64& rng,
+                         const DramaSamplingOptions& options, std::mt19937& rng,
                          StorageView& next_frame) const;
 
     private:
@@ -83,7 +84,7 @@ namespace ctranslate2 {
                        const StorageView& previous_frame, DramaTowerState& state,
                        StorageView& next_frame,
                        const std::vector<int32_t>* history_main_tokens,
-                       const DramaSamplingOptions* options, std::mt19937_64* rng) const;
+                       const DramaSamplingOptions* options, std::mt19937* rng) const;
       DramaTowerConfig _config;
       const StorageView& _embeddings;
       Embeddings _embedding_lookup;

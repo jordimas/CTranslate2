@@ -174,6 +174,7 @@ set(SOURCES
   src/ops/causal_depthwise_conv1d.cc
   src/ops/cos.cc
   src/ops/dequantize.cc
+  src/ops/dequantize_fp8.cc
   src/ops/dequantize_cpu.cc
   src/ops/flash_attention.cc
   src/ops/flash_attention_cpu.cc

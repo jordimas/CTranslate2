@@ -7,7 +7,7 @@ namespace ctranslate2 { namespace python {
     py::class_<models::Drama3>(m,"Drama3")
       .def(py::init<const std::string&,size_t,const std::string&>(),
            py::arg("model_path"),py::arg("intra_threads")=8,
-           py::arg("compute_type")="int8_float32",
+           py::arg("compute_type")="default",
            py::call_guard<py::gil_scoped_release>())
       .def("generate",[](models::Drama3& model,
                          py::array_t<int32_t,py::array::c_style> prompt,

@@ -58,7 +58,7 @@ namespace ctranslate2 {
         if (bias && bias->shape() != Shape{weight.dim(0)})
           throw std::invalid_argument("SparseMoE projection bias dimension is incompatible");
         _parameters.push_back(&weight);
-        for (const auto* suffix : {"/bias", "/weight_scale", "/weight_zero", "/weight_packed", "/weight_compensation"}) {
+        for (const auto* suffix : {"/bias", "/weight_scale", "/weight_scale_inv", "/weight_zero", "/weight_packed", "/weight_compensation"}) {
           if (const auto* value = model.get_variable_if_exists(name + suffix))
             _parameters.push_back(value);
         }

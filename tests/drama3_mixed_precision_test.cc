@@ -22,10 +22,17 @@ namespace {
       else bytes.push_back(char(v));
     }
   }
-  models::ModelMemoryReader mixed_fixture(const std::string& policy) {
-    std::string bytes;integer(bytes,6,4);string(bytes,"Drama3Spec");integer(bytes,1,4);integer(bytes,8,4);
-    tensor<int8_t>(bytes,"backbone/layers_0/mlp/experts_0/gate_proj/weight",{2,2},1,{127,-127,64,-64});
-    tensor<float>(bytes,"backbone/layers_0/mlp/experts_0/gate_proj/weight_scale",{2},0,{127,64});
+  models::ModelMemoryReader mixed_fixture(const std::string& policy, bool fp8 = false,
+                                         const std::string& format = "e4m3fn_block128") {
+    std::string bytes;integer(bytes,6,4);string(bytes,"Drama3Spec");integer(bytes,1,4);integer(bytes,fp8 ? 9 : 8,4);
+    if (fp8) {
+      tensor<int8_t>(bytes,"backbone/layers_0/mlp/experts_0/gate_proj/weight",{2,2},1,{0x38,0x40,-72,-64});
+      tensor<float>(bytes,"backbone/layers_0/mlp/experts_0/gate_proj/weight_scale_inv",{1,1},0,{2});
+      tensor<float>(bytes,"backbone/layers_0/mlp/experts_0/gate_proj/bias",{2},0,{.25f,-.5f});
+    } else {
+      tensor<int8_t>(bytes,"backbone/layers_0/mlp/experts_0/gate_proj/weight",{2,2},1,{127,-127,64,-64});
+      tensor<float>(bytes,"backbone/layers_0/mlp/experts_0/gate_proj/weight_scale",{2},0,{127,64});
+    }
     tensor<float>(bytes,"backbone/layers_0/mlp/router/weight",{2,2},0,{.125f,-.375f,.5f,.75f});
     tensor<float>(bytes,"backbone/layers_0/mlp/shared_expert/up_proj/weight",{2,2},0,{.125f,-.375f,.5f,.75f});
     tensor<float>(bytes,"backbone/embeddings/weight",{2,2},0,{.125f,-.375f,.5f,.75f});
@@ -35,42 +42,78 @@ namespace {
     integer(bytes,0,4);
     models::ModelMemoryReader reader("mixed_precision_fixture");
     reader.register_file("model.bin",std::move(bytes));
-    reader.register_file("config.json",nlohmann::json({{"model_type","drama3"},{"ct2_layout_version",1},
-        {"source_config",nlohmann::json::object()},{"quantization_policy",policy}}).dump());
+    nlohmann::json config={{"model_type","drama3"},{"ct2_layout_version",1},
+        {"source_config",nlohmann::json::object()},{"quantization_policy",policy}};
+    if (fp8) config["fp8_format"] = format;
+    reader.register_file("config.json",config.dump());
     return reader;
   }
 }
 
-TEST(Drama3MixedPrecisionTest, PreservesSensitiveFloat32AndResidentInt8ExpertsDuringLoading) {
-  if(!mayiuse_int8(Device::CPU))GTEST_SKIP()<<"INT8 backend unavailable";
-  auto reader=mixed_fixture("experts_int8_sensitive_float32");
-  auto model=models::Model::load(reader,Device::CPU,0,ComputeType::INT8_FLOAT32);
-  EXPECT_EQ(model->effective_compute_type(),ComputeType::INT8_FLOAT32);
-  const std::string expert="backbone/layers_0/mlp/experts_0/gate_proj/weight";
-  expect_storage_eq(model->get_variable(expert),StorageView({2,2},std::vector<int8_t>{127,-127,64,-64}));
-  expect_storage_eq(model->get_variable(expert+"_scale"),StorageView({2},std::vector<float>{127,64}));
-  for(const auto* name:{"backbone/layers_0/mlp/router/weight","backbone/layers_0/mlp/shared_expert/up_proj/weight",
-                       "backbone/embeddings/weight","tower/heads_0/weight",
-                       "codec/quantizer/upsample/0/1/pwconv1/weight"}) {
-    expect_storage_eq(model->get_variable(name),StorageView({2,2},std::vector<float>{.125f,-.375f,.5f,.75f}));
-    EXPECT_EQ(model->get_variable_if_exists(std::string(name)+"_scale"),nullptr);
+TEST(Drama3MixedPrecisionTest, RejectsLegacyMissingAndUnknownPolicies) {
+  for (const auto* policy : {"all_matrices_int8", "experts_int8_sensitive_float32", "", "typo_sensitive_float32"}) {
+    auto reader=mixed_fixture(policy,true);
+    EXPECT_THROW(models::Model::load(reader,Device::CPU,0,ComputeType::FLOAT32),std::invalid_argument);
   }
-  layers::Dense router(*model,"backbone/layers_0/mlp/router");
-  StorageView input({1,2},std::vector<float>{2,4}),actual;
-  router(input,actual);
-  expect_storage_eq(actual,StorageView({1,2},std::vector<float>{-1.25f,4.f}));
 }
 
-TEST(Drama3MixedPrecisionTest, ExplicitDefaultPolicyStillQuantizesSensitiveMatrices) {
-  if(!mayiuse_int8(Device::CPU))GTEST_SKIP()<<"INT8 backend unavailable";
-  auto reader=mixed_fixture("all_matrices_int8");
-  auto model=models::Model::load(reader,Device::CPU,0,ComputeType::INT8_FLOAT32);
-  EXPECT_EQ(model->get_variable("backbone/layers_0/mlp/router/weight").dtype(),DataType::INT8);
-  EXPECT_NE(model->get_variable_if_exists("backbone/layers_0/mlp/router/weight_scale"),nullptr);
-  EXPECT_EQ(model->get_variable("codec/quantizer/upsample/0/1/pwconv1/weight").dtype(),DataType::FLOAT32);
+TEST(Drama3MixedPrecisionTest, SourceFp8SurvivesLoadingAndUsesFloat32Dense) {
+  const std::string scope="backbone/layers_0/mlp/experts_0/gate_proj";
+  for (auto compute : {ComputeType::DEFAULT, ComputeType::FLOAT32}) {
+    auto reader=mixed_fixture("experts_fp8_sensitive_float32",true);
+    auto model=models::Model::load(reader,Device::CPU,0,compute);
+    EXPECT_EQ(model->effective_compute_type(),ComputeType::FLOAT32);
+    expect_storage_eq(model->get_variable(scope+"/weight"),
+                      StorageView({2,2},std::vector<int8_t>{0x38,0x40,-72,-64}));
+    expect_storage_eq(model->get_variable(scope+"/weight_scale_inv"),StorageView({1,1},2.f));
+    for (const auto* suffix : {"_scale", "_compensation", "_packed"})
+      EXPECT_EQ(model->get_variable_if_exists(scope+"/weight"+suffix),nullptr);
+    EXPECT_EQ(model->get_variable("backbone/layers_0/mlp/router/weight").dtype(),DataType::FLOAT32);
+    layers::Dense dense(*model,scope);
+    StorageView input({1,2},std::vector<float>{2,4}),residual({1,2},std::vector<float>{1,2}),output;
+    dense(input,output,&residual);
+    expect_storage_eq(output,StorageView({1,2},std::vector<float>{21.25f,-18.5f}));
+    StorageView indices({1},int32_t(0)),invalid({1,2},int8_t(1));
+    EXPECT_THROW(dense.select_weights(&indices),std::invalid_argument);
+    EXPECT_THROW(dense(invalid,output),std::invalid_argument);
+  }
 }
 
-TEST(Drama3MixedPrecisionTest, RejectsUnknownPolicyInsteadOfSilentlyRequantizing) {
-  auto reader=mixed_fixture("typo_sensitive_float32");
-  EXPECT_THROW(models::Model::load(reader,Device::CPU,0,ComputeType::FLOAT32),std::invalid_argument);
+TEST(Drama3MixedPrecisionTest, SourceFp8RejectsAmbiguousPolicy) {
+  auto malformed=mixed_fixture("experts_fp8_sensitive_float32");
+  EXPECT_THROW(models::Model::load(malformed,Device::CPU,0,ComputeType::FLOAT32),std::invalid_argument);
+  auto wrong_format=mixed_fixture("experts_fp8_sensitive_float32",true,"e5m2");
+  EXPECT_THROW(models::Model::load(wrong_format,Device::CPU,0,ComputeType::FLOAT32),std::invalid_argument);
+  auto wrong_policy=mixed_fixture("experts_int8_sensitive_float32",true);
+  EXPECT_THROW(models::Model::load(wrong_policy,Device::CPU,0,ComputeType::FLOAT32),std::invalid_argument);
+}
+
+TEST(Drama3MixedPrecisionTest, StandardComputeTypesUseBackendResolutionAndDense) {
+  for (bool fp8 : {false, true}) {
+    for (const auto* compute : {"default", "auto", "float32", "int8", "int8_float32",
+                               "int16", "float16", "bfloat16", "int8_float16", "int8_bfloat16"}) {
+      SCOPED_TRACE(std::string(compute) + (fp8 ? " FP8" : " standard"));
+      auto reader = mixed_fixture(fp8 ? "experts_fp8_sensitive_float32" : "standard", fp8);
+      const auto requested = str_to_compute_type(compute);
+      ComputeType expected;
+      try {
+        expected = resolve_compute_type(requested, fp8 ? ComputeType::FLOAT32 : ComputeType::INT8_FLOAT32, Device::CPU);
+      } catch (const std::invalid_argument&) {
+        EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, requested), std::invalid_argument);
+        continue;
+      }
+      const auto model = models::Model::load(reader, Device::CPU, 0, requested);
+      EXPECT_EQ(model->effective_compute_type(), expected);
+      const std::string scope = "backbone/layers_0/mlp/experts_0/gate_proj";
+      layers::Dense dense(*model, scope);
+      StorageView input({1, 2}, std::vector<float>{2, 4}), output;
+      dense(input, output);
+      const std::vector<float> values = fp8 ? std::vector<float>{20.25f, -20.5f} : std::vector<float>{-2, -2};
+      expect_storage_eq(output, StorageView({1, 2}, values), .12f);
+      EXPECT_EQ(model->get_variable("backbone/norm/weight").dtype(), DataType::FLOAT32);
+      EXPECT_EQ(model->get_variable("codec/quantizer/upsample/0/1/pwconv1/weight").dtype(), DataType::FLOAT32);
+      if (fp8 && expected != ComputeType::FLOAT32)
+        EXPECT_EQ(model->get_variable_if_exists(scope + "/weight_scale_inv"), nullptr);
+    }
+  }
 }

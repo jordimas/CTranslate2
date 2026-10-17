@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Convert Drama3 using standard in-memory CTranslate2 model specifications.
 
-Source weights are decoded in F32; quantized routed experts are retained in
-BF16 until standard optimization. Sensitive tensors and codec weights stay F32.
+Routed experts retain their original FP8 bytes and block scales by default.
+Sensitive and codec tensors stay F32.
 """
 
 import json
@@ -15,12 +15,12 @@ import numpy as np
 
 from ctranslate2.converters import drama3_codec as codec
 from ctranslate2.converters import drama3_weights as READERS
-from ctranslate2.specs import model_spec
 from ctranslate2.specs.drama3_spec import Drama3Spec
+from ctranslate2.specs.model_spec import ACCEPTED_MODEL_TYPES, OPTIONAL
 
 SOURCE_REVISION = "dd64a85cd82e9521f7202610ede97b367fc83946"
-TINY_ROW_LIMIT = np.float32(np.float64(127) / np.finfo(np.float32).max)
-QUANTIZATION_POLICIES = ("all_matrices_int8", "experts_int8_sensitive_float32")
+FP8_POLICY = "experts_fp8_sensitive_float32"
+STANDARD_POLICY = "standard"
 ASSETS = (
     "tokenizer.json",
     "tokenizer_config.json",
@@ -186,9 +186,17 @@ class TowerMatrixReader:
 
 
 def validate_quantization_policy(policy):
-    if not isinstance(policy, str) or policy not in QUANTIZATION_POLICIES:
+    if policy not in (FP8_POLICY, STANDARD_POLICY):
         raise ValueError("unknown Drama3 quantization policy: " + repr(policy))
     return policy
+
+
+def resolve_quantization(policy, quantization=None):
+    validate_quantization_policy(policy)
+    quantization = quantization or "float32"
+    if quantization not in ACCEPTED_MODEL_TYPES:
+        raise ValueError("Invalid Drama3 quantization: " + repr(quantization))
+    return quantization
 
 
 def routed_expert_matrix(target):
@@ -201,7 +209,7 @@ def routed_expert_matrix(target):
     )
 
 
-def build_plan(tensors, config, quantization_policy="experts_int8_sensitive_float32"):
+def build_plan(tensors, config, quantization_policy=FP8_POLICY):
     validate_quantization_policy(quantization_policy)
     audio = config["audio_decoder_config"]
     heads, kv_heads, head_dim = (
@@ -221,6 +229,12 @@ def build_plan(tensors, config, quantization_policy="experts_int8_sensitive_floa
         or any(type(d) is not int or d <= 0 for d in block_size)
     ):
         raise ValueError("invalid explicit FP8 block dimensions")
+    if block_size != [128, 128] or config["quantization_config"].get(
+        "quant_method"
+    ) not in ("fp8", "bsgemm-moe"):
+        raise ValueError(
+            "lossless FP8 requires a supported quant_method and 128x128 blocks"
+        )
     result, destinations, consumed_scales = [], set(), set()
     for source, tensor in sorted(tensors.items()):
         if source.endswith(".weight_scale_inv"):
@@ -282,11 +296,14 @@ def build_plan(tensors, config, quantization_policy="experts_int8_sensitive_floa
                 len(output_shape) not in (1, 3) or dtype.startswith("F8_")
             ):
                 raise ValueError("unsupported non-matrix model tensor")
-            quantized = matrix and (
-                quantization_policy == "all_matrices_int8"
-                or routed_expert_matrix(target)
-            )
-            emitted = [target, target + "_scale"] if quantized else [target]
+            fp8 = quantization_policy == FP8_POLICY and routed_expert_matrix(target)
+            if fp8 and (
+                dtype not in ("F8_E4M3", "F8_E4M3FN") or scale["dtype"] != "F32"
+            ):
+                raise ValueError(
+                    "lossless FP8 experts require E4M3FN weights and F32 inverse scales"
+                )
+            emitted = [target, target + "_scale_inv"] if fp8 else [target]
             if destinations.intersection(emitted):
                 raise ValueError("duplicate converted tensor target")
             destinations.update(emitted)
@@ -296,7 +313,7 @@ def build_plan(tensors, config, quantization_policy="experts_int8_sensitive_floa
                     "shard": tensor["shard"],
                     "target": target,
                     "shape": list(output_shape),
-                    "dtype": "int8" if quantized else "float32",
+                    "dtype": "fp8" if fp8 else "float32",
                     "inverse_scale": inverse_scale,
                     "scale_shard": (
                         tensors[inverse_scale]["shard"] if inverse_scale else None
@@ -332,46 +349,24 @@ def finite_matrix_chunks(chunks):
         yield np.ascontiguousarray(chunk, dtype=np.float32)
 
 
-class TinyRowReader:
-    """Zero unrepresentably tiny nonzero rows before strict INT8 conversion.
-
-    Some official BF16 GDN rows have magnitude around 7e-38. Their 127/amax
-    scales overflow float32. Replacing such rows by zero bounds each changed
-    weight by TINY_ROW_LIMIT and avoids invalid dequantization scales. Count only
-    the first of the quantizer's two source passes, never keep matrix contents.
-    """
-
-    def __init__(self, reader):
-        self.reader, self.tensors = reader, reader.tensors
-        self.passes = 0
-        self.zeroed_rows = 0
-        self.max_abs_perturbation = 0.0
-
-    def iter_matrix_rows(self, *args, **kwargs):
-        self.passes += 1
-        count = self.passes == 1
-        for chunk in self.reader.iter_matrix_rows(*args, **kwargs):
-            maximum = np.max(np.abs(chunk), axis=1)
-            mask = (maximum > 0) & (maximum <= TINY_ROW_LIMIT)
-            if mask.any():
-                if count:
-                    self.zeroed_rows += int(mask.sum())
-                    self.max_abs_perturbation = max(
-                        self.max_abs_perturbation, float(maximum[mask].max())
-                    )
-                chunk = chunk.copy()
-                chunk[mask] = 0
-            yield chunk
-
-
 def load_model_tensors(plan, readers, config, chunk_rows=128):
-    """Stage quantized experts in BF16, keeping other parameters in F32."""
-    import torch
-
+    """Preserve source FP8 experts and load other weights as float32."""
     audio = config["audio_decoder_config"]
-    variables, tiny_rows = {}, []
+    variables = {}
     for index, item in enumerate(plan):
         source = readers[item["shard"]]
+        if item["dtype"] == "fp8":
+            raw = source._map(item["source"])
+            if np.any((raw & 0x7F) == 0x7F):
+                raise ValueError("nonfinite E4M3FN source weight: " + item["source"])
+            scale = np.array(
+                readers[item["scale_shard"]]._map(item["inverse_scale"]), copy=True
+            )
+            if not np.isfinite(scale).all() or np.any(scale <= 0):
+                raise ValueError("FP8 inverse scales must be finite and positive")
+            variables[item["target"]] = np.array(raw, copy=True).view(np.int8)
+            variables[item["target"] + "_scale_inv"] = scale
+            continue
         if item["tower_slice"]:
             source = TowerMatrixReader(
                 source,
@@ -381,9 +376,6 @@ def load_model_tensors(plan, readers, config, chunk_rows=128):
                 audio["n_local_heads"],
                 audio["head_dim"],
             )
-        if item["dtype"] == "int8":
-            source = TinyRowReader(source)
-            variables[item["target"] + "_scale"] = model_spec.OPTIONAL
         if len(item["shape"]) == 2:
             chunks = source.iter_matrix_rows(
                 item["source"],
@@ -397,54 +389,28 @@ def load_model_tensors(plan, readers, config, chunk_rows=128):
             chunks = finite_matrix_chunks(chunks)
         else:
             chunks = float_chunks(source, item["source"])
-        bf16 = item["dtype"] == "int8" and "/mlp/experts_" in item["target"]
-        value = (
-            torch.empty(item["shape"], dtype=torch.bfloat16)
-            if bf16
-            else np.empty(item["shape"], dtype=np.float32)
-        )
+        value = np.empty(item["shape"], dtype=np.float32)
         flat = value.reshape(-1)
         offset = 0
         for chunk in chunks:
-            if bf16:
-                flat[offset : offset + chunk.size].copy_(
-                    torch.from_numpy(chunk.reshape(-1))
-                )
-            else:
-                flat[offset : offset + chunk.size] = chunk.reshape(-1)
+            flat[offset : offset + chunk.size] = chunk.reshape(-1)
             offset += chunk.size
         variables[item["target"]] = value
-        if item["dtype"] == "int8" and source.zeroed_rows:
-            tiny_rows.append(
-                {
-                    "source": item["source"],
-                    "target": item["target"],
-                    "zeroed_rows": source.zeroed_rows,
-                    "max_abs_perturbation": source.max_abs_perturbation,
-                }
-            )
         if (index + 1) % 1000 == 0:
             print(f"Loaded {index + 1}/{len(plan)} model tensors", flush=True)
-    return variables, {
-        "zeroed_rows": sum(item["zeroed_rows"] for item in tiny_rows),
-        "threshold_inclusive": float(TINY_ROW_LIMIT),
-        "max_abs_perturbation": max(
-            (item["max_abs_perturbation"] for item in tiny_rows), default=0.0
-        ),
-        "sources": tiny_rows,
-    }
+    return variables
 
 
 def inspect_checkpoint(
     source,
     chunk_rows=128,
     source_revision=SOURCE_REVISION,
-    quantization_policy="experts_int8_sensitive_float32",
-    quantization="int8_float32",
+    quantization_policy=FP8_POLICY,
+    quantization=None,
 ):
-    validate_quantization_policy(quantization_policy)
-    if quantization not in ("int8_float32", "float32"):
-        raise ValueError("quantization must be int8_float32 or float32")
+    quantization = resolve_quantization(quantization_policy, quantization)
+    if quantization != "float32":
+        quantization_policy = STANDARD_POLICY
     if type(chunk_rows) is not int or chunk_rows < 1:
         raise ValueError("chunk_rows must be positive")
     source = Path(source)
@@ -456,27 +422,40 @@ def inspect_checkpoint(
     source_file(source, "codec.pth")
     readers, tensors = inspect_shards(source)
     plan = build_plan(tensors, config, quantization_policy)
-    if quantization == "float32":
-        for item in plan:
-            item["dtype"] = "float32"
     codec_plan = codec.conversion_plan(
         codec.state_schema(codec.load_checkpoint(source / "codec.pth"))
     )
     codec_count = len(codec_plan)
     codec_bytes = sum(math.prod(t["shape"]) * 4 for t in codec_plan)
-    count = sum(2 if item["dtype"] == "int8" else 1 for item in plan) + codec_count
-    payload_bytes = sum(
-        math.prod(item["shape"]) * (1 if item["dtype"] == "int8" else 4)
-        + (4 * item["shape"][0] if item["dtype"] == "int8" else 0)
-        for item in plan
+    count = sum(2 if item["dtype"] == "fp8" else 1 for item in plan) + codec_count
+    payload_bytes = (
+        sum(
+            math.prod(item["shape"]) * (1 if item["dtype"] == "fp8" else 4)
+            + (
+                4 * math.prod(tensors[item["inverse_scale"]]["shape"])
+                if item["dtype"] == "fp8"
+                else 0
+            )
+            for item in plan
+        )
+        + codec_bytes
     )
-    payload_bytes += codec_bytes
     float32_bytes = sum(math.prod(item["shape"]) * 4 for item in plan) + codec_bytes
-    loading_bytes = float32_bytes - sum(
-        math.prod(item["shape"]) * 2
-        for item in plan
-        if item["dtype"] == "int8" and "/mlp/experts_" in item["target"]
-    )
+    loading_bytes = payload_bytes
+    if quantization_policy == STANDARD_POLICY:
+        payload_bytes = codec_bytes
+        for item in plan:
+            elements = math.prod(item["shape"])
+            if len(item["shape"]) != 2:
+                payload_bytes += elements * 4
+            elif quantization.startswith("int8"):
+                payload_bytes += elements + item["shape"][0] * 4
+                count += 1
+            elif quantization == "int16":
+                payload_bytes += elements * 2 + 4
+                count += 1
+            else:
+                payload_bytes += elements * (4 if quantization == "float32" else 2)
     result = {
         "estimated_float32_loading_bytes": float32_bytes,
         "estimated_loading_bytes": loading_bytes,
@@ -497,20 +476,23 @@ def inspect_checkpoint(
             dtype: sum(
                 len(item["shape"]) == 2 and item["dtype"] == dtype for item in plan
             )
-            for dtype in ("int8", "float32")
+            for dtype in ("fp8", "float32")
         },
     }
+    if quantization_policy == FP8_POLICY:
+        result["fp8_format"] = "e4m3fn_block128"
     return config, readers, plan, codec_plan, result
 
 
 def load_spec(
     model_path,
-    quantization="int8_float32",
+    quantization=None,
     chunk_rows=128,
     source_revision=SOURCE_REVISION,
-    quantization_policy="experts_int8_sensitive_float32",
+    quantization_policy=FP8_POLICY,
 ):
     """Load Drama3 weights into the standard model specification."""
+    quantization = resolve_quantization(quantization_policy, quantization)
     model_path = Path(model_path)
     config, readers, plan, codec_plan, result = inspect_checkpoint(
         model_path, chunk_rows, source_revision, quantization_policy, quantization
@@ -519,23 +501,23 @@ def load_spec(
     codec_variables = codec.load_codec_tensors(
         state, plan=codec_plan, chunk_rows=min(chunk_rows, 32)
     )
-    variables, result["tiny_row_zeroing"] = load_model_tensors(
-        plan, readers, config, chunk_rows
-    )
+    variables = load_model_tensors(plan, readers, config, chunk_rows)
     variables.update(codec_variables)
+    quantization_policy = result["quantization_policy"]
+    for item in plan:
+        if len(item["shape"]) == 2 and item["dtype"] != "fp8":
+            variables[item["target"] + "_scale"] = OPTIONAL
     package_config = {
         "model_type": "drama3",
         "ct2_layout_version": 1,
         "source_config": config,
         "source_revision": source_revision,
         "activation_dtype": "float32",
-        "matrix_dtype": (
-            "float32"
-            if quantization == "float32"
-            else ("int8" if quantization_policy == "all_matrices_int8" else "mixed")
-        ),
+        "matrix_dtype": "fp8_float32" if quantization_policy == FP8_POLICY else quantization,
         "quantization_policy": quantization_policy,
     }
+    if quantization_policy == FP8_POLICY:
+        package_config["fp8_format"] = "e4m3fn_block128"
     spec = Drama3Spec(variables, package_config)
     spec.register_file(model_path / "config.json", "source_config.json")
     for name in ASSETS:

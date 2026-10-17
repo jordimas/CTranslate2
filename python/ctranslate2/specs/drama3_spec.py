@@ -16,6 +16,11 @@ class Drama3Spec(model_spec.ModelSpec):
         super().__init__()
         self._model_name = model_name
         self._config = model_spec.ModelConfig(**config) if config is not None else None
+        self._matrix_names = {
+            name for name, value in variables.items()
+            if not name.startswith("codec/") and name.endswith("/weight")
+            and len(value.shape) == 2
+        }
         parameters = {}
         for path, value in variables.items():
             parts = path.split("/")
@@ -33,6 +38,11 @@ class Drama3Spec(model_spec.ModelSpec):
     @property
     def name(self):
         return self._model_name
+
+    def _quantize(self, quantization):
+        # The CPU synthesis graph and codec retain FLOAT32 state and parameters.
+        super()._quantize(quantization, lambda name: name in self._matrix_names)
+        super()._quantize("float32", lambda name: name not in self._matrix_names)
 
 
 def codec_parameter_shapes():

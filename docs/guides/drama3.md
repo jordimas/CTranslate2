@@ -1,12 +1,16 @@
 # Drama 3
 
-Drama 3 is supported experimentally for offline text-to-speech synthesis on CPU
-in this branch. The native runtime generates audio codes and decodes them to a
+Drama 3 is supported experimentally for offline text-to-speech synthesis on CPU.
+The native runtime generates audio codes and decodes them to a
 mono waveform.
+
+The examples below use conversion and inference APIs included in the
+`ctranslate2` package. Prompt preparation and WAV writing are shown in full;
+no companion TTS package, sample scripts, or separate source checkout is required.
 
 ## Installation
 
-Use a CTranslate2 build from this branch with the `Drama3` extension. Build the
+Use a CTranslate2 build with the `Drama3` extension. Build the
 native library and Python bindings as described in the
 [installation guide](../installation.md). The Drama3 bindings require
 pybind11 >=2.12 for NumPy 2 compatibility, or >=3.1 with CPython 3.14.
@@ -20,7 +24,7 @@ python -c 'from ctranslate2._ext import Drama3'
 
 Use the complete official Drama 3 checkpoint, including indexed safetensors
 shards, `codec.pth`, configuration, tokenizer, template, and licensing files.
-Install the Python package from this branch, NumPy, and PyTorch for conversion.
+Install the `ctranslate2` Python package, NumPy, and PyTorch for conversion.
 PyTorch reads the codec checkpoint; it is not needed for synthesis.
 
 Use the packaged CTranslate2 converter with a local checkpoint and a new output
@@ -30,7 +34,7 @@ directory:
 ct2-transformers-converter \
   --model /path/to/drama-3-official \
   --output_dir /path/to/drama-3-ct2 \
-  --quantization int8_float32 --dry-run
+  --quantization float32 --dry-run
 ```
 
 Remove `--dry-run` to convert. The dry run audits mappings and shapes without
@@ -44,31 +48,34 @@ The Python API uses the standard CTranslate2 `Converter` interface:
 from ctranslate2.converters import TransformersConverter
 
 converter = TransformersConverter("/path/to/drama-3-official")
-converter.convert("/path/to/drama-3-ct2", quantization="int8_float32")
+converter.convert("/path/to/drama-3-ct2", quantization="float32")
 ```
 
 The converter detects `model_type: fish_omni` in the local checkpoint's
 configuration and dispatches to the Drama 3 loader. No separate command or
 Fish Speech installation is needed. It uses the standard CTranslate2 model
-specification, validation, optimization, and serialization. By default, routed
-expert matrices use INT8 while sensitive matrices and the codec remain FLOAT32.
-`--quantization float32` disables INT8 conversion. Other quantization types and
-vocabulary mapping are not supported. Source FP8 block scales are applied in
-FLOAT32, then routed expert weights are stored temporarily in BF16 before INT8
-quantization. This rounding can change the final quantized weights. Sensitive
-tensors remain FLOAT32. The codec tensor contract is included in the installed Python package;
-conversion does not require the development scripts or a Fish Speech checkout.
+specification, validation, optimization, and serialization. Routed experts retain
+original E4M3FN FP8 bytes and 128-by-128 block scales. Sensitive matrices and the
+codec remain FLOAT32 with default or `float32` conversion. Other standard conversion
+types (`float16`, `bfloat16`, `int8`, `int8_float32`, `int8_float16`,
+`int8_bfloat16`, and `int16`) decode the FP8 weights before applying the standard
+CTranslate2 quantizer to non-codec matrices. Normalization, recurrent parameters,
+and codec weights remain FLOAT32. For example, use `--quantization int8_float32`
+for INT8 storage with FLOAT32 activations. Vocabulary mapping is unsupported. The codec
+tensor contract is included in the installed Python package; conversion does
+not require development scripts or a Fish Speech checkout.
 
-```{warning}
-The converter holds the model and codec weights in memory before optimization.
-BF16 expert staging approximately halves expert storage; temporary FP32 buffers
-are still needed during decoding and quantization. Full FLOAT32 conversion needs
-approximately 134.42 GiB for weights alone, plus conversion overhead. A successful dry run
-checks mappings and shapes, but does not validate the converted waveform or
-speech quality.
-```
+The converter holds the model and codec weights in memory before serialization.
+A dry run checks mappings and shapes, but does not validate the converted
+waveform or speech quality.
 
 ## Text-to-speech
+
+For speaker tags, bracketed performance directions, paired delivery tags, and
+phoneme markers, see the [official Drama 3 prompting guide](https://docs.fish.audio/features/text-to-speech/drama-3).
+Bracketed directions are ordinary text rather than a fixed token vocabulary.
+That reference describes the upstream model; CTranslate2's supported scope is
+listed below.
 
 The native Python binding accepts prepared prompt rows. The following example
 builds a single-speaker, text-only prompt using the converted model's local
@@ -97,7 +104,7 @@ ids = [token for segment in segments for token in tokenizer.encode(segment).ids]
 prompt_rows = np.zeros((len(ids), 11), dtype=np.int32)
 prompt_rows[:, 0] = ids
 
-model = Drama3(str(model_path), intra_threads=8, compute_type="int8_float32")
+model = Drama3(str(model_path), intra_threads=8, compute_type="default")
 result = model.generate(prompt_rows, max_frames=256, seed=0)
 print(result["sample_rate"], result["audio"].shape, result["finish_reason"])
 pcm = np.rint(np.clip(result["audio"], -1, 1) * 32767).astype("<i2")
@@ -134,9 +141,17 @@ nor Transformers, and does not depend on audio.cpp or GGML.
   execution durations, excluding model loading and Python-side processing.
 
 The native constructor accepts `model_path`, `intra_threads=8`, and
-`compute_type="int8_float32"`. Both `int8_float32` and `float32` are supported.
-FLOAT32 requires substantially more model memory. All expert weights remain
-resident; sparse expert selection reduces computation, not weight storage.
+`compute_type="default"`. It accepts the standard CTranslate2 compute types,
+including `auto`, `float32`, `int8`, and `int8_float32`. Availability follows the
+CPU backend: explicit unsupported types raise the standard error, while `default`
+and `auto` use standard fallback rules. FLOAT16 and BFLOAT16 storage can therefore
+be converted for CPU execution at load time. The synthesis graph and codec use
+FLOAT32 activations.
+
+With default FP8 storage and FLOAT32 execution, selected expert weights are
+decoded on demand. Requesting INT8 or INT16 execution decodes and quantizes the
+matrices during loading, which requires additional temporary memory. All expert
+weights remain resident; sparse selection reduces computation, not weight storage.
 Requests on one model instance execute sequentially with independent per-call
 state.
 

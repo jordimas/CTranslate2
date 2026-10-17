@@ -172,7 +172,7 @@ namespace ctranslate2 {
 
       virtual std::unique_ptr<Model> clone() const = 0;
       
-      void set_compute_type(ComputeType type, Device device, int device_index, bool update_weight=true);
+      virtual void set_compute_type(ComputeType type, Device device, int device_index, bool update_weight=true);
 
 
     private:

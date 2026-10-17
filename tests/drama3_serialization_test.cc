@@ -14,7 +14,7 @@ namespace {
   };
 }
 
-TEST(Drama3SerializationTest, PythonStreamingWriterNativeReader) {
+TEST(Drama3SerializationTest, PythonModelSpecNativeReader) {
   const char* directory = std::getenv("CT2_DRAMA3_SERIALIZATION_FIXTURE");
   if (!directory)
     GTEST_SKIP() << "Generate fixture with tts/dev/make_serialization_fixture.py";

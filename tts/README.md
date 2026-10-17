@@ -25,3 +25,12 @@ this 122.8 GiB machine; the RAM preflight rejects it before loading weights.
 There is no disk-backed staging or alternate streaming converter. A full
 conversion and weight-parity check on a machine with sufficient RAM remain
 required before replacing the existing checkpoint.
+
+To check standard Python serialization against a native test build:
+
+```sh
+python tts/dev/make_serialization_fixture.py /tmp/ct2-serialization-fixture
+CT2_DRAMA3_SERIALIZATION_FIXTURE=/tmp/ct2-serialization-fixture \
+  /path/to/build/tests/ctranslate2_test tests/data \
+  --gtest_filter=Drama3SerializationTest.*
+```

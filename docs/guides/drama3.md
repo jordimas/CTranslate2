@@ -158,44 +158,6 @@ weight storage. The optional CPU memory budget below enables mapped experts.
 Requests on one model instance execute sequentially with independent per-call
 state.
 
-### CPU memory budget
-
-**This parameter limits CPU system RAM only. It does not cap GPU VRAM and cannot
-be used with GPU execution.**
-
-For a **local standard INT8 checkpoint**, set the new environment parameter
-before loading the model:
-
-```bash
-export CT2_DRAMA3_MAX_MEMORY_GB=20
-```
-
-```python
-model = Drama3(
-    "/path/to/drama-3-ct2-int8", device="cpu", compute_type="int8"
-)
-```
-
-The value is an absolute limit in decimal GB: `20` means 20,000,000,000 bytes.
-Unset, empty, or `0` disables the option. Positive values automatically enable
-memory-mapped expert weights, so no separate mapping flag is needed. Invalid or
-negative values raise an error. `int8_float32` compute is also supported; the
-source-FP8 checkpoint and runtime precision expansion are not supported here.
-
-Linux cgroup v2 enforces the cap for the **whole calling process**, including
-charged file cache and subsequent children, with swap disabled. The limit
-persists until process exit, even after unloading the model. Use a dedicated
-worker when embedding inference in another application. Mapping retains the
-checkpoint's exact INT8 weights; lower budgets can increase disk reads and
-latency. A budget too small for runtime allocations can still cause an OOM kill.
-
-An existing equal or tighter cgroup cap with swap disabled is reused. Otherwise,
-a running systemd user manager and `libsystemd.so.0` are required to establish a temporary
-scope automatically. Failure to establish the cap raises an error before weights
-are loaded. The option currently rejects GPU execution. See the
-[environment variable reference](../environment_variables.md#ct2_drama3_max_memory_gb)
-for enforcement and container details.
-
 ### CUDA and ROCm
 
 Build the native library and Python extension with `WITH_CUDA=ON` for NVIDIA,
@@ -227,31 +189,17 @@ execution and are decoded on the GPU for each projection. INT8 execution instead
 quantizes each projection once when it is first used. Converted checkpoints do
 not need to change, and output audio and codes remain CPU arrays.
 
-### Bounded GPU expert cache
+### Memory settings
 
-For a standard INT8 checkpoint, enable a bounded expert cache on CUDA or ROCm:
+For local standard INT8 checkpoints, two optional environment variables control memory use:
 
-```bash
-export CT2_DRAMA3_GPU_EXPERT_CACHE_GB=8
-```
+- [`CT2_DRAMA3_MAX_MEMORY_GB`](../environment_variables.md#ct2_drama3_max_memory_gb)
+  limits the whole process's CPU memory in decimal GB; CPU execution only.
+- [`CT2_DRAMA3_GPU_EXPERT_CACHE_GB`](../environment_variables.md#ct2_drama3_gpu_expert_cache_gb)
+  limits cached GPU expert weights in decimal GB on CUDA or ROCm, not total VRAM.
 
-```python
-model = Drama3(str(model_path), device="cuda", compute_type="int8")
-```
-
-The value uses decimal GB. Unset or `0` keeps existing behavior. With a positive
-budget, CPU expert weights are memory-mapped and retained as INT8. Each backbone
-layer receives an equal share of the cache and evicts least-recently-used experts.
-Only selected experts and the shared expert must fit simultaneously. Eviction
-synchronizes with the GPU stream; prefill processes rows individually to keep
-the cache bounded. This first version prioritizes correctness over transfer overlap.
-
-The value limits cached expert tensors and scales, **not total VRAM**. Leave room
-for other weights, activations, upload temporaries and the GPU allocator. An 8 GB
-cache is a starting point for a 16 GB discrete GPU, not a verified fit guarantee.
-Mapped CPU pages still consume RAM as used. The CPU-only
-`CT2_DRAMA3_MAX_MEMORY_GB` cap remains unsupported during GPU execution.
-See the [environment variable reference](../environment_variables.md#ct2_drama3_gpu_expert_cache_gb).
+Both are disabled when unset or `0`. See the linked environment variable documentation
+for supported compute types, requirements, and limitations.
 
 ## Supported scope
 

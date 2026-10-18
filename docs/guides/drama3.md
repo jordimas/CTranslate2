@@ -136,23 +136,44 @@ experts, on GPU; attention, recurrent updates, routing, sampling, embeddings,
 and the waveform codec run on CPU. Activations transfer per projection.
 The graph is not entirely GPU-resident; tensor parallelism is unsupported.
 
-By default, the host checkpoint remains resident, with non-FP8 parameters loaded
+By default, supported byte-sized host expert weights are memory-mapped on Linux,
+with other parameters loaded
 as FLOAT32 regardless of GPU precision. Weights upload on first use and stay
 cached, so GPU memory grows as new experts are selected. FLOAT32 execution
 caches FP8 expert bytes and decodes them on GPU per projection; FLOAT16/BFLOAT16
 decode once on upload, while INT8 quantizes projections on first use. Existing converted checkpoints work unchanged;
 output audio and codes remain CPU arrays.
 
-### Memory settings
+### Loading options
 
-Two optional memory settings are available:
+Local checkpoints use read-only memory mapping for supported INT8 and FP8
+expert weights on Linux. The OS loads and reclaims file-backed pages. Other
+weights and runtime conversions use normal allocations. In-memory readers and
+unsupported platforms fall back to normal loading.
 
-- [`CT2_DRAMA3_MAX_MEMORY_GB`](../environment_variables.md)
-  limits the whole process's CPU memory in decimal GB; CPU execution with a
-  local standard INT8 checkpoint only.
+- [`CT2_DRAMA_CPU_MMAP=0`](../environment_variables.md#ct2_drama_cpu_mmap)
+  disables default mapping.
+- [`CT2_DRAMA_CPU_MLOCK=1`](../environment_variables.md#ct2_drama_cpu_mlock)
+  optionally keeps mapped expert pages resident, subject to OS locking limits.
+
+### Memory configuration
+
+Memory use is controlled by checkpoint quantization and the sizes of individual
+allocations, without a guaranteed total RAM ceiling:
+
+- The default FP8 checkpoint is supported directly; no separate INT8 model is
+  required. Compute type and checkpoint quantization affect weight allocations.
+  Selecting INT8 compute for FP8 weights performs runtime conversion and allocates
+  the converted tensors.
+- Limit prompt and history length and `max_frames` to bound generated context
+  and output allocations. The checkpoint's maximum context remains the upper bound.
+- Lower `prefill_chunk_size` to reduce prompt-processing intermediate allocations.
+  It does not reduce retained history or enable streaming. Generation accepts one
+  sequence per call; calls on one instance execute sequentially.
 - [`CT2_DRAMA3_GPU_EXPERT_CACHE_GB`](../environment_variables.md)
-  limits cached GPU expert weights in decimal GB on CUDA or ROCm, not total VRAM;
-  supports FP8, standard INT8, and floating-point checkpoints.
+  bounds cached GPU expert weights, rather than total VRAM, on CUDA and ROCm.
+  Other allocations require additional memory.
 
-Unset or `0` disables either option. See the links for supported compute types,
-requirements, and limitations.
+Drama3 currently has no independent KV-cache precision setting. Compute type does
+not imply that its attention cache uses that precision. CT2 does not create
+systemd scopes or configure process memory limits.

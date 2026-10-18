@@ -83,40 +83,35 @@ Uploads and eviction synchronize with the GPU stream.
 **This is an expert-cache budget, not a total VRAM limit.** Other GPU weights,
 activations, generation state, upload temporaries, allocator rounding and retained
 allocator blocks require additional space. CPU mapped pages also require system
-RAM; on integrated GPUs, GPU allocations share that physical RAM. The CPU-only
-`CT2_DRAMA3_MAX_MEMORY_GB` process cap cannot currently be combined with GPU execution.
+RAM; on integrated GPUs, GPU allocations share that physical RAM. Neither CPU mapping nor the GPU expert-cache budget guarantees a total RAM ceiling.
 
-## `CT2_DRAMA3_MAX_MEMORY_GB`
+## `CT2_DRAMA_CPU_MMAP`
 
-Set an absolute CPU memory budget for Drama3 in **decimal GB** (1 GB =
-1,000,000,000 bytes), for example `CT2_DRAMA3_MAX_MEMORY_GB=20`.
+Enabled by default for local Drama3 checkpoints on Linux, without tensor
+parallelism. Set to `0` to disable CPU weight mapping. Unsupported platforms
+and in-memory readers fall back to allocated weights.
 
-Unset, empty, or `0` disables this option. Positive values, including fractions,
-automatically enable mapped INT8 expert weights. Invalid, negative, nonfinite,
-or out-of-range values raise an error. Other model types ignore this variable.
+INT8 and source FP8 routed-expert matrices are mapped read-only from `model.bin`.
+Linux loads pages on demand and can reclaim clean file-backed pages. Scales and
+other tensors are allocated normally because checkpoint payloads are not
+necessarily aligned for wider data types. Runtime conversion can replace mapped
+weights with allocated tensors. The default FP8 checkpoint works directly;
+a separate INT8 checkpoint is not required. Selecting INT8 compute may allocate
+converted weights at load time.
 
-**This limit applies only to CPU system RAM. It does not limit GPU VRAM.**
-The option currently requires Linux cgroup v2, a local standard INT8 Drama3
-checkpoint, and CPU `int8` or `int8_float32` compute. GPU requests fail explicitly.
+Mapping does not impose a total RAM ceiling. Quantization, prompt/history length,
+`max_frames`, and `prefill_chunk_size` control storage and individual working
+allocations. `CT2_DRAMA3_MAX_MEMORY_GB` has been removed; nonzero settings raise
+an error. CT2 does not configure process limits or cgroups.
 
-The cap covers the **entire calling process**, its charged file cache, kernel
-memory, and subsequent children. Swap is disabled. The limit persists until
-process exit, including after model unloading; use a dedicated inference worker
-when embedding CT2 in a larger application. It does not reserve RAM or change
-quantization. A budget below the non-reclaimable working set can cause an OOM kill.
+## `CT2_DRAMA_CPU_MLOCK`
 
-CT2 reuses an equal or tighter effective cgroup memory limit if swap is already
-disabled. Otherwise it uses `libsystemd.so.0` and the systemd user manager to create a
-temporary scope containing this process only, preserving any tighter existing
-memory limit. This does not modify the parent scope. Missing systemd libraries/user manager or
-denied scope creation produces an error before loading weights. Containers
-without systemd can instead configure a sufficient cgroup cap and disable swap
-externally. Configure limits for all workers together if the container runs
-multiple inference processes.
-
-Set the variable before loading the model. Unsetting it later does not remove
-an already-applied process limit. The existing `CT2_DRAMA_CPU_MMAP=1` flag still
-enables mapping alone, without establishing a cap.
+Set to `1` to lock mapped Drama3 expert pages in RAM on Linux. Disabled by default.
+This prevents those pages from being reclaimed while mapped and can substantially
+increase resident memory. Locking requires supported mapped weights and sufficient
+OS locked-memory allowance (`RLIMIT_MEMLOCK`); failure raises an error. Locks are
+released when the last model holding the mapping is destroyed. It does not lock
+separate allocations or impose a RAM ceiling.
 
 ## `CT2_PACKED_GEMM`
 

@@ -1,6 +1,9 @@
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
+#if defined(__linux__)
+#include <sys/resource.h>
+#endif
 
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
@@ -12,7 +15,7 @@ namespace {
     const char* name;
     std::string previous;
     bool had_previous;
-    explicit ScopedMemoryBudget(const char* value, const char* variable = "CT2_DRAMA3_MAX_MEMORY_GB")
+    explicit ScopedMemoryBudget(const char* value, const char* variable = "CT2_DRAMA3_GPU_EXPERT_CACHE_GB")
       : name(variable) {
       const char* old = std::getenv(name);
       had_previous = old != nullptr;
@@ -85,13 +88,7 @@ TEST(Drama3ModelTest, MemoryBudgetParsesDecimalGbAndRejectsInvalidValues) {
   for (const char* value : {"-1", "nan", "inf", "twenty", "20GB", "20junk", "1e100", "1e-20"})
     EXPECT_THROW(parse_drama3_memory_budget(value), std::invalid_argument) << value;
   ScopedMemoryBudget unset(nullptr);
-  EXPECT_EQ(drama3_memory_budget(), 0);
-}
-
-TEST(Drama3ModelTest, ZeroMemoryBudgetKeepsExistingLoading) {
-  ScopedMemoryBudget budget("0");
-  auto reader = fixture();
-  EXPECT_NO_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32));
+  EXPECT_EQ(drama3_gpu_expert_cache_budget(), 0);
 }
 
 TEST(Drama3ModelTest, GpuExpertCacheValidatesBudgetAndDeviceBeforeLoading) {
@@ -111,27 +108,13 @@ TEST(Drama3ModelTest, GpuExpertCacheValidatesBudgetAndDeviceBeforeLoading) {
   EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::INT8), std::invalid_argument);
 }
 
-TEST(Drama3ModelTest, PositiveMemoryBudgetRejectsGpuBeforeLoading) {
-  ScopedMemoryBudget budget("20");
-  try {
-    models::Drama3 model("missing-model", 1, "int8", "cuda");
-    FAIL() << "Expected unsupported GPU budget";
-  } catch (const std::invalid_argument& error) {
-#ifdef CT2_WITH_CUDA
-    EXPECT_NE(std::string(error.what()).find("CT2_DRAMA3_MAX_MEMORY_GB"), std::string::npos);
-#else
-    EXPECT_NE(std::string(error.what()).find("not compiled with CUDA support"), std::string::npos);
-#endif
-  }
-}
-
 #if defined(__linux__)
 namespace {
   struct MappedDramaFixture {
     std::string directory;
     std::string previous;
     bool had_previous;
-    MappedDramaFixture() {
+    explicit MappedDramaFixture(bool fp8 = false) {
       const char* value = std::getenv("CT2_DRAMA_CPU_MMAP");
       had_previous = value != nullptr;
       if (value) previous = value;
@@ -151,14 +134,19 @@ namespace {
       append_integer(bytes, 1, 1);  // INT8
       append_integer(bytes, 4, 4);
       for (int8_t item : {-7, 2, 4, -1}) bytes.push_back(static_cast<char>(item));
-      append_tensor(bytes, "backbone/layers_0/mlp/experts_0/gate_proj/weight_scale", {2}, {8.f, 16.f});
+      if (fp8)
+        append_tensor(bytes, "backbone/layers_0/mlp/experts_0/gate_proj/weight_scale_inv", {1, 1}, {1.f});
+      else
+        append_tensor(bytes, "backbone/layers_0/mlp/experts_0/gate_proj/weight_scale", {2}, {8.f, 16.f});
       append_tensor(bytes, "backbone/norm/weight", {2}, {.25f, -.5f});
       append_integer(bytes, 0, 4);
       std::ofstream(directory + "/model.bin", std::ios::binary).write(bytes.data(), bytes.size());
       const nlohmann::json config = {
         {"model_type", "drama3"}, {"ct2_layout_version", 1},
-        {"source_config", nlohmann::json::object()}, {"quantization_policy", "standard"},
-        {"matrix_dtype", "int8"}, {"activation_dtype", "float32"}};
+        {"source_config", nlohmann::json::object()},
+        {"quantization_policy", fp8 ? "experts_fp8_sensitive_float32" : "standard"},
+        {"fp8_format", "e4m3fn_block128"},
+        {"matrix_dtype", fp8 ? "fp8_float32" : "int8"}, {"activation_dtype", "float32"}};
       std::ofstream(directory + "/config.json") << config.dump();
       setenv("CT2_DRAMA_CPU_MMAP", "1", 1);
     }
@@ -219,26 +207,78 @@ TEST(Drama3ModelTest, MappedExpertsPreserveBytesScalesAndModelCopyLifetime) {
   expect_storage_eq(copy->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight"), expected);
 }
 
-TEST(Drama3ModelTest, MappedExpertsRejectWeightExpansionAndTruncatedPayloads) {
-  MappedDramaFixture fixture;
-  EXPECT_THROW(models::Model::load(fixture.directory, Device::CPU, 0, ComputeType::FLOAT32), std::invalid_argument);
-  std::ofstream(fixture.directory + "/model.bin", std::ios::binary | std::ios::trunc) << "short";
-  EXPECT_THROW(models::Model::load(fixture.directory, Device::CPU, 0, ComputeType::INT8), std::exception);
+TEST(Drama3ModelTest, MappingDefaultsToEnabledAndCanBeDisabled) {
+  if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "INT8 unavailable";
+  MappedDramaFixture files;
+  ScopedMemoryBudget mapping(nullptr, "CT2_DRAMA_CPU_MMAP");
+  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
+  EXPECT_FALSE(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").owns_data());
+  ScopedMemoryBudget disabled("0", "CT2_DRAMA_CPU_MMAP");
+  auto copied = models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
+  EXPECT_TRUE(copied->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").owns_data());
 }
 
-TEST(Drama3ModelTest, MappedExpertsRejectMemoryReadersAndSourceFp8) {
-  MappedDramaFixture scope;
+TEST(Drama3ModelTest, MappedExpertsAllowRuntimeConversionAndRejectTruncatedPayloads) {
+  MappedDramaFixture files;
+  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
+  EXPECT_EQ(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").dtype(), DataType::FLOAT32);
+  EXPECT_TRUE(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").owns_data());
+  std::ofstream(files.directory + "/model.bin", std::ios::binary | std::ios::trunc) << "short";
+  EXPECT_THROW(models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8), std::exception);
+}
+
+TEST(Drama3ModelTest, MemoryReadersFallBackToAllocatedWeights) {
+  ScopedMemoryBudget mapping("1", "CT2_DRAMA_CPU_MMAP");
   auto reader = fixture();
-  EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::INT8), std::invalid_argument);
+  auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32);
+  EXPECT_TRUE(model->get_variable("backbone/projection/weight").owns_data());
 }
 
-TEST(Drama3ModelTest, PositiveMemoryBudgetEnablesMappingWithoutLegacyFlag) {
-  MappedDramaFixture scope;
-  setenv("CT2_DRAMA_CPU_MMAP", "0", 1);
-  ScopedMemoryBudget budget("20");
+TEST(Drama3ModelTest, SourceFp8ExpertsAreMappedByDefault) {
+  MappedDramaFixture files(true);
+  ScopedMemoryBudget mapping(nullptr, "CT2_DRAMA_CPU_MMAP");
+  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
+  const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
+  EXPECT_FALSE(weight.owns_data());
+  expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
+}
+
+TEST(Drama3ModelTest, OptionalLockingKeepsMappedWeightsReadable) {
+  if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "INT8 unavailable";
+  struct rlimit limit;
+  ASSERT_EQ(getrlimit(RLIMIT_MEMLOCK, &limit), 0);
+  if (limit.rlim_cur < 8192) GTEST_SKIP() << "Locked-memory allowance too small";
+  auto locked_kb = []() {
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line))
+      if (line.compare(0, 6, "VmLck:") == 0) return std::stoull(line.substr(6));
+    throw std::runtime_error("Missing VmLck accounting");
+  };
+  const auto before = locked_kb();
+  MappedDramaFixture files;
+  ScopedMemoryBudget locking("1", "CT2_DRAMA_CPU_MLOCK");
+  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
+  expect_storage_eq(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight"),
+                    StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
+  EXPECT_GT(locked_kb(), before);
+  model.reset();
+  EXPECT_EQ(locked_kb(), before);
+}
+
+TEST(Drama3ModelTest, LockingRequiresMappedWeights) {
+  MappedDramaFixture files;
+  ScopedMemoryBudget mapping("0", "CT2_DRAMA_CPU_MMAP");
+  ScopedMemoryBudget locking("1", "CT2_DRAMA_CPU_MLOCK");
+  EXPECT_THROW(models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32), std::invalid_argument);
+}
+
+TEST(Drama3ModelTest, RemovedProcessBudgetFailsExplicitly) {
+  ScopedMemoryBudget budget("12", "CT2_DRAMA3_MAX_MEMORY_GB");
   auto reader = fixture();
   EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32), std::invalid_argument);
 }
+
 #endif
 
 TEST(Drama3ModelTest, SupportsFloat32LoadingWithoutQuantizingCodecOrBackbone) {

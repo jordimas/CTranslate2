@@ -87,7 +87,8 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
   };
   for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
     const ScopedDeviceSetter setter(Device::CUDA, index);
-    for (auto type : {ComputeType::FLOAT32, ComputeType::INT8_FLOAT32}) {
+    for (auto type : {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
+                      ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
       try { resolve_compute_type(type, ComputeType::FLOAT32, Device::CUDA, index); }
       catch (const std::invalid_argument&) { continue; }
       SCOPED_TRACE(compute_type_to_str(type));
@@ -125,6 +126,12 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
           for (dim_t d = 0; d < 16; ++d) reference.data<float>()[r*16+d] += probability * shared.data<float>()[d];
         }
         expect_storage_eq(output, reference, type == ComputeType::FLOAT32 ? 1e-5f : 5e-4f);
+        StorageView device_input = input.to(Device::CUDA);
+        StorageView device_output(DataType::FLOAT32, Device::CUDA);
+        layer(device_input, device_output);
+        auto resident = device_output.to(Device::CPU);
+        synchronize_stream(Device::CUDA);
+        expect_storage_eq(resident, reference, type == ComputeType::FLOAT32 ? 1e-5f : 5e-4f);
       }
     }
   }

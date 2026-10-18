@@ -384,7 +384,7 @@ TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
   if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
   class Fixture : public models::Model {
   public:
-    Fixture(bool resident) {
+    Fixture(bool resident, ComputeType type) {
       auto matrix=[&](const std::string& name,dim_t rows,dim_t cols) {
         StorageView w({rows,cols});int salt=0;for(char c:name)salt+=c;
         for(dim_t i=0;i<w.size();++i)w.data<float>()[i]=.025f*std::sin(float(i+salt));
@@ -406,13 +406,18 @@ TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
         if(layer>=0)matrix("heads_"+std::to_string(layer),16,16);
       }
       set_compute_type(ComputeType::FLOAT32,Device::CPU,0);
-      config["drama3_gpu_compute_type"]="int8_float32";config["drama3_gpu_device_index"]=0;
+      config["drama3_gpu_compute_type"]=compute_type_to_str(type);config["drama3_gpu_device_index"]=0;
       config["drama3_gpu_resident_backbone"]=resident;
     }
     std::unique_ptr<models::Model> clone() const override {return std::make_unique<Fixture>(*this);}
   };
   const ScopedDeviceSetter setter(Device::CUDA,0);
-  Fixture rm(false),gm(true);auto cfg=config();cfg.vocab_size=16;cfg.attention={1,1,16,16,100.f,1e-5f,true,true};
+  for(auto type : {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
+                   ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
+  try {resolve_compute_type(type,ComputeType::FLOAT32,Device::CUDA,0);}
+  catch(const std::invalid_argument&) {continue;}
+  SCOPED_TRACE(compute_type_to_str(type));
+  Fixture rm(false,type),gm(true,type);auto cfg=config();cfg.vocab_size=16;cfg.attention={1,1,16,16,100.f,1e-5f,true,true};
   layers::DramaTower reference(rm,"tower",cfg),resident(gm,"tower",cfg);
   layers::DramaTowerState rs,gs;reference.initialize_state(rs,8);resident.initialize_state(gs,8);
   StorageView hidden({3,16});for(dim_t i=0;i<hidden.size();++i)hidden.data<float>()[i]=std::sin(float(i));
@@ -429,4 +434,5 @@ TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
   reference.decode_greedy(logits,token_hidden,previous,rs,rf);
   resident.decode_greedy(logits,token_hidden,previous,gs,gf);
   expect_storage_eq(gf,rf);EXPECT_EQ(rs.length,gs.length);
+  }
 }

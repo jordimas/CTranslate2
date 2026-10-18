@@ -35,18 +35,27 @@ namespace ctranslate2 {
     void SparseMoE::Expert::operator()(const StorageView& input, StorageView& output) const {
       if (gpu_device_index >= 0) {
         const ScopedDeviceSetter setter(Device::CUDA, gpu_device_index);
-        StorageView gpu_input = input.to(Device::CUDA);
+        StorageView uploaded_input;
+        const StorageView* gpu_input = &input;
+        if (input.device() != Device::CUDA) {
+          uploaded_input = input.to(Device::CUDA);
+          gpu_input = &uploaded_input;
+        }
         StorageView gated(DataType::FLOAT32, Device::CUDA);
         StorageView values(DataType::FLOAT32, Device::CUDA);
         StorageView activated(DataType::FLOAT32, Device::CUDA);
         StorageView result(DataType::FLOAT32, Device::CUDA);
-        gate(gpu_input, gated);
-        up(gpu_input, values);
+        gate(*gpu_input, gated);
+        up(*gpu_input, values);
         ops::get_activation_op(ops::ActivationType::Swish)(gated, activated);
         ops::Mul()(activated, values, activated);
         down(activated, result);
-        output.copy_from(result);
-        synchronize_stream(Device::CUDA);
+        if (output.device() == Device::CUDA)
+          output = std::move(result);
+        else {
+          output.copy_from(result);
+          synchronize_stream(Device::CUDA);
+        }
         return;
       }
       StorageView gated, values, activated;
@@ -122,8 +131,6 @@ namespace ctranslate2 {
         supports_grouped(name);
         _experts.emplace_back(std::make_unique<Expert>(model, name));
       }
-      if (_resident_gpu && !_grouped_gpu)
-        throw std::invalid_argument("Resident MoE requires uniform bias-free INT8 experts");
     }
 
     void SparseMoE::forward_grouped_gpu(const StorageView& input, StorageView& output) const {
@@ -166,7 +173,7 @@ namespace ctranslate2 {
 
     void SparseMoE::forward_resident_gpu(const StorageView& input, StorageView& output) const {
 #ifdef CT2_WITH_CUDA
-      if (!_grouped_gpu || input.dtype() != DataType::FLOAT32 || input.rank() != 2
+      if (input.dtype() != DataType::FLOAT32 || input.rank() != 2
           || input.dim(1) != _input_size || output.device() != Device::CUDA
           || output.dtype() != DataType::FLOAT32 || input.device_index() != _shared.gpu_device_index
           || output.device_index() != _shared.gpu_device_index || &input == &output || overlaps_output(input, output))
@@ -174,6 +181,29 @@ namespace ctranslate2 {
       const ScopedDeviceSetter setter(Device::CUDA, _shared.gpu_device_index);
       output.resize_as(input);
       if (!input.dim(0)) return;
+      if (!_grouped_gpu) {
+        // Keep expert activations and reduction on-device for every compute type.
+        // Routing stays on the existing CPU top-k path. Shared gating and
+        // weighted accumulation stay on-device without a per-row host wait.
+        StorageView logits, indices(DataType::INT32), probabilities;
+        _router(input, logits);
+        _topk(logits, indices, probabilities);
+        primitives<Device::CUDA>::fill(output.data<float>(), 0.f, output.size());
+        StorageView expert_output(DataType::FLOAT32, Device::CUDA);
+        StorageView shared_gate(DataType::FLOAT32, Device::CUDA);
+        _shared_gate(input, shared_gate);
+        for (dim_t r = 0; r < input.dim(0); ++r) {
+          StorageView row({1, _input_size}, const_cast<float*>(input.data<float>()) + r * _input_size, Device::CUDA);
+          StorageView result({1, _input_size}, output.data<float>() + r * _input_size, Device::CUDA);
+          for (dim_t i = 0; i < _k; ++i) {
+            (*_experts[indices.data<int32_t>()[r * _k + i]])(row, expert_output);
+            ops::moe_accumulate_gpu(expert_output, probabilities.data<float>()[r * _k + i], nullptr, result);
+          }
+          _shared(row, expert_output);
+          ops::moe_accumulate_gpu(expert_output, 1.f, shared_gate.data<float>() + r, result);
+        }
+        return;
+      }
       if (_gpu_experts.empty()) {
         // Cache all expert descriptors once so routing never needs host IDs.
         std::vector<ops::MoeExpertWeights> pointers;

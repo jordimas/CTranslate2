@@ -205,7 +205,7 @@ TEST(DramaBackboneTest, ResidentGpuMatchesHybridProjectionReference) {
   if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
   class Fixture : public models::Model {
   public:
-    Fixture(bool resident, int device_index, dim_t key_dim) {
+    Fixture(bool resident, int device_index, dim_t key_dim, ComputeType type) {
       auto matrix = [&](const std::string& name, dim_t rows, dim_t cols) {
         StorageView weight({rows,cols});
         int salt=0; for (char c : name) salt += c;
@@ -239,19 +239,22 @@ TEST(DramaBackboneTest, ResidentGpuMatchesHybridProjectionReference) {
       }
       register_variable("backbone/norm/weight",StorageView({32},.1f));matrix("backbone/lm_head",32,32);
       set_compute_type(ComputeType::FLOAT32,Device::CPU,0);
-      config["drama3_gpu_compute_type"]="int8_float32";
+      config["drama3_gpu_compute_type"]=compute_type_to_str(type);
       config["drama3_gpu_device_index"]=device_index;
       config["drama3_gpu_resident_backbone"]=resident;
     }
     std::unique_ptr<models::Model> clone() const override {return std::make_unique<Fixture>(*this);}
   };
-  for(int index=0;index<get_device_count(Device::CUDA);++index) {
-    try {resolve_compute_type(ComputeType::INT8_FLOAT32,ComputeType::FLOAT32,Device::CUDA,index);}
+  for(int index=0;index<get_device_count(Device::CUDA);++index)
+  for(auto type : {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
+                   ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
+    SCOPED_TRACE(compute_type_to_str(type));
+    try {resolve_compute_type(type,ComputeType::FLOAT32,Device::CUDA,index);}
     catch(const std::invalid_argument&) {continue;}
     const ScopedDeviceSetter setter(Device::CUDA,index);
     for(dim_t key_dim : {16,64,128}) for(bool interleaved : {false,true}) {
       SCOPED_TRACE(key_dim);
-      Fixture reference_model(false,index,key_dim), resident_model(true,index,key_dim);
+      Fixture reference_model(false,index,key_dim,type), resident_model(true,index,key_dim,type);
       layers::DramaBlockConfig linear, attention;
       linear.num_experts=attention.num_experts=4;linear.top_k=attention.top_k=2;
       linear.key_heads=1;linear.value_heads=2;linear.key_dim=key_dim;linear.value_dim=16;

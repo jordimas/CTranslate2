@@ -4,6 +4,13 @@
 
 namespace ctranslate2 { namespace ops {
 namespace {
+  __global__ void accumulate(const float* expert, float probability,
+                             const float* shared_logit, float* output, dim_t size) {
+    const dim_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= size) return;
+    const float weight = shared_logit ? 1.f / (1.f + expf(-*shared_logit)) : probability;
+    output[i] = __fadd_rn(output[i], __fmul_rn(weight, expert[i]));
+  }
   __global__ void route(const float* logits, int32_t* indices, float* weights, dim_t experts, dim_t k) {
     // Router width is small (256 in Drama3); deterministic sequential selection
     // preserves the CPU tie ordering and double-precision normalization.
@@ -89,6 +96,13 @@ namespace {
     const float gate = 1.f / (1.f + expf(-shared_logit[row]));
     output[index] = __fadd_rn(sum, __fmul_rn(gate, results[(row*(k+1)+k) * hidden + d]));
   }
+}
+void moe_accumulate_gpu(const StorageView& expert, float probability,
+                        const float* shared_logit, StorageView& output) {
+  if (expert.empty()) return;
+  accumulate<<<(expert.size() + 255) / 256, 256, 0, cuda::get_cuda_stream()>>>(
+    expert.data<float>(), probability, shared_logit, output.data<float>(), expert.size());
+  CUDA_CHECK(cudaGetLastError());
 }
 void moe_topk_gpu(const StorageView& logits, dim_t k, StorageView& indices, StorageView& weights) {
   indices.resize({logits.dim(0), k}); weights.resize({logits.dim(0), k});

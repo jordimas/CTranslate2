@@ -13,6 +13,9 @@ namespace ctranslate2 { namespace ops {
   };
 #ifdef CT2_WITH_CUDA
   void moe_topk_gpu(const StorageView& logits, dim_t k, StorageView& indices, StorageView& weights);
+  // Accumulate an expert row, optionally using an on-device shared gate logit.
+  void moe_accumulate_gpu(const StorageView& expert, float probability,
+                          const float* shared_logit, StorageView& output);
   // Batch of rows, k selected experts plus the shared expert. No host synchronization.
   void grouped_moe_gpu(const StorageView& input, const StorageView& descriptors,
                        const StorageView& routing_weights, const StorageView& shared_logit,

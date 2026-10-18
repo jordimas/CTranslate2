@@ -98,7 +98,11 @@ TEST(Drama3ModelTest, PositiveMemoryBudgetRejectsGpuBeforeLoading) {
     models::Drama3 model("missing-model", 1, "int8", "cuda");
     FAIL() << "Expected unsupported GPU budget";
   } catch (const std::invalid_argument& error) {
+#ifdef CT2_WITH_CUDA
     EXPECT_NE(std::string(error.what()).find("CT2_DRAMA3_MAX_MEMORY_GB"), std::string::npos);
+#else
+    EXPECT_NE(std::string(error.what()).find("not compiled with CUDA support"), std::string::npos);
+#endif
   }
 }
 

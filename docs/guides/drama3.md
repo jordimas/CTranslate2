@@ -26,7 +26,7 @@ for NumPy 2, or >=3.1 for CPython 3.14. Portable release wheels are not yet prov
 Verify the extension with:
 
 ```bash
-python -c 'from ctranslate2._ext import Drama3'
+python -c 'from ctranslate2.models import Drama3'
 ```
 
 ## Model conversion
@@ -80,7 +80,7 @@ import wave
 
 import numpy as np
 from tokenizers import Tokenizer
-from ctranslate2._ext import Drama3
+from ctranslate2.models import Drama3
 
 model_path = Path("/path/to/drama-3-ct2")
 tokenizer = Tokenizer.from_file(str(model_path / "tokenizer.json"))
@@ -114,27 +114,14 @@ The native API does not accept plain text strings or encode reference audio.
 Local paths trigger no downloads. Synthesis requires no PyTorch, Transformers,
 audio.cpp, or GGML.
 
-### Generation controls and results
+See the [Python API reference](../python/ctranslate2.models.Drama3.rst) for
+constructor options, generation parameters and defaults, and result fields.
 
-* `max_frames` bounds the generated audio frames (default 512). Each frame
-  represents 2,048 samples at 44,100 Hz, approximately 46 milliseconds.
-* `temperature`, `top_k`, and `top_p` control sampling, with defaults 0.8, 30,
-  and 0.8 respectively. `seed` defaults to 0. Identical seeds do not promise
-  identical random trajectories across runtimes or compute types.
-* `greedy=True` enables greedy decoding for diagnosis.
-* `prefill_chunk_size`, supplied to `generate`, controls prompt processing
-  chunk size (default 16); it does not enable streaming audio.
-* `result["finish_reason"]` is `"eos"` when the model generates its end token,
-  or `"length"` when it reaches the frame budget and may cut off the utterance.
-* `result["audio"]` is mono FLOAT32 audio and `result["codes"]` is an INT32
-  array with shape `[frames, 10]`.
-* `result["timings"]` reports native prefill, backbone, tower, codec, and total
-  execution durations, excluding model loading and Python-side processing.
+### CPU execution
 
-Constructor: `Drama3(model_path, intra_threads=8, compute_type="default",
-device="cpu", device_index=0)`. Standard CT2 compute types include `auto`,
-`float32`, `int8`, and `int8_float32`. CPU support depends on the backend:
-unsupported explicit types raise an error; `default` and `auto` allow fallback.
+Standard CT2 compute types include `auto`, `float32`, `int8`, and `int8_float32`.
+CPU support depends on the backend: unsupported explicit types raise an error;
+`default` and `auto` allow fallback.
 FLOAT16/BFLOAT16 storage can be converted at load time for CPU execution.
 The synthesis graph and codec use FLOAT32 activations.
 
@@ -142,7 +129,7 @@ For default FP8 storage with FLOAT32 execution, selected experts are decoded
 on demand. INT8/INT16 execution decodes and quantizes matrices at load time,
 requiring temporary memory. All experts remain resident by default: sparse
 selection reduces computation, not storage. The CPU memory budget below enables
-mapped experts. Calls on one instance execute sequentially with independent state.
+mapped experts. Each call has independent generation state.
 
 ### CUDA and ROCm
 

@@ -9,6 +9,18 @@ The examples below use conversion and inference APIs included in the
 `ctranslate2` package. Prompt preparation and WAV writing are shown in full;
 no companion TTS package, sample scripts, or separate source checkout is required.
 
+## Supported scope
+
+The implementation provides offline synthesis and waveform
+decoding. It does not provide reference-audio voice cloning, audio encoding,
+voice design, a dedicated multi-speaker API, speech editing or history,
+automatic long-text splitting, public streaming, or batching.
+Transcription is a separate speech-recognition task.
+
+Voice cloning would require a reference-audio encoder and reference-conditioned
+prompt preparation. The existing waveform decoder alone cannot turn a reference
+recording into the codes needed to condition generation.
+
 ## Installation
 
 Use a CTranslate2 build with the `Drama3` extension. Build the
@@ -191,16 +203,3 @@ For local standard INT8 checkpoints, two optional environment variables control 
 
 Both are disabled when unset or `0`. See the linked environment variable documentation
 for supported compute types, requirements, and limitations.
-
-## Supported scope
-
-The implementation provides offline synthesis and waveform
-decoding. It does not provide reference-audio voice cloning, audio encoding,
-voice design, a dedicated multi-speaker API, speech editing or history,
-automatic long-text splitting, public streaming, or batching.
-Transcription is a separate speech-recognition task.
-
-Voice cloning would require a reference-audio encoder and reference-conditioned
-prompt preparation. The existing waveform decoder alone cannot turn a reference
-recording into the codes needed to condition generation.
-

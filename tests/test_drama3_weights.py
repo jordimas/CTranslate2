@@ -44,17 +44,17 @@ class Drama3WeightsTest(unittest.TestCase):
             with self.subTest(dtype=dtype):
                 write_tensors(self.path, {"matrix": (dtype, matrix)})
                 reader = weights.SafeTensorMatrixReader(self.path)
-                chunks = list(reader.iter_dequantized_rows("matrix", chunk_rows=2))
+                chunks = list(reader.iter_matrix_rows("matrix", chunk_rows=2))
                 self.assertEqual([len(chunk) for chunk in chunks], [2, 2, 1])
                 self.assertTrue(all(chunk.dtype == np.float32 for chunk in chunks))
                 np.testing.assert_array_equal(np.concatenate(chunks), matrix)
                 chunks[0][0, 0] = 99
-                np.testing.assert_array_equal(np.concatenate(list(reader.iter_dequantized_rows("matrix"))), matrix)
+                np.testing.assert_array_equal(np.concatenate(list(reader.iter_matrix_rows("matrix"))), matrix)
 
     def test_bfloat16(self):
         raw = np.array([[0x0000, 0x8000, 0x3F80, 0xC020, 0x0001, 0x7F80, 0x7FC0]], dtype=np.uint16)
         write_tensors(self.path, {"matrix": ("BF16", raw)})
-        result = next(weights.SafeTensorMatrixReader(self.path).iter_dequantized_rows("matrix"))[0]
+        result = next(weights.SafeTensorMatrixReader(self.path).iter_matrix_rows("matrix"))[0]
         np.testing.assert_array_equal(result[:5], [0, -0., 1, -2.5, 2. ** -133])
         self.assertTrue(np.signbit(result[1]))
         self.assertTrue(np.isposinf(result[5]))
@@ -65,7 +65,7 @@ class Drama3WeightsTest(unittest.TestCase):
         scales = np.array([[2, 3, 5], [7, 11, 13], [17, 19, 23]], dtype=np.float32)
         write_tensors(self.path, {"matrix": ("F8_E4M3FN", raw), "explicit": ("F32", scales)})
         reader = weights.SafeTensorMatrixReader(self.path)
-        result = np.concatenate(list(reader.iter_dequantized_rows(
+        result = np.concatenate(list(reader.iter_matrix_rows(
             "matrix", chunk_rows=3, inverse_scale="explicit", block_size=(2, 3))))
         expected = np.array([[2, 2, 2, 3, 3, 3, 5]] * 2
                             + [[7, 7, 7, 11, 11, 11, 13]] * 2
@@ -106,13 +106,13 @@ class Drama3WeightsTest(unittest.TestCase):
         reader = weights.SafeTensorMatrixReader(self.path)
         for name in ("badshape", "nan", "negative", "zero", "fp8scale"):
             with self.subTest(scale=name), self.assertRaises(ValueError):
-                list(reader.iter_dequantized_rows("matrix", inverse_scale=name))
+                list(reader.iter_matrix_rows("matrix", inverse_scale=name))
         for kwargs in ({"chunk_rows": 0}, {"chunk_rows": True}, {"block_size": (0, 2)},
                        {"block_size": (2,)}, {"block_size": (True, 2)}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
-                list(reader.iter_dequantized_rows("matrix", **kwargs))
+                list(reader.iter_matrix_rows("matrix", **kwargs))
         with self.assertRaises(ValueError):
-            list(reader.iter_dequantized_rows("rank3"))
+            list(reader.iter_matrix_rows("rank3"))
 
     def test_rejects_bad_ranges_and_headers(self):
         for entry in ({"dtype": "F32", "shape": [2, 2], "data_offsets": [0, 15]},
@@ -135,11 +135,11 @@ class Drama3WeightsTest(unittest.TestCase):
         with self.path.open("ab") as stream:
             stream.write(b"changed")
         with self.assertRaises(ValueError):
-            list(reader.iter_dequantized_rows("matrix"))
+            list(reader.iter_matrix_rows("matrix"))
 
     def test_empty_matrix(self):
         write_tensors(self.path, {"matrix": ("F32", np.empty((0, 3)))})
-        self.assertEqual(list(weights.SafeTensorMatrixReader(self.path).iter_dequantized_rows("matrix")), [])
+        self.assertEqual(list(weights.SafeTensorMatrixReader(self.path).iter_matrix_rows("matrix")), [])
 
     def test_rank_three_experts_cross_shard_scales_and_tails(self):
         bank = np.full((3, 5, 7), 56, dtype=np.uint8)

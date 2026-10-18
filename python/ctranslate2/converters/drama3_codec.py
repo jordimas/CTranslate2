@@ -4,8 +4,6 @@ Fold weight normalization in row chunks and retain FLOAT32 arrays. PyTorch is
 needed only to safely load the tensor-only checkpoint with memory mapping.
 """
 
-import math
-
 import numpy as np
 
 from ctranslate2.specs.drama3_spec import codec_parameter_shapes

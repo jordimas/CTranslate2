@@ -106,24 +106,6 @@ class SafeTensorMatrixReader:
             tensor = tensor.view(torch.uint8)
         return tensor.numpy()
 
-    def iter_dequantized_rows(
-        self, name, chunk_rows=128, inverse_scale=None, block_size=(128, 128)
-    ):
-        """Yield independent float32 [rows, columns] chunks in row order.
-
-        inverse_scale is an explicitly supplied tensor name in the same shard.
-        For FP8, W = decode(fp8) * inverse_scale[row//Br, column//Bc].
-        Scale tensors must be F32/F16/BF16 and strictly positive and finite.
-        This compatibility entry point accepts rank-two matrices only. Use
-        iter_matrix_rows for explicit expert selection or cross-shard scales.
-        """
-        yield from self.iter_matrix_rows(
-            name,
-            chunk_rows=chunk_rows,
-            inverse_scale=inverse_scale,
-            block_size=block_size,
-        )
-
     def iter_matrix_rows(
         self,
         name,

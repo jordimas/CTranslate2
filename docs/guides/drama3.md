@@ -1,33 +1,29 @@
 # Drama 3
 
-Drama 3 supports experimental offline text-to-speech synthesis on CPU, with
-optional CUDA or ROCm acceleration for backbone and tower projections.
-The native runtime generates audio codes and decodes them to a
-mono waveform.
+Drama 3 provides experimental offline text-to-speech on CPU, with optional
+CUDA or ROCm acceleration for backbone and tower projections. The native runtime
+generates audio codes and decodes them to a mono waveform.
 
-The examples below use conversion and inference APIs included in the
-`ctranslate2` package. Prompt preparation and WAV writing are shown in full;
-no companion TTS package, sample scripts, or separate source checkout is required.
+The examples use `ctranslate2` conversion and inference APIs and include prompt
+preparation and WAV writing. No companion TTS package, sample scripts, or separate
+source checkout is required.
 
 ## Supported scope
 
-The implementation provides offline synthesis and waveform
-decoding. It does not provide reference-audio voice cloning, audio encoding,
-voice design, a dedicated multi-speaker API, speech editing or history,
-automatic long-text splitting, public streaming, or batching.
-Transcription is a separate speech-recognition task.
+Supported: offline synthesis and waveform decoding. Unsupported: reference-audio
+voice cloning, audio encoding, voice design, a dedicated multi-speaker API,
+speech editing or history, automatic long-text splitting, public streaming,
+and batching. Transcription is a separate speech-recognition task.
 
-Voice cloning would require a reference-audio encoder and reference-conditioned
-prompt preparation. The existing waveform decoder alone cannot turn a reference
-recording into the codes needed to condition generation.
+Voice cloning requires a reference-audio encoder and reference-conditioned
+prompt preparation; the waveform decoder cannot encode reference recordings.
 
 ## Installation
 
-Use a CTranslate2 build with the `Drama3` extension. Build the
-native library and Python bindings as described in the
-[installation guide](../installation.md). The Drama3 bindings require
-pybind11 >=2.12 for NumPy 2 compatibility, or >=3.1 with CPython 3.14.
-Portable release wheels for this feature are not yet provided.
+Build the native library and Python bindings with the `Drama3` extension using
+the [installation guide](../installation.md). Bindings require pybind11 >=2.12
+for NumPy 2, or >=3.1 for CPython 3.14. Portable release wheels are not yet provided.
+Verify the extension with:
 
 ```bash
 python -c 'from ctranslate2._ext import Drama3'
@@ -35,13 +31,10 @@ python -c 'from ctranslate2._ext import Drama3'
 
 ## Model conversion
 
-Use the complete official Drama 3 checkpoint, including indexed safetensors
-shards, `codec.pth`, configuration, tokenizer, template, and licensing files.
-Install the `ctranslate2` Python package, NumPy, and PyTorch for conversion.
-PyTorch reads the codec checkpoint; it is not needed for synthesis.
-
-Use the packaged CTranslate2 converter with a local checkpoint and a new output
-directory:
+Conversion requires `ctranslate2`, NumPy, PyTorch (to read the codec checkpoint),
+and the complete official checkpoint: indexed safetensors shards, `codec.pth`,
+configuration, tokenizer, template, and licensing files. Use a local checkpoint
+and a new output directory:
 
 ```bash
 ct2-transformers-converter \
@@ -50,10 +43,9 @@ ct2-transformers-converter \
   --quantization float32 --dry-run
 ```
 
-Remove `--dry-run` to convert. The dry run audits mappings and shapes without
-loading weight payloads or creating the model directory. `--report plan.json`
-saves the audit. The converter performs no downloads. Use `--force` explicitly
-to replace an existing output directory.
+Remove `--dry-run` to convert. A dry run audits mappings and shapes without
+loading weights or creating the output directory; `--report plan.json` saves
+the audit. No files are downloaded. Use `--force` to replace an existing directory.
 
 The Python API uses the standard CTranslate2 `Converter` interface:
 
@@ -64,27 +56,23 @@ converter = TransformersConverter("/path/to/drama-3-official")
 converter.convert("/path/to/drama-3-ct2", quantization="float32")
 ```
 
-Conversion uses the standard CTranslate2 converter and does not require
-Fish Speech. Use `--quantization int8_float32` for INT8 weights with FLOAT32
-activations; codec weights remain FLOAT32. See the
-[quantization guide](../quantization.md) for other conversion options.
-Vocabulary mapping is unsupported.
+Fish Speech is not required. Use `--quantization int8_float32` for INT8 weights
+with FLOAT32 activations; codec weights remain FLOAT32. See the
+[quantization guide](../quantization.md) for other options. Vocabulary mapping
+is unsupported.
 
-Conversion loads the model and codec weights into memory before saving, so
-sufficient RAM is required. A dry run does not verify speech quality.
+Conversion holds model and codec weights in RAM before saving. A dry run does
+not verify speech quality.
 
 ## Text-to-speech
 
-For speaker tags, bracketed performance directions, paired delivery tags, and
-phoneme markers, see the [official Drama 3 prompting guide](https://docs.fish.audio/features/text-to-speech/drama-3).
-Bracketed directions are ordinary text rather than a fixed token vocabulary.
-That reference describes the upstream model; CTranslate2's supported scope is
-listed below.
+See the [official prompting guide](https://docs.fish.audio/features/text-to-speech/drama-3)
+for speaker tags, bracketed performance directions, paired delivery tags, and
+phoneme markers. Bracketed directions are ordinary text, not a fixed token
+vocabulary. The guide describes the upstream model; CT2's supported scope is above.
 
-The native Python binding accepts prepared prompt rows. The following example
-builds a single-speaker, text-only prompt using the converted model's local
-tokenizer and saves the result as a mono PCM16 WAV. Install `tokenizers` for
-prompt preparation.
+Install `tokenizers` for this single-speaker example. It prepares text-only
+prompt rows with the converted model's local tokenizer and saves a mono PCM16 WAV:
 
 ```python
 from pathlib import Path
@@ -117,15 +105,14 @@ with wave.open("hello.wav", "wb") as wav:
     wav.writeframes(pcm.tobytes())
 ```
 
-Encode each segment separately to preserve the TTS prompt's token boundaries.
-The generic chat template is not a replacement for this prompt. This example
-expects ordinary text without reserved prompt tokens or speaker tags.
-`prompt_rows` is a contiguous INT32 array with shape `[rows, 11]`. Its first
-column contains tokenizer IDs; the ten codec columns are zero for text rows.
-The native API does not accept a plain text string or encode reference audio.
+Encode segments separately to preserve token boundaries; the generic chat
+template cannot replace this prompt. Input text must not contain reserved prompt
+tokens or speaker tags. `prompt_rows` must be contiguous INT32 `[rows, 11]`:
+tokenizer IDs in column 0 and zeros in the ten codec columns for text rows.
+The native API does not accept plain text strings or encode reference audio.
 
-Local model paths do not trigger downloads. Synthesis requires neither PyTorch
-nor Transformers, and does not depend on audio.cpp or GGML.
+Local paths trigger no downloads. Synthesis requires no PyTorch, Transformers,
+audio.cpp, or GGML.
 
 ### Generation controls and results
 
@@ -144,28 +131,23 @@ nor Transformers, and does not depend on audio.cpp or GGML.
 * `result["timings"]` reports native prefill, backbone, tower, codec, and total
   execution durations, excluding model loading and Python-side processing.
 
-The native constructor accepts `model_path`, `intra_threads=8`,
-`compute_type="default"`, `device="cpu"`, and `device_index=0`.
-It accepts the standard CTranslate2 compute types,
-including `auto`, `float32`, `int8`, and `int8_float32`. Availability follows the
-CPU backend when `device="cpu"`: explicit unsupported types raise the standard error, while `default`
-and `auto` use standard fallback rules. FLOAT16 and BFLOAT16 storage can therefore
-be converted for CPU execution at load time. The synthesis graph and codec use
-FLOAT32 activations.
+Constructor: `Drama3(model_path, intra_threads=8, compute_type="default",
+device="cpu", device_index=0)`. Standard CT2 compute types include `auto`,
+`float32`, `int8`, and `int8_float32`. CPU support depends on the backend:
+unsupported explicit types raise an error; `default` and `auto` allow fallback.
+FLOAT16/BFLOAT16 storage can be converted at load time for CPU execution.
+The synthesis graph and codec use FLOAT32 activations.
 
-With default FP8 storage and FLOAT32 execution, selected expert weights are
-decoded on demand. Requesting INT8 or INT16 execution decodes and quantizes the
-matrices during loading, which requires additional temporary memory. By default,
-all expert weights remain resident; sparse selection reduces computation, not
-weight storage. The optional CPU memory budget below enables mapped experts.
-Requests on one model instance execute sequentially with independent per-call
-state.
+For default FP8 storage with FLOAT32 execution, selected experts are decoded
+on demand. INT8/INT16 execution decodes and quantizes matrices at load time,
+requiring temporary memory. All experts remain resident by default: sparse
+selection reduces computation, not storage. The CPU memory budget below enables
+mapped experts. Calls on one instance execute sequentially with independent state.
 
 ### CUDA and ROCm
 
-Build the native library and Python extension with `WITH_CUDA=ON` for NVIDIA,
-or `WITH_HIP=ON` for AMD, as described in the
-[installation guide](../installation.md). Both builds use `device="cuda"`:
+Build with `WITH_CUDA=ON` for NVIDIA or `WITH_HIP=ON` for AMD (see
+[installation](../installation.md)). Both use `device="cuda"`:
 
 ```python
 model = Drama3(
@@ -173,33 +155,30 @@ model = Drama3(
 )
 ```
 
-`device="auto"` selects a GPU when one is available. Projection precision follows
-the selected GPU backend's standard compute-type rules, including FLOAT32,
-FLOAT16, BFLOAT16, and supported INT8 variants. Unsupported explicit types raise
-an error; `default` and `auto` use standard fallback rules.
+`device="auto"` selects an available GPU. Projection types follow backend support:
+FLOAT32, FLOAT16, BFLOAT16, and supported INT8 variants. Unsupported explicit
+types raise an error; `default` and `auto` allow fallback.
 
-This is hybrid execution: backbone and tower dense projections, including routed
-experts, execute on the GPU. Attention, recurrent state updates, routing,
-sampling, embeddings, and the entire waveform codec execute on CPU. Activations
-are transferred for each projection; this is not an entirely GPU-resident graph.
-There is no tensor parallelism.
+Hybrid execution runs backbone and tower dense projections, including routed
+experts, on GPU; attention, recurrent updates, routing, sampling, embeddings,
+and the waveform codec run on CPU. Activations transfer per projection.
+The graph is not entirely GPU-resident; tensor parallelism is unsupported.
 
-The host checkpoint remains resident, with non-FP8 parameters loaded as FLOAT32
-even when GPU projections use lower precision. Projection weights are uploaded on first
-use and cached on the selected GPU, so GPU memory usage grows as new experts
-are selected. FP8 expert bytes remain FP8 in that cache for floating-point
-execution and are decoded on the GPU for each projection. INT8 execution instead
-quantizes each projection once when it is first used. Converted checkpoints do
-not need to change, and output audio and codes remain CPU arrays.
+By default, the host checkpoint remains resident, with non-FP8 parameters loaded
+as FLOAT32 regardless of GPU precision. Weights upload on first use and stay
+cached, so GPU memory grows as new experts are selected. Floating-point execution
+caches FP8 expert bytes and decodes them on GPU per projection; INT8 execution
+quantizes projections on first use. Existing converted checkpoints work unchanged;
+output audio and codes remain CPU arrays.
 
 ### Memory settings
 
-For local standard INT8 checkpoints, two optional environment variables control memory use:
+Local standard INT8 checkpoints support two optional memory settings:
 
 - [`CT2_DRAMA3_MAX_MEMORY_GB`](../environment_variables.md)
   limits the whole process's CPU memory in decimal GB; CPU execution only.
 - [`CT2_DRAMA3_GPU_EXPERT_CACHE_GB`](../environment_variables.md)
   limits cached GPU expert weights in decimal GB on CUDA or ROCm, not total VRAM.
 
-Both are disabled when unset or `0`. See the linked environment variable documentation
-for supported compute types, requirements, and limitations.
+Unset or `0` disables either option. See the links for supported compute types,
+requirements, and limitations.

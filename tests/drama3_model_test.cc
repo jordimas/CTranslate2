@@ -1,4 +1,6 @@
 #include <cstring>
+#include <cstdlib>
+#include <fstream>
 
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
@@ -48,6 +50,84 @@ namespace {
     return reader;
   }
 }
+
+#if defined(__linux__)
+namespace {
+  struct MappedDramaFixture {
+    std::string directory;
+    std::string previous;
+    bool had_previous;
+    MappedDramaFixture() {
+      const char* value = std::getenv("CT2_DRAMA_CPU_MMAP");
+      had_previous = value != nullptr;
+      if (value) previous = value;
+      char pattern[] = "/tmp/ct2-drama-mmap-XXXXXX";
+      const char* path = mkdtemp(pattern);
+      if (!path) throw std::runtime_error("Unable to create mapped model fixture");
+      directory = path;
+      std::string bytes;
+      append_integer(bytes, 6, 4);
+      append_string(bytes, "Drama3Spec");
+      append_integer(bytes, 1, 4);
+      append_integer(bytes, 3, 4);
+      append_string(bytes, "backbone/layers_0/mlp/experts_0/gate_proj/weight");
+      append_integer(bytes, 2, 1);
+      append_integer(bytes, 2, 4);
+      append_integer(bytes, 2, 4);
+      append_integer(bytes, 1, 1);  // INT8
+      append_integer(bytes, 4, 4);
+      for (int8_t item : {-7, 2, 4, -1}) bytes.push_back(static_cast<char>(item));
+      append_tensor(bytes, "backbone/layers_0/mlp/experts_0/gate_proj/weight_scale", {2}, {8.f, 16.f});
+      append_tensor(bytes, "backbone/norm/weight", {2}, {.25f, -.5f});
+      append_integer(bytes, 0, 4);
+      std::ofstream(directory + "/model.bin", std::ios::binary).write(bytes.data(), bytes.size());
+      const nlohmann::json config = {
+        {"model_type", "drama3"}, {"ct2_layout_version", 1},
+        {"source_config", nlohmann::json::object()}, {"quantization_policy", "standard"},
+        {"matrix_dtype", "int8"}, {"activation_dtype", "float32"}};
+      std::ofstream(directory + "/config.json") << config.dump();
+      setenv("CT2_DRAMA_CPU_MMAP", "1", 1);
+    }
+    ~MappedDramaFixture() {
+      if (had_previous) setenv("CT2_DRAMA_CPU_MMAP", previous.c_str(), 1);
+      else unsetenv("CT2_DRAMA_CPU_MMAP");
+      std::remove((directory + "/model.bin").c_str());
+      std::remove((directory + "/config.json").c_str());
+      std::remove(directory.c_str());
+    }
+  };
+}
+
+TEST(Drama3ModelTest, MappedExpertsPreserveBytesScalesAndModelCopyLifetime) {
+  if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "INT8 unavailable";
+  MappedDramaFixture fixture;
+  auto model = models::Model::load(fixture.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
+  const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
+  EXPECT_FALSE(weight.owns_data());
+  const StorageView expected({2, 2}, std::vector<int8_t>{-7, 2, 4, -1});
+  expect_storage_eq(weight, expected);
+  const auto& scale = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight_scale");
+  EXPECT_TRUE(scale.owns_data());
+  expect_storage_eq(scale, StorageView({2}, std::vector<float>{8.f, 16.f}));
+  EXPECT_TRUE(model->get_variable("backbone/norm/weight").owns_data());
+  auto copy = model->copy_to(Device::CPU, 0);
+  model.reset();
+  expect_storage_eq(copy->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight"), expected);
+}
+
+TEST(Drama3ModelTest, MappedExpertsRejectWeightExpansionAndTruncatedPayloads) {
+  MappedDramaFixture fixture;
+  EXPECT_THROW(models::Model::load(fixture.directory, Device::CPU, 0, ComputeType::FLOAT32), std::invalid_argument);
+  std::ofstream(fixture.directory + "/model.bin", std::ios::binary | std::ios::trunc) << "short";
+  EXPECT_THROW(models::Model::load(fixture.directory, Device::CPU, 0, ComputeType::INT8), std::exception);
+}
+
+TEST(Drama3ModelTest, MappedExpertsRejectMemoryReadersAndSourceFp8) {
+  MappedDramaFixture scope;
+  auto reader = fixture();
+  EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::INT8), std::invalid_argument);
+}
+#endif
 
 TEST(Drama3ModelTest, SupportsFloat32LoadingWithoutQuantizingCodecOrBackbone) {
   auto reader = fixture();

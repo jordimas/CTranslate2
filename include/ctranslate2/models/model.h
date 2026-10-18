@@ -192,6 +192,8 @@ namespace ctranslate2 {
       ComputeType _requested_compute_type = ComputeType::DEFAULT;
       ComputeType _effective_compute_type = ComputeType::DEFAULT;
       dim_t _preferred_size_multiple = 1;
+      // Owns file-backed expert storage for opt-in Drama3 CPU inference.
+      std::shared_ptr<void> _mapped_weight_file;
       std::unordered_map<std::string, std::shared_ptr<StorageView>> _variable_index;
       bool _use_flash_attention = false;
       bool _tensor_parallel = false;

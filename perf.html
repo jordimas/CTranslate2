@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drama 3 performance — 2026-10-18</title>
+<style>
+body{font:16px/1.6 system-ui,sans-serif;max-width:1100px;margin:48px auto;padding:0 24px;color:#172033;background:#f8fafc}
+h1{line-height:1.2}time{color:#475569}.table{overflow-x:auto}table{width:100%;border-collapse:collapse;background:white;font-variant-numeric:tabular-nums}th,td{padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap}th:first-child,td:nth-child(2){text-align:left}thead{background:#e2e8f0}code{background:#e2e8f0;padding:2px 5px}a{color:#1d4ed8}
+</style></head><body>
+<h1>Drama 3: CPU and GPU benchmark</h1>
+<p>Run date: <time datetime="2026-10-18">18 October 2026</time> · Europe/Madrid</p>
+<p>Model: <code>drama-3</code>. Default text: “Hello! Welcome to our application.” Eight CPU threads, one warmup and one timed synthesis per compute type. Each type runs in a separate process; CPU and GPU sweeps ran sequentially.</p>
+<p>Commands: <code>uv run benchmark.py --device cuda</code> and <code>uv run benchmark.py --device cpu</code>, from <code>tts/faster_tts/benchmark</code>.</p>
+<p>GPU backend: ROCm on AMD Radeon 8060S; the API device name is <code>cuda</code>. GPU benchmark allocator configuration: <code>CT2_CUDA_CACHING_ALLOCATOR_CONFIG=2,6,24,209715200</code>.</p>
+<h2>Completed runs</h2>
+<p>Sorted by compute type, then device. All runs reached EOS; both sweeps exited successfully, with no out-of-memory failure.</p>
+<div class="table"><table><thead><tr><th scope="col">Compute type</th><th scope="col">Device</th><th scope="col">Time (s)</th><th scope="col">Audio (s)</th><th scope="col">RTF</th><th scope="col">Peak RSS (GiB)</th><th scope="col">Finish</th></tr></thead><tbody>
+<tr><th scope="row">bfloat16</th><td>cuda</td><td>21.356</td><td>2.276</td><td>9.385</td><td>45.909</td><td>EOS</td></tr>
+<tr><th scope="row">float16</th><td>cuda</td><td>24.848</td><td>3.065</td><td>8.107</td><td>46.034</td><td>EOS</td></tr>
+<tr><th scope="row">float32</th><td>cpu</td><td>39.457</td><td>2.508</td><td>15.734</td><td>45.282</td><td>EOS</td></tr>
+<tr><th scope="row">float32</th><td>cuda</td><td>38.614</td><td>2.508</td><td>15.398</td><td>46.030</td><td>EOS</td></tr>
+<tr><th scope="row">int8</th><td>cpu</td><td>16.740</td><td>3.390</td><td>4.938</td><td>44.749</td><td>EOS</td></tr>
+<tr><th scope="row">int8</th><td>cuda</td><td>12.464</td><td>3.390</td><td>3.677</td><td>45.577</td><td>EOS</td></tr>
+<tr><th scope="row">int8_bfloat16</th><td>cuda</td><td>21.565</td><td>2.554</td><td>8.443</td><td>46.759</td><td>EOS</td></tr>
+<tr><th scope="row">int8_float16</th><td>cuda</td><td>33.001</td><td>4.412</td><td>7.480</td><td>47.330</td><td>EOS</td></tr>
+<tr><th scope="row">int8_float32</th><td>cpu</td><td>16.580</td><td>3.390</td><td>4.891</td><td>44.750</td><td>EOS</td></tr>
+<tr><th scope="row">int8_float32</th><td>cuda</td><td>12.454</td><td>3.390</td><td>3.674</td><td>45.579</td><td>EOS</td></tr>
+</tbody></table></div>
+<h2>Comparison</h2>
+<p>GPU speedup for matching compute types: float32 1.02×, INT8 1.34×, int8_float32 1.33×. Best measured GPU RTF: 3.674; best measured CPU RTF: 4.891. Lower RTF is better; RTF below 1 means faster than real time.</p>
+<p>Timings exclude model loading and warmup. Peak RSS includes loading and warmup but excludes GPU allocations. On this integrated GPU, GPU allocations also consume system RAM. Different precisions can produce different audio durations, so raw latency comparisons across precisions are not equal-output comparisons. These are single-run measurements.</p>
+<p>Benchmark allocator change: <a href="https://github.com/jordimas/faster_tts/commit/eab6756">faster_tts eab6756</a>. CTranslate2 branch head: <code>89ce5ae1</code>.</p>
+
+<section id="gpu-optimization"><h2>GPU optimization — 18 October 2026</h2>
+<p>Parallelized the INT8 MoE router: expert selection now uses a GPU block reduction instead of a single thread. Lowest-index tie ordering and the original sequential double-precision normalization are preserved. CPU execution and other compute types are unchanged.</p>
+<p>Source-matched mean synthesis latency: <strong>12.203 s → 10.531 s</strong>, 13.7% less time (1.16× faster). The router microbenchmark improved from 4.165 s to 0.153 s for 10,000 one-row calls (256 experts, top-8); this kernel result is separate from complete synthesis.</p>
+<p>Same prompt, eight threads, sentence splitting enabled, seed 0, a 512-frame budget, one warmup and two timed runs per process. Every run reached EOS with 73 frames, 3.390 seconds of audio. Generated codes and audio were bit-identical between rebuilt baseline and candidate in all three runs. All 20 targeted routing, MoE, and Drama3 GPU tests passed. Validation was on AMD ROCm; NVIDIA hardware was not tested.</p>
+<div class="table"><table><thead><tr><th>Compute type</th><th>Device</th><th>Version</th><th>Run</th><th>Time (s)</th><th>Audio (s)</th><th>RTF</th><th>Peak RSS (GiB)</th></tr></thead><tbody><tr><th scope="row">int8</th><td>cuda</td><td>Installed baseline</td><td>1</td><td>12.389</td><td>3.390</td><td>3.654</td><td>45.128</td></tr><tr><th scope="row">int8</th><td>cuda</td><td>Installed baseline</td><td>2</td><td>12.330</td><td>3.390</td><td>3.637</td><td>45.128</td></tr><tr><th scope="row">int8</th><td>cuda</td><td>Rebuilt baseline</td><td>1</td><td>12.120</td><td>3.390</td><td>3.575</td><td>45.200</td></tr><tr><th scope="row">int8</th><td>cuda</td><td>Rebuilt baseline</td><td>2</td><td>12.287</td><td>3.390</td><td>3.624</td><td>45.200</td></tr><tr><th scope="row">int8</th><td>cuda</td><td>Parallel router</td><td>1</td><td>10.534</td><td>3.390</td><td>3.107</td><td>45.179</td></tr><tr><th scope="row">int8</th><td>cuda</td><td>Parallel router</td><td>2</td><td>10.527</td><td>3.390</td><td>3.105</td><td>45.179</td></tr></tbody></table></div>
+<h3>Mean native phase times</h3><div class="table"><table><thead><tr><th>Phase</th><th>Rebuilt baseline (s)</th><th>Parallel router (s)</th></tr></thead><tbody><tr><th scope="row">Prefill</th><td>1.515</td><td>1.381</td></tr><tr><th scope="row">Backbone decoding</th><td>7.161</td><td>5.470</td></tr><tr><th scope="row">Audio tower</th><td>2.749</td><td>2.847</td></tr><tr><th scope="row">Codec</th><td>0.749</td><td>0.807</td></tr></tbody></table></div>
+<p>Source: <a href="https://github.com/jordimas/CTranslate2/commit/d2c88c7d">CTranslate2 d2c88c7d</a>. Local benchmark wheel: <code>4.8.3+rocm.d2c88c7d.mkl.1</code>. Raw profile reports are embedded below. This is a short-prompt, two-run comparison; it does not establish gains for every utterance or GPU.</p>
+<h3>Installed-wheel verification</h3>
+<p>The ordinary command <code>uv run benchmark.py --device cuda --compute-type int8 --runs 2</code> completed successfully without LD_PRELOAD. Both timed runs reached EOS with 3.390 seconds of audio.</p>
+<div class="table"><table><thead><tr><th>Compute type</th><th>Device</th><th>Run 1 (s)</th><th>Run 2 (s)</th><th>Mean (s)</th><th>Sample std (s)</th><th>RTF</th><th>Peak RSS (GiB)</th></tr></thead><tbody><tr><th>int8</th><td>cuda</td><td>10.442</td><td>10.125</td><td>10.283</td><td>0.224</td><td>3.033</td><td>45.231</td></tr></tbody></table></div>
+<details><summary>Raw profile reports</summary><pre>{
+  &quot;Installed baseline&quot;: {
+    &quot;device&quot;: &quot;cuda&quot;,
+    &quot;compute_type&quot;: &quot;int8&quot;,
+    &quot;frames_limit&quot;: 512,
+    &quot;text&quot;: &quot;Hello! Welcome to our application.&quot;,
+    &quot;ctranslate2_version&quot;: &quot;4.8.3+rocm.89ce5ae1.mkl.1&quot;,
+    &quot;ctranslate2_module&quot;: &quot;/home/jordi/sc/CTranslate2/tts/faster_tts/.venv/lib/python3.14/site-packages/ctranslate2/__init__.py&quot;,
+    &quot;model&quot;: {
+      &quot;backend&quot;: &quot;cuda&quot;,
+      &quot;codec_device&quot;: &quot;cpu&quot;,
+      &quot;mode&quot;: &quot;offline&quot;,
+      &quot;gpu_supported&quot;: true,
+      &quot;device&quot;: &quot;cuda&quot;,
+      &quot;device_index&quot;: 0,
+      &quot;compute_type&quot;: &quot;int8&quot;,
+      &quot;intra_threads&quot;: 8,
+      &quot;cpu_threads&quot;: 8,
+      &quot;num_workers&quot;: 1,
+      &quot;prefill_chunk_size&quot;: 16,
+      &quot;model_path&quot;: &quot;/home/jordi/.cache/huggingface/hub/models--jordimas--drama-3-ct2/snapshots/9aba67191f7f44b915c63ae3bfa08dde5eafdd84&quot;,
+      &quot;source_revision&quot;: &quot;dd64a85cd82e9521f7202610ede97b367fc83946&quot;,
+      &quot;quantization_policy&quot;: &quot;experts_fp8_sensitive_float32&quot;,
+      &quot;matrix_dtype&quot;: &quot;fp8_float32&quot;,
+      &quot;activation_dtype&quot;: &quot;float32&quot;
+    },
+    &quot;ld_preload&quot;: &quot;&quot;,
+    &quot;cuda_allocator&quot;: &quot;default&quot;,
+    &quot;allocator_config&quot;: &quot;2,6,24,209715200&quot;,
+    &quot;grouped_moe&quot;: &quot;0&quot;,
+    &quot;gpu_waveform&quot;: &quot;default&quot;,
+    &quot;resident_backbone&quot;: &quot;default&quot;,
+    &quot;cache_fp8_gpu_weights&quot;: &quot;0&quot;,
+    &quot;pool_diagnostic&quot;: {},
+    &quot;greedy&quot;: false,
+    &quot;split_sentences&quot;: true,
+    &quot;load_seconds&quot;: 9.356147641999996,
+    &quot;runs&quot;: [
+      {
+        &quot;warmup&quot;: true,
+        &quot;wall_seconds&quot;: 36.1718568719989,
+        &quot;peak_rss_gib&quot;: 45.12830352783203,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 23.665942031,
+          &quot;backbone_decode_seconds&quot;: 8.490371518000002,
+          &quot;tower_decode_seconds&quot;: 3.0860568630000005,
+          &quot;codec_seconds&quot;: 0.8522679980000001,
+          &quot;total_native_seconds&quot;: 36.115131308
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 41.12217712402344,
+          &quot;SwapFree&quot;: 0.0060577392578125
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-baseline_run0.npz&quot;
+      },
+      {
+        &quot;warmup&quot;: false,
+        &quot;wall_seconds&quot;: 12.38903733999905,
+        &quot;peak_rss_gib&quot;: 45.12830352783203,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 1.535726575,
+          &quot;backbone_decode_seconds&quot;: 7.243644529999999,
+          &quot;tower_decode_seconds&quot;: 2.800098002,
+          &quot;codec_seconds&quot;: 0.778788822,
+          &quot;total_native_seconds&quot;: 12.377093711
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 40.961639404296875,
+          &quot;SwapFree&quot;: 0.008174896240234375
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-baseline_run1.npz&quot;
+      },
+      {
+        &quot;warmup&quot;: false,
+        &quot;wall_seconds&quot;: 12.32966684100029,
+        &quot;peak_rss_gib&quot;: 45.12830352783203,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 1.506201377,
+          &quot;backbone_decode_seconds&quot;: 7.267713075000001,
+          &quot;tower_decode_seconds&quot;: 2.7364531919999995,
+          &quot;codec_seconds&quot;: 0.788413028,
+          &quot;total_native_seconds&quot;: 12.325598991
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 40.623802185058594,
+          &quot;SwapFree&quot;: 0.009296417236328125
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-baseline_run2.npz&quot;
+      }
+    ],
+    &quot;hip_api_note&quot;: &quot;Host API wall times; asynchronous kernel execution is not timed separately.&quot;
+  },
+  &quot;Rebuilt baseline&quot;: {
+    &quot;device&quot;: &quot;cuda&quot;,
+    &quot;compute_type&quot;: &quot;int8&quot;,
+    &quot;frames_limit&quot;: 512,
+    &quot;text&quot;: &quot;Hello! Welcome to our application.&quot;,
+    &quot;ctranslate2_version&quot;: &quot;4.8.3+rocm.89ce5ae1.mkl.1&quot;,
+    &quot;ctranslate2_module&quot;: &quot;/home/jordi/sc/CTranslate2/tts/faster_tts/.venv/lib/python3.14/site-packages/ctranslate2/__init__.py&quot;,
+    &quot;model&quot;: {
+      &quot;backend&quot;: &quot;cuda&quot;,
+      &quot;codec_device&quot;: &quot;cpu&quot;,
+      &quot;mode&quot;: &quot;offline&quot;,
+      &quot;gpu_supported&quot;: true,
+      &quot;device&quot;: &quot;cuda&quot;,
+      &quot;device_index&quot;: 0,
+      &quot;compute_type&quot;: &quot;int8&quot;,
+      &quot;intra_threads&quot;: 8,
+      &quot;cpu_threads&quot;: 8,
+      &quot;num_workers&quot;: 1,
+      &quot;prefill_chunk_size&quot;: 16,
+      &quot;model_path&quot;: &quot;/home/jordi/.cache/huggingface/hub/models--jordimas--drama-3-ct2/snapshots/9aba67191f7f44b915c63ae3bfa08dde5eafdd84&quot;,
+      &quot;source_revision&quot;: &quot;dd64a85cd82e9521f7202610ede97b367fc83946&quot;,
+      &quot;quantization_policy&quot;: &quot;experts_fp8_sensitive_float32&quot;,
+      &quot;matrix_dtype&quot;: &quot;fp8_float32&quot;,
+      &quot;activation_dtype&quot;: &quot;float32&quot;
+    },
+    &quot;ld_preload&quot;: &quot;/home/jordi/sc/CTranslate2/build/amd/libctranslate2.so&quot;,
+    &quot;cuda_allocator&quot;: &quot;default&quot;,
+    &quot;allocator_config&quot;: &quot;2,6,24,209715200&quot;,
+    &quot;grouped_moe&quot;: &quot;0&quot;,
+    &quot;gpu_waveform&quot;: &quot;default&quot;,
+    &quot;resident_backbone&quot;: &quot;default&quot;,
+    &quot;cache_fp8_gpu_weights&quot;: &quot;0&quot;,
+    &quot;pool_diagnostic&quot;: {},
+    &quot;greedy&quot;: false,
+    &quot;split_sentences&quot;: true,
+    &quot;load_seconds&quot;: 21.04426677399897,
+    &quot;runs&quot;: [
+      {
+        &quot;warmup&quot;: true,
+        &quot;wall_seconds&quot;: 32.586312175000785,
+        &quot;peak_rss_gib&quot;: 45.19951248168945,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 20.073887665,
+          &quot;backbone_decode_seconds&quot;: 8.37237747,
+          &quot;tower_decode_seconds&quot;: 3.117662311,
+          &quot;codec_seconds&quot;: 0.942675897,
+          &quot;total_native_seconds&quot;: 32.529492374
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 41.56504440307617,
+          &quot;SwapFree&quot;: 0.0045166015625
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-source-baseline_run0.npz&quot;
+      },
+      {
+        &quot;warmup&quot;: false,
+        &quot;wall_seconds&quot;: 12.120175291998748,
+        &quot;peak_rss_gib&quot;: 45.19951248168945,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 1.485812439,
+          &quot;backbone_decode_seconds&quot;: 7.110950385000001,
+          &quot;tower_decode_seconds&quot;: 2.7335928199999993,
+          &quot;codec_seconds&quot;: 0.75737195,
+          &quot;total_native_seconds&quot;: 12.108100578
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 41.07817077636719,
+          &quot;SwapFree&quot;: 0.0083770751953125
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-source-baseline_run1.npz&quot;
+      },
+      {
+        &quot;warmup&quot;: false,
+        &quot;wall_seconds&quot;: 12.286522194001009,
+        &quot;peak_rss_gib&quot;: 45.19951248168945,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 1.5443738649999998,
+          &quot;backbone_decode_seconds&quot;: 7.211025599999999,
+          &quot;tower_decode_seconds&quot;: 2.764793297,
+          &quot;codec_seconds&quot;: 0.7404933419999999,
+          &quot;total_native_seconds&quot;: 12.282652758000001
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 40.789180755615234,
+          &quot;SwapFree&quot;: 0.009124755859375
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-source-baseline_run2.npz&quot;
+      }
+    ],
+    &quot;hip_api_note&quot;: &quot;Host API wall times; asynchronous kernel execution is not timed separately.&quot;
+  },
+  &quot;Parallel router&quot;: {
+    &quot;device&quot;: &quot;cuda&quot;,
+    &quot;compute_type&quot;: &quot;int8&quot;,
+    &quot;frames_limit&quot;: 512,
+    &quot;text&quot;: &quot;Hello! Welcome to our application.&quot;,
+    &quot;ctranslate2_version&quot;: &quot;4.8.3+rocm.89ce5ae1.mkl.1&quot;,
+    &quot;ctranslate2_module&quot;: &quot;/home/jordi/sc/CTranslate2/tts/faster_tts/.venv/lib/python3.14/site-packages/ctranslate2/__init__.py&quot;,
+    &quot;model&quot;: {
+      &quot;backend&quot;: &quot;cuda&quot;,
+      &quot;codec_device&quot;: &quot;cpu&quot;,
+      &quot;mode&quot;: &quot;offline&quot;,
+      &quot;gpu_supported&quot;: true,
+      &quot;device&quot;: &quot;cuda&quot;,
+      &quot;device_index&quot;: 0,
+      &quot;compute_type&quot;: &quot;int8&quot;,
+      &quot;intra_threads&quot;: 8,
+      &quot;cpu_threads&quot;: 8,
+      &quot;num_workers&quot;: 1,
+      &quot;prefill_chunk_size&quot;: 16,
+      &quot;model_path&quot;: &quot;/home/jordi/.cache/huggingface/hub/models--jordimas--drama-3-ct2/snapshots/9aba67191f7f44b915c63ae3bfa08dde5eafdd84&quot;,
+      &quot;source_revision&quot;: &quot;dd64a85cd82e9521f7202610ede97b367fc83946&quot;,
+      &quot;quantization_policy&quot;: &quot;experts_fp8_sensitive_float32&quot;,
+      &quot;matrix_dtype&quot;: &quot;fp8_float32&quot;,
+      &quot;activation_dtype&quot;: &quot;float32&quot;
+    },
+    &quot;ld_preload&quot;: &quot;/home/jordi/sc/CTranslate2/build/amd/libctranslate2.so&quot;,
+    &quot;cuda_allocator&quot;: &quot;default&quot;,
+    &quot;allocator_config&quot;: &quot;2,6,24,209715200&quot;,
+    &quot;grouped_moe&quot;: &quot;0&quot;,
+    &quot;gpu_waveform&quot;: &quot;default&quot;,
+    &quot;resident_backbone&quot;: &quot;default&quot;,
+    &quot;cache_fp8_gpu_weights&quot;: &quot;0&quot;,
+    &quot;pool_diagnostic&quot;: {},
+    &quot;greedy&quot;: false,
+    &quot;split_sentences&quot;: true,
+    &quot;load_seconds&quot;: 21.962319280002703,
+    &quot;runs&quot;: [
+      {
+        &quot;warmup&quot;: true,
+        &quot;wall_seconds&quot;: 33.70965115499712,
+        &quot;peak_rss_gib&quot;: 45.17882537841797,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 21.288369095,
+          &quot;backbone_decode_seconds&quot;: 7.7779201790000005,
+          &quot;tower_decode_seconds&quot;: 3.766756088,
+          &quot;codec_seconds&quot;: 0.806508905,
+          &quot;total_native_seconds&quot;: 33.660555669000004
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 41.63890075683594,
+          &quot;SwapFree&quot;: 0.00464630126953125
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-parallel-router_run0.npz&quot;
+      },
+      {
+        &quot;warmup&quot;: false,
+        &quot;wall_seconds&quot;: 10.534367737000139,
+        &quot;peak_rss_gib&quot;: 45.17882537841797,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 1.370794845,
+          &quot;backbone_decode_seconds&quot;: 5.467839624,
+          &quot;tower_decode_seconds&quot;: 2.85630059,
+          &quot;codec_seconds&quot;: 0.813286751,
+          &quot;total_native_seconds&quot;: 10.529620941
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 40.37672424316406,
+          &quot;SwapFree&quot;: 0.007137298583984375
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-parallel-router_run1.npz&quot;
+      },
+      {
+        &quot;warmup&quot;: false,
+        &quot;wall_seconds&quot;: 10.526635999001883,
+        &quot;peak_rss_gib&quot;: 45.17882537841797,
+        &quot;frames&quot;: 73,
+        &quot;finish_reason&quot;: &quot;eos&quot;,
+        &quot;timings&quot;: {
+          &quot;prefill_seconds&quot;: 1.390228297,
+          &quot;backbone_decode_seconds&quot;: 5.471430371,
+          &quot;tower_decode_seconds&quot;: 2.838405216,
+          &quot;codec_seconds&quot;: 0.801434022,
+          &quot;total_native_seconds&quot;: 10.522769989
+        },
+        &quot;codes_sha256&quot;: &quot;bca602cf7cccf5c29c6dd381231aedec3a639a931c3034065d0bc03d59e3ff30&quot;,
+        &quot;system_memory_gib&quot;: {
+          &quot;MemTotal&quot;: 122.81757736206055,
+          &quot;MemAvailable&quot;: 40.64321517944336,
+          &quot;SwapFree&quot;: 0.009380340576171875
+        },
+        &quot;arrays_path&quot;: &quot;/tmp/drama-gpu-plan-parallel-router_run2.npz&quot;
+      }
+    ],
+    &quot;hip_api_note&quot;: &quot;Host API wall times; asynchronous kernel execution is not timed separately.&quot;
+  }
+}</pre></details>
+</section>
+<section id="optimized-full-rerun"><h2>Full CPU and CUDA rerun — 18 October 2026</h2><p>Optimized local wheel <code>4.8.3+rocm.d2c88c7d.mkl.1</code>, without LD_PRELOAD. CPU sweep followed by CUDA sweep; default prompt, eight threads, one warmup and one timed run per compute type. All ten runs reached EOS; both sweeps exited successfully without an OOM.</p><div class="table"><table><thead><tr><th>Compute type</th><th>Device</th><th>Time (s)</th><th>Audio (s)</th><th>RTF</th><th>Peak RSS (GiB)</th><th>Finish</th></tr></thead><tbody><tr><th scope="row">bfloat16</th><td>cuda</td><td>24.162</td><td>2.276</td><td>10.618</td><td>45.491</td><td>EOS</td></tr><tr><th scope="row">float16</th><td>cuda</td><td>27.297</td><td>3.065</td><td>8.906</td><td>45.456</td><td>EOS</td></tr><tr><th scope="row">float32</th><td>cpu</td><td>40.354</td><td>2.508</td><td>16.092</td><td>45.254</td><td>EOS</td></tr><tr><th scope="row">float32</th><td>cuda</td><td>39.198</td><td>2.508</td><td>15.631</td><td>46.030</td><td>EOS</td></tr><tr><th scope="row">int8</th><td>cpu</td><td>16.675</td><td>3.390</td><td>4.919</td><td>44.749</td><td>EOS</td></tr><tr><th scope="row">int8</th><td>cuda</td><td>10.084</td><td>3.390</td><td>2.975</td><td>45.580</td><td>EOS</td></tr><tr><th scope="row">int8_bfloat16</th><td>cuda</td><td>21.128</td><td>2.554</td><td>8.272</td><td>46.760</td><td>EOS</td></tr><tr><th scope="row">int8_float16</th><td>cuda</td><td>34.554</td><td>4.412</td><td>7.832</td><td>47.331</td><td>EOS</td></tr><tr><th scope="row">int8_float32</th><td>cpu</td><td>16.724</td><td>3.390</td><td>4.933</td><td>44.750</td><td>EOS</td></tr><tr><th scope="row">int8_float32</th><td>cuda</td><td>10.976</td><td>3.390</td><td>3.238</td><td>45.579</td><td>EOS</td></tr></tbody></table></div><p>Same-compute-type GPU speedup: float32 1.03×, INT8 1.65×, int8_float32 1.52×. INT8 GPU latency is 19.1% lower than the original full sweep (12.464 → 10.084 s). These are single-run sweep results; the controlled two-run routing comparison above provides the isolated optimization measurement. Peak RSS excludes GPU allocations.</p></section>
+<section id="int8-mapped-memory"><h2>INT8 CPU: mapped experts versus baseline — 18 October 2026</h2>
+<p>Recorded <time>2026-10-18T17:39:23.347460+02:00</time>. Checkpoint: <code>jordimas/drama-3-ct2-int8</code>, revision <code>1e52e6d9320fa7fa7a15689c3637288d9214bcac</code> (34.252 GiB model.bin). This is the published standard INT8 checkpoint, separate from the source-FP8 checkpoint used in the earlier sweeps.</p>
+<p>Same default prompt, eight CPU threads, one warmup and two timed runs. The matched comparison uses the same rebuilt <code>build/amd/libctranslate2.so</code> with <code>CT2_DRAMA_CPU_MMAP</code> off versus on. The unchanged <code>benchmark.py</code> was executed through a wrapper that hashes the returned codes and audio in both cases. The initial installed-wheel baseline is included separately.</p>
+<div class="table"><table><thead><tr><th>Compute type</th><th>Device</th><th>Approach</th><th>Run</th><th>Time (s)</th><th>Audio (s)</th><th>RTF</th><th>Process peak RSS (GiB)</th><th>Finish</th></tr></thead><tbody><tr><th>int8</th><td>cpu</td><td>Installed baseline</td><td>1</td><td>18.685</td><td>3.390</td><td>5.511</td><td>34.854</td><td>eos</td></tr><tr><th>int8</th><td>cpu</td><td>Installed baseline</td><td>2</td><td>17.421</td><td>3.390</td><td>5.139</td><td>34.854</td><td>eos</td></tr><tr><th>int8</th><td>cpu</td><td>Rebuilt baseline (mapping off)</td><td>1</td><td>16.741</td><td>3.390</td><td>4.938</td><td>35.224</td><td>eos</td></tr><tr><th>int8</th><td>cpu</td><td>Rebuilt baseline (mapping off)</td><td>2</td><td>16.538</td><td>3.390</td><td>4.878</td><td>35.224</td><td>eos</td></tr><tr><th>int8</th><td>cpu</td><td>Mapped experts, 20GB cap</td><td>1</td><td>39.109</td><td>3.390</td><td>11.536</td><td>18.411</td><td>eos</td></tr><tr><th>int8</th><td>cpu</td><td>Mapped experts, 20GB cap</td><td>2</td><td>38.718</td><td>3.390</td><td>11.421</td><td>18.411</td><td>eos</td></tr></tbody></table></div>
+<p><strong>Matched mean synthesis: 16.639 s baseline versus 38.913 s mapped (2.34× slower).</strong> Peak process RSS fell from 35.224 to 18.411 GiB (47.7% lower). Mapped mean RTF: 11.478, versus 4.908 baseline. Both produced 3.390 seconds of audio per run.</p>
+<p>The mapped process ran in a temporary Linux cgroup with <code>MemoryMax=20000000000</code> and <code>MemorySwapMax=0</code>. Peak whole-scope memory, including charged file cache and kernel memory, was 19,999,997,952 bytes (18.626 GiB). No OOM, OOM kill, swap-in or swap-out occurred. Before starting the scope, <code>posix_fadvise(POSIX_FADV_DONTNEED)</code> evicted the checkpoint's clean cache; <code>fincore</code> confirmed zero resident model bytes. Thus baseline file cache was not charged outside the measured scope.</p>
+<p>All warmup and timed outputs were finite, reached EOS, and had bit-identical generated codes and audio between matched baseline and mapped execution, including the sentence-level calls. Combined output SHA256: codes <code>239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0</code>; audio <code>555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba</code>.</p>
+<p>This validates the short benchmark prompt within a budget suitable for a 24GB machine, at a disk-paging cost. It is a CPU/Linux INT8 expert-loading option; other weights remain allocated normally, with no additional quantization. Without a memory limit or physical RAM pressure, the OS can retain more mapped pages. Longer prompts and other storage devices have not been benchmarked.</p>
+<p>Reproduce from <code>tts/faster_tts</code> with the candidate library built: baseline <code>LD_PRELOAD=/home/jordi/sc/CTranslate2/build/amd/libctranslate2.so uv run python -u benchmark/benchmark.py jordimas/drama-3-ct2-int8 --device cpu --compute-type int8 --runs 2</code>. For mapped execution, use the same command inside <code>systemd-run --user --scope -p MemoryMax=20000000000 -p MemorySwapMax=0 env CT2_DRAMA_CPU_MMAP=1</code>. Timings exclude loading and warmup; peak RSS includes them. Native validation: 14 targeted Drama3/router tests passed, one unsupported INT16 test skipped.</p>
+<details><summary>Raw logs, output hashes and capped memory counters</summary><pre>{
+  &quot;date&quot;: &quot;2026-10-18T17:39:23.347460+02:00&quot;,
+  &quot;model&quot;: &quot;jordimas/drama-3-ct2-int8&quot;,
+  &quot;revision&quot;: &quot;1e52e6d9320fa7fa7a15689c3637288d9214bcac&quot;,
+  &quot;model_bytes&quot;: 36777848934,
+  &quot;model_sha256&quot;: &quot;7c95496dfa62e3c03ab4193e39cc7c2a11ac18c967439c521c3ff882a61480de&quot;,
+  &quot;same_build_outputs_identical&quot;: true,
+  &quot;resources&quot;: {
+    &quot;command&quot;: [
+      &quot;/home/jordi/sc/CTranslate2/tts/faster_tts/.venv/bin/python&quot;,
+      &quot;-u&quot;,
+      &quot;/tmp/drama-benchmark-entry.py&quot;,
+      &quot;/home/jordi/.cache/huggingface/hub/models--jordimas--drama-3-ct2-int8/snapshots/1e52e6d9320fa7fa7a15689c3637288d9214bcac&quot;,
+      &quot;--device&quot;,
+      &quot;cpu&quot;,
+      &quot;--compute-type&quot;,
+      &quot;int8&quot;,
+      &quot;--runs&quot;,
+      &quot;2&quot;
+    ],
+    &quot;exit_code&quot;: 0,
+    &quot;wall_seconds&quot;: 142.55144498200025,
+    &quot;mmap&quot;: &quot;1&quot;,
+    &quot;cgroup&quot;: &quot;/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/drama-int8-mmap-benchmark.scope&quot;,
+    &quot;memory.current&quot;: &quot;14399827968&quot;,
+    &quot;memory.peak&quot;: &quot;19999997952&quot;,
+    &quot;memory.max&quot;: &quot;19999997952&quot;,
+    &quot;memory.swap.max&quot;: &quot;0&quot;,
+    &quot;memory.events&quot;: &quot;low 0\nhigh 0\nmax 47459\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0&quot;,
+    &quot;memory.stat&quot;: &quot;anon 18726912\nfile 14292680704\nkernel 84795392\nkernel_stack 0\npagetables 307200\nsec_pagetables 0\npercpu 1088\nsock 0\nvmalloc 0\nshmem 8192\nzswap 0\nzswapped 0\nfile_mapped 4096\nfile_dirty 0\nfile_writeback 0\nswapcached 0\nanon_thp 0\nfile_thp 0\nshmem_thp 0\ninactive_anon 18731008\nactive_anon 0\ninactive_file 9491124224\nactive_file 4801241088\nunevictable 0\nslab_reclaimable 84387440\nslab_unreclaimable 136440\nslab 84523880\nhugetlb 0\nworkingset_refault_anon 0\nworkingset_refault_file 23711330\nworkingset_activate_anon 0\nworkingset_activate_file 8156618\nworkingset_restore_anon 0\nworkingset_restore_file 1497538\nworkingset_nodereclaim 0\npgdemote_kswapd 0\npgdemote_direct 0\npgdemote_khugepaged 0\npgdemote_proactive 0\npgpromote_success 0\npgscan 42033335\npgsteal 29119478\npswpin 0\npswpout 0\npgscan_kswapd 0\npgscan_direct 42033335\npgscan_khugepaged 0\npgscan_proactive 0\npgsteal_kswapd 0\npgsteal_direct 29119478\npgsteal_khugepaged 0\npgsteal_proactive 0\npgfault 7325868\npgmajfault 1111601\npgrefill 5081015\npgactivate 14076778\npgdeactivate 0\npglazyfree 0\npglazyfreed 0\nswpin_zero 0\nswpout_zero 0\nzswpin 0\nzswpout 0\nzswpwb 0\nthp_fault_alloc 0\nthp_collapse_alloc 0\nthp_swpout 0\nthp_swpout_fallback 0\nnuma_pages_migrated 0\nnuma_pte_updates 0\nnuma_hint_faults 0&quot;
+  },
+  &quot;output_identities&quot;: [
+    {
+      &quot;phase&quot;: &quot;warmup&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 28,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388&quot;,
+      &quot;audio_sha256&quot;: &quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 1&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 45,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36&quot;,
+      &quot;audio_sha256&quot;: &quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 2&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 73,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0&quot;,
+      &quot;audio_sha256&quot;: &quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 3&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 28,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388&quot;,
+      &quot;audio_sha256&quot;: &quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 4&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 45,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36&quot;,
+      &quot;audio_sha256&quot;: &quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 5&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 73,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0&quot;,
+      &quot;audio_sha256&quot;: &quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 6&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 28,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388&quot;,
+      &quot;audio_sha256&quot;: &quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 7&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 45,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36&quot;,
+      &quot;audio_sha256&quot;: &quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa&quot;
+    },
+    {
+      &quot;phase&quot;: &quot;run 8&quot;,
+      &quot;finish&quot;: &quot;eos&quot;,
+      &quot;frames&quot;: 73,
+      &quot;finite&quot;: true,
+      &quot;codes_sha256&quot;: &quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0&quot;,
+      &quot;audio_sha256&quot;: &quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba&quot;
+    }
+  ],
+  &quot;Installed baseline&quot;: &quot;\nFetching 8 files:   0%|          | 0/8 [00:00&lt;?, ?it/s]\nFetching 8 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 8/8 [10:10&lt;00:00, 76.35s/it]\nFetching 8 files: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 8/8 [10:10&lt;00:00, 76.35s/it]\n\nDevice: cpu; compute type: int8\nRun 1: 18.685s, audio=3.390s, RTF=5.511, finish_reason=eos\nRun 2: 17.421s, audio=3.390s, RTF=5.139, finish_reason=eos\nMean: 18.053s; std: 0.893s; RTF: 5.325; device: cpu; peak RSS: 34.854 GiB\n&quot;,
+  &quot;Rebuilt baseline (mapping off)&quot;: &quot;\nDevice: cpu; compute type: int8\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;warmup\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 28, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388\&quot;, \&quot;audio_sha256\&quot;: \&quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 1\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 45, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36\&quot;, \&quot;audio_sha256\&quot;: \&quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 2\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 73, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0\&quot;, \&quot;audio_sha256\&quot;: \&quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 3\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 28, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388\&quot;, \&quot;audio_sha256\&quot;: \&quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 4\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 45, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36\&quot;, \&quot;audio_sha256\&quot;: \&quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 5\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 73, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0\&quot;, \&quot;audio_sha256\&quot;: \&quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba\&quot;}\nRun 1: 16.741s, audio=3.390s, RTF=4.938, finish_reason=eos\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 6\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 28, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388\&quot;, \&quot;audio_sha256\&quot;: \&quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 7\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 45, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36\&quot;, \&quot;audio_sha256\&quot;: \&quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 8\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 73, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0\&quot;, \&quot;audio_sha256\&quot;: \&quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba\&quot;}\nRun 2: 16.538s, audio=3.390s, RTF=4.878, finish_reason=eos\nMean: 16.639s; std: 0.143s; RTF: 4.908; device: cpu; peak RSS: 35.224 GiB\n&quot;,
+  &quot;Mapped experts, 20GB cap&quot;: &quot;Running as unit: drama-int8-mmap-benchmark.scope; invocation ID: 92ce194e13f84c3da27f4af23f1f1610\n\nDevice: cpu; compute type: int8\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;warmup\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 28, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388\&quot;, \&quot;audio_sha256\&quot;: \&quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 1\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 45, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36\&quot;, \&quot;audio_sha256\&quot;: \&quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 2\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 73, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0\&quot;, \&quot;audio_sha256\&quot;: \&quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 3\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 28, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388\&quot;, \&quot;audio_sha256\&quot;: \&quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 4\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 45, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36\&quot;, \&quot;audio_sha256\&quot;: \&quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 5\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 73, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0\&quot;, \&quot;audio_sha256\&quot;: \&quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba\&quot;}\nRun 1: 39.109s, audio=3.390s, RTF=11.536, finish_reason=eos\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 6\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 28, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;e72f1d127c59e335f2899ce968348561d62c436fd7459b883475716789856388\&quot;, \&quot;audio_sha256\&quot;: \&quot;1a186b5aaecb130ca9a459446b798f1757a69606460e959e6ad688e73f31ad5c\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 7\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 45, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;8813bb53b1698738397f6b38b1232742b7c81d5c088147a43334db14261e3d36\&quot;, \&quot;audio_sha256\&quot;: \&quot;0fb700d3273b031580f04a077635bb558f5adc0e1ddf7e9498d06fbd0fee53fa\&quot;}\nOUTPUT_IDENTITY {\&quot;phase\&quot;: \&quot;run 8\&quot;, \&quot;finish\&quot;: \&quot;eos\&quot;, \&quot;frames\&quot;: 73, \&quot;finite\&quot;: true, \&quot;codes_sha256\&quot;: \&quot;239058719ad2e7824be6ca6715df3490e600e18d74403b1d60c81f6d8304c0b0\&quot;, \&quot;audio_sha256\&quot;: \&quot;555ce8b6e781806ff4d89c66335b4ff666ea8e34c675e30c1a41f6bca9862cba\&quot;}\nRun 2: 38.718s, audio=3.390s, RTF=11.421, finish_reason=eos\nMean: 38.913s; std: 0.277s; RTF: 11.478; device: cpu; peak RSS: 18.411 GiB\nRESOURCE_REPORT {\&quot;command\&quot;: [\&quot;/home/jordi/sc/CTranslate2/tts/faster_tts/.venv/bin/python\&quot;, \&quot;-u\&quot;, \&quot;/tmp/drama-benchmark-entry.py\&quot;, \&quot;/home/jordi/.cache/huggingface/hub/models--jordimas--drama-3-ct2-int8/snapshots/1e52e6d9320fa7fa7a15689c3637288d9214bcac\&quot;, \&quot;--device\&quot;, \&quot;cpu\&quot;, \&quot;--compute-type\&quot;, \&quot;int8\&quot;, \&quot;--runs\&quot;, \&quot;2\&quot;], \&quot;exit_code\&quot;: 0, \&quot;wall_seconds\&quot;: 142.55144498200025, \&quot;mmap\&quot;: \&quot;1\&quot;, \&quot;cgroup\&quot;: \&quot;/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/drama-int8-mmap-benchmark.scope\&quot;, \&quot;memory.current\&quot;: \&quot;14399827968\&quot;, \&quot;memory.peak\&quot;: \&quot;19999997952\&quot;, \&quot;memory.max\&quot;: \&quot;19999997952\&quot;, \&quot;memory.swap.max\&quot;: \&quot;0\&quot;, \&quot;memory.events\&quot;: \&quot;low 0\\nhigh 0\\nmax 47459\\noom 0\\noom_kill 0\\noom_group_kill 0\\nsock_throttled 0\&quot;, \&quot;memory.stat\&quot;: \&quot;anon 18726912\\nfile 14292680704\\nkernel 84795392\\nkernel_stack 0\\npagetables 307200\\nsec_pagetables 0\\npercpu 1088\\nsock 0\\nvmalloc 0\\nshmem 8192\\nzswap 0\\nzswapped 0\\nfile_mapped 4096\\nfile_dirty 0\\nfile_writeback 0\\nswapcached 0\\nanon_thp 0\\nfile_thp 0\\nshmem_thp 0\\ninactive_anon 18731008\\nactive_anon 0\\ninactive_file 9491124224\\nactive_file 4801241088\\nunevictable 0\\nslab_reclaimable 84387440\\nslab_unreclaimable 136440\\nslab 84523880\\nhugetlb 0\\nworkingset_refault_anon 0\\nworkingset_refault_file 23711330\\nworkingset_activate_anon 0\\nworkingset_activate_file 8156618\\nworkingset_restore_anon 0\\nworkingset_restore_file 1497538\\nworkingset_nodereclaim 0\\npgdemote_kswapd 0\\npgdemote_direct 0\\npgdemote_khugepaged 0\\npgdemote_proactive 0\\npgpromote_success 0\\npgscan 42033335\\npgsteal 29119478\\npswpin 0\\npswpout 0\\npgscan_kswapd 0\\npgscan_direct 42033335\\npgscan_khugepaged 0\\npgscan_proactive 0\\npgsteal_kswapd 0\\npgsteal_direct 29119478\\npgsteal_khugepaged 0\\npgsteal_proactive 0\\npgfault 7325868\\npgmajfault 1111601\\npgrefill 5081015\\npgactivate 14076778\\npgdeactivate 0\\npglazyfree 0\\npglazyfreed 0\\nswpin_zero 0\\nswpout_zero 0\\nzswpin 0\\nzswpout 0\\nzswpwb 0\\nthp_fault_alloc 0\\nthp_collapse_alloc 0\\nthp_swpout 0\\nthp_swpout_fallback 0\\nnuma_pages_migrated 0\\nnuma_pte_updates 0\\nnuma_hint_faults 0\&quot;}\n&quot;
+}</pre></details></section>
+
+</body></html>

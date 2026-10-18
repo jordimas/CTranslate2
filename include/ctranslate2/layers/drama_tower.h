@@ -85,6 +85,8 @@ namespace ctranslate2 {
                        StorageView& next_frame,
                        const std::vector<int32_t>* history_main_tokens,
                        const DramaSamplingOptions* options, std::mt19937* rng) const;
+      bool _resident_gpu = false;
+      int _gpu_device_index = 0;
       DramaTowerConfig _config;
       const StorageView& _embeddings;
       Embeddings _embedding_lookup;

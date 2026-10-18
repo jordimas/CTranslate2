@@ -156,6 +156,12 @@ TEST(Drama3MixedPrecisionTest, GpuProjectionsMatchCpuWithCachedAndSelectedWeight
           StorageView input({rows, 16}, .25f), residual({rows, 16}, .5f), output;
           dense(input, output, &residual);
           expect_storage_eq(output, StorageView({rows, 16}, fp8 ? 8.25f : 2.25f), .08f);
+          StorageView gpu_input = input.to(Device::CUDA);
+          StorageView gpu_output(DataType::FLOAT32, Device::CUDA);
+          dense(gpu_input, gpu_output, &residual);
+          auto host_output = gpu_output.to(Device::CPU);
+          synchronize_stream(Device::CUDA);
+          expect_storage_eq(host_output, output, .0001f);
         }
         if (!fp8) {
           StorageView selected({4}, std::vector<int32_t>{3, 0, 2, 1});

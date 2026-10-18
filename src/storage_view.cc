@@ -91,7 +91,8 @@ namespace ctranslate2 {
 
   StorageView StorageView::to(Device device) const {
     StorageView device_copy(_shape, _dtype, device);
-    return device_copy.copy_from(*this);
+    device_copy.copy_from(*this);
+    return device_copy;
   }
 
   StorageView StorageView::to(DataType dtype) const {

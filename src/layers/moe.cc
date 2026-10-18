@@ -1,6 +1,11 @@
 #include "ctranslate2/layers/moe.h"
 
 #include <cmath>
+#include <cstring>
+
+#include "env.h"
+#include "drama_gpu.h"
+#include "ctranslate2/ops/grouped_moe.h"
 #include <cstdint>
 #include <stdexcept>
 
@@ -22,10 +27,28 @@ namespace ctranslate2 {
     SparseMoE::Expert::Expert(const models::Model& model, const std::string& scope)
       : gate(model, scope + "/gate_proj")
       , up(model, scope + "/up_proj")
-      , down(model, scope + "/down_proj") {
+      , down(model, scope + "/down_proj")
+      , gpu_device_index(model.config.contains("drama3_gpu_compute_type")
+                           ? model.config.at("drama3_gpu_device_index").get<int>() : -1) {
     }
 
     void SparseMoE::Expert::operator()(const StorageView& input, StorageView& output) const {
+      if (gpu_device_index >= 0) {
+        const ScopedDeviceSetter setter(Device::CUDA, gpu_device_index);
+        StorageView gpu_input = input.to(Device::CUDA);
+        StorageView gated(DataType::FLOAT32, Device::CUDA);
+        StorageView values(DataType::FLOAT32, Device::CUDA);
+        StorageView activated(DataType::FLOAT32, Device::CUDA);
+        StorageView result(DataType::FLOAT32, Device::CUDA);
+        gate(gpu_input, gated);
+        up(gpu_input, values);
+        ops::get_activation_op(ops::ActivationType::Swish)(gated, activated);
+        ops::Mul()(activated, values, activated);
+        down(activated, result);
+        output.copy_from(result);
+        synchronize_stream(Device::CUDA);
+        return;
+      }
       StorageView gated, values, activated;
       gate(input, gated);
       up(input, values);
@@ -46,6 +69,10 @@ namespace ctranslate2 {
           || num_experts <= 0 || k > num_experts)
         throw std::invalid_argument("SparseMoE requires CPU float32 activations and 0 < k <= num_experts");
 
+      _resident_gpu = drama_gpu_resident(model);
+      _grouped_gpu = _shared.gpu_device_index >= 0
+        && _shared.gate._gpu_compute_type == ComputeType::INT8_FLOAT32
+        && (read_bool_from_env("CT2_DRAMA_GPU_GROUPED_MOE", false) || _resident_gpu);
       // Requires unpacked /weight variables; the model must disable packing.
       // Dense still handles quantized matrices and their scale metadata.
       auto matrix = [&](const std::string& name) -> const StorageView& {
@@ -80,11 +107,106 @@ namespace ctranslate2 {
           throw std::invalid_argument("SparseMoE expert projection dimensions are incompatible");
       };
       validate_expert(scope + "/shared_expert");
+      // The fused kernels currently implement the bias-free Drama3 expert layout.
+      const auto shared_width = model.get_variable(scope + "/shared_expert/gate_proj/weight").dim(0);
+      auto supports_grouped = [&](const std::string& name) {
+        if (model.get_variable(name + "/gate_proj/weight").dim(0) != shared_width)
+          _grouped_gpu = false;
+        for (const auto* projection : {"/gate_proj", "/up_proj", "/down_proj"})
+          if (model.get_variable_if_exists(name + projection + "/bias")) _grouped_gpu = false;
+      };
+      supports_grouped(scope + "/shared_expert");
       for (dim_t e = 0; e < num_experts; ++e) {
         const auto name = scope + "/experts_" + std::to_string(e);
         validate_expert(name);
+        supports_grouped(name);
         _experts.emplace_back(std::make_unique<Expert>(model, name));
       }
+      if (_resident_gpu && !_grouped_gpu)
+        throw std::invalid_argument("Resident MoE requires uniform bias-free INT8 experts");
+    }
+
+    void SparseMoE::forward_grouped_gpu(const StorageView& input, StorageView& output) const {
+#ifdef CT2_WITH_CUDA
+      const ScopedDeviceSetter setter(Device::CUDA, _shared.gpu_device_index);
+      StorageView gpu_input = input.to(Device::CUDA);
+      StorageView logits;
+      _router(gpu_input, logits);
+      StorageView indices(DataType::INT32), probabilities;
+      _topk(logits, indices, probabilities);
+      StorageView gpu_probabilities = probabilities.to(Device::CUDA);
+      StorageView result(input.shape(), DataType::FLOAT32, Device::CUDA);
+      const dim_t width = _shared.gate.output_size();
+      for (dim_t r = 0; r < input.dim(0); ++r) {
+        StorageView row({1, _input_size}, gpu_input.data<float>() + r * _input_size, Device::CUDA);
+        StorageView weights({_k}, gpu_probabilities.data<float>() + r * _k, Device::CUDA);
+        std::vector<ops::MoeExpertWeights> pointers;
+        for (dim_t e = 0; e <= _k; ++e) {
+          const auto& expert = e == _k ? _shared : *_experts[indices.data<int32_t>()[r * _k + e]];
+          for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
+            dense->prepare_gpu_weight(dense->_weight, dense->_qscale);
+          pointers.push_back({expert.gate._gpu_weight.data<int8_t>(), expert.up._gpu_weight.data<int8_t>(),
+                              expert.down._gpu_weight.data<int8_t>(), expert.gate._gpu_scale.data<float>(),
+                              expert.up._gpu_scale.data<float>(), expert.down._gpu_scale.data<float>()});
+        }
+        StorageView host_descriptors({dim_t(pointers.size() * sizeof(ops::MoeExpertWeights))}, DataType::INT8);
+        std::memcpy(host_descriptors.buffer(), pointers.data(), host_descriptors.size());
+        auto descriptors = host_descriptors.to(Device::CUDA);
+        StorageView shared_logit(DataType::FLOAT32, Device::CUDA);
+        _shared_gate(row, shared_logit);
+        StorageView row_result({1, _input_size}, result.data<float>() + r * _input_size, Device::CUDA);
+        ops::grouped_moe_gpu(row, descriptors, weights, shared_logit, _input_size, width, _k, row_result);
+      }
+      output.copy_from(result);
+      synchronize_stream(Device::CUDA);
+#else
+      throw std::runtime_error("Grouped MoE requires the GPU backend");
+#endif
+    }
+
+    void SparseMoE::forward_resident_gpu(const StorageView& input, StorageView& output) const {
+#ifdef CT2_WITH_CUDA
+      if (!_grouped_gpu || input.dtype() != DataType::FLOAT32 || input.rank() != 2
+          || input.dim(1) != _input_size || output.device() != Device::CUDA
+          || output.dtype() != DataType::FLOAT32 || input.device_index() != _shared.gpu_device_index
+          || output.device_index() != _shared.gpu_device_index || &input == &output || overlaps_output(input, output))
+        throw std::invalid_argument("Resident MoE requires compatible, distinct GPU float32 tensors");
+      const ScopedDeviceSetter setter(Device::CUDA, _shared.gpu_device_index);
+      output.resize_as(input);
+      if (!input.dim(0)) return;
+      if (_gpu_experts.empty()) {
+        // Cache all expert descriptors once so routing never needs host IDs.
+        std::vector<ops::MoeExpertWeights> pointers;
+        for (size_t e = 0; e <= _experts.size(); ++e) {
+          const auto& expert = e == _experts.size() ? _shared : *_experts[e];
+          for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
+            dense->prepare_gpu_weight(dense->_weight, dense->_qscale);
+          pointers.push_back({expert.gate._gpu_weight.data<int8_t>(), expert.up._gpu_weight.data<int8_t>(),
+                              expert.down._gpu_weight.data<int8_t>(), expert.gate._gpu_scale.data<float>(),
+                              expert.up._gpu_scale.data<float>(), expert.down._gpu_scale.data<float>()});
+        }
+        StorageView host({dim_t(pointers.size() * sizeof(ops::MoeExpertWeights))}, DataType::INT8);
+        std::memcpy(host.buffer(), pointers.data(), host.size());
+        _gpu_experts = host.to(Device::CUDA);
+      }
+      StorageView logits(DataType::FLOAT32, Device::CUDA), shared_logits(DataType::FLOAT32, Device::CUDA);
+      _router(input, logits); _shared_gate(input, shared_logits);
+      StorageView ids(DataType::INT32, Device::CUDA), probabilities(DataType::FLOAT32, Device::CUDA);
+      ops::moe_topk_gpu(logits, _k, ids, probabilities);
+      // Batch prefill without allowing expert activations to grow with context.
+      constexpr dim_t max_rows = 32;
+      for (dim_t start = 0; start < input.dim(0); start += max_rows) {
+        const dim_t count = std::min(max_rows, input.dim(0) - start);
+        StorageView rows({count,_input_size}, const_cast<float*>(input.data<float>())+start*_input_size, Device::CUDA);
+        StorageView weights({count,_k}, probabilities.data<float>()+start*_k, Device::CUDA);
+        StorageView gates({count,1}, shared_logits.data<float>()+start, Device::CUDA);
+        StorageView result({count,_input_size}, output.data<float>()+start*_input_size, Device::CUDA);
+        ops::grouped_moe_gpu(rows, _gpu_experts, weights, gates, _input_size,
+                             _shared.gate.output_size(), _k, result, ids.data<int32_t>()+start*_k, _experts.size());
+      }
+#else
+      throw std::runtime_error("Resident MoE requires GPU support");
+#endif
     }
 
     DataType SparseMoE::output_type() const {
@@ -96,6 +218,10 @@ namespace ctranslate2 {
     }
 
     void SparseMoE::operator()(const StorageView& input, StorageView& output) const {
+      if (_resident_gpu && input.device() == Device::CUDA) {
+        forward_resident_gpu(input, output);
+        return;
+      }
       if (input.device() != Device::CPU || output.device() != Device::CPU
           || input.dtype() != DataType::FLOAT32 || output.dtype() != DataType::FLOAT32
           || input.rank() != 2 || input.dim(1) != _input_size)
@@ -113,6 +239,10 @@ namespace ctranslate2 {
       const dim_t rows = input.dim(0);
       if (rows == 0) {
         output.resize_as(input);
+        return;
+      }
+      if (_grouped_gpu) {
+        forward_grouped_gpu(input, output);
         return;
       }
       StorageView logits, indices(DataType::INT32), weights;

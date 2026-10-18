@@ -229,3 +229,27 @@ TEST(GatedSelfAttentionTest, ProjectionOverflowDoesNotCommitCacheOrOutput) {
   for (dim_t i = 0; i < output.size(); ++i)
     EXPECT_EQ(output.data<float>()[i], 11.f);
 }
+
+TEST(DramaAttentionTest, ResidentGpuRotaryCacheCanSwitchDevices) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  TinyAttentionModel model(.1f,.2f);
+  model.config["drama3_gpu_compute_type"]="int8_float32";
+  model.config["drama3_gpu_device_index"]=0;
+  model.config["drama3_gpu_resident_backbone"]=true;
+  const ScopedDeviceSetter setter(Device::CUDA,0);
+  layers::GatedSelfAttention layer(model,"attn",config());
+  auto cpu_cache=cache(8);
+  auto input=inputs();
+  StorageView reference;
+  layer(input,cpu_cache,reference);
+  auto gpu_cache=cache(8);
+  gpu_cache.keys=gpu_cache.keys.to(Device::CUDA);gpu_cache.values=gpu_cache.values.to(Device::CUDA);
+  auto gpu_input=input.to(Device::CUDA);
+  StorageView result(DataType::FLOAT32,Device::CUDA);
+  layer(gpu_input,gpu_cache,result);
+  auto host=result.to(Device::CPU);synchronize_stream(Device::CUDA);
+  expect_storage_eq(host,reference,2e-3f);
+  cpu_cache.length=0;
+  StorageView switched;layer(input,cpu_cache,switched);
+  expect_storage_eq(switched,reference,2e-3f);
+}

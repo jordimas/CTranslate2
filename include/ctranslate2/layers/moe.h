@@ -29,8 +29,14 @@ namespace ctranslate2 {
         Dense gate;
         Dense up;
         Dense down;
+        int gpu_device_index;
       };
 
+      void forward_grouped_gpu(const StorageView& input, StorageView& output) const;
+      void forward_resident_gpu(const StorageView& input, StorageView& output) const;
+      mutable StorageView _gpu_experts;
+      bool _resident_gpu = false;
+      bool _grouped_gpu = false;
       Dense _router;
       Dense _shared_gate;
       Expert _shared;

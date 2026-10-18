@@ -42,6 +42,9 @@ namespace ctranslate2 {
                       StorageView& output) const;
 
     private:
+      bool _resident_gpu = false;
+      int _gpu_device_index = 0;
+      StorageView _gpu_input_norm, _gpu_post_norm;
       DramaBlockConfig _config;
       const StorageView& _input_norm;
       const StorageView& _post_norm;

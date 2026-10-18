@@ -40,6 +40,9 @@ namespace ctranslate2 {
                       StorageView& hidden, StorageView& logits) const;
 
     private:
+      bool _resident_gpu = false;
+      int _gpu_device_index = 0;
+      StorageView _gpu_norm;
       DramaBackboneConfig _config;
       const StorageView& _norm;
       Dense _lm_head;

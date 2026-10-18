@@ -1,4 +1,6 @@
 #include "ctranslate2/layers/fish_dac.h"
+#include "ctranslate2/ops/fish_dac_gpu.h"
+#include "env.h"
 
 #include <cmath>
 #include <cstdint>
@@ -80,6 +82,13 @@ namespace ctranslate2 {
       _final = convolution(end + std::to_string(strides.size() + 2) + ".conv", channels, false);
       if (_initial.weight->dim(2) != 7 || _final.weight->dim(2) != 7 || _final.weight->dim(0) != 1)
         throw std::invalid_argument("FishDAC boundary convolutions require kernel7 and mono output");
+      if (model.config.contains("drama3_gpu_compute_type")
+          && model.config.value("drama3_gpu_waveform", read_bool_from_env("CT2_DRAMA_GPU_WAVEFORM", true))) {
+        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+        const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
+        for (const auto* parameter : _parameters)
+          _gpu_parameters.emplace(parameter, parameter->to(Device::CUDA));
+      }
     }
 
     void FishDACWaveformDecoder::causal(const StorageView& input, const Convolution& conv,
@@ -94,6 +103,45 @@ namespace ctranslate2 {
       ops::Conv1D(1, 0, dilation)(padded, *conv.weight, *conv.bias, output);
     }
 
+    void FishDACWaveformDecoder::forward_gpu(const StorageView& input, StorageView& output) const {
+#ifdef CT2_WITH_CUDA
+      const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
+      auto parameter = [&](const StorageView* p) -> const StorageView& { return _gpu_parameters.at(p); };
+      auto convolution = [&](const StorageView& x, const Convolution& conv, dim_t dilation, StorageView& y) {
+        ops::fish_causal_gpu(x, parameter(conv.weight), parameter(conv.bias), dilation, y);
+      };
+      auto gpu_input = input.to(Device::CUDA);
+      StorageView current(DataType::FLOAT32, Device::CUDA);
+      convolution(gpu_input, _initial, 1, current);
+      for (const auto& block : _blocks) {
+        StorageView activated(DataType::FLOAT32, Device::CUDA), transposed(DataType::FLOAT32, Device::CUDA);
+        ops::fish_snake_gpu(current, parameter(block.alpha), activated);
+        ops::fish_transpose_gpu(activated, parameter(block.transpose.weight), parameter(block.transpose.bias), block.stride, transposed);
+        current = std::move(transposed);
+        dim_t dilation = 1;
+        for (const auto& residual : block.residuals) {
+          StorageView a(DataType::FLOAT32, Device::CUDA), b(DataType::FLOAT32, Device::CUDA);
+          StorageView c(DataType::FLOAT32, Device::CUDA), branch(DataType::FLOAT32, Device::CUDA);
+          ops::fish_snake_gpu(current, parameter(residual.alpha0), a);
+          convolution(a, residual.conv0, dilation, b);
+          ops::fish_snake_gpu(b, parameter(residual.alpha1), c);
+          convolution(c, residual.conv1, 1, branch);
+          ops::Add()(current, branch, current);
+          dilation *= 3;
+        }
+      }
+      StorageView activated(DataType::FLOAT32, Device::CUDA), result(DataType::FLOAT32, Device::CUDA);
+      ops::fish_snake_gpu(current, parameter(_final_alpha), activated);
+      convolution(activated, _final, 1, result);
+      ops::fish_tanh_gpu(result);
+      output.copy_from(result); synchronize_stream(Device::CUDA);
+      for (dim_t i=0;i<output.size();++i)
+        if (!std::isfinite(output.data<float>()[i])) throw std::runtime_error("GPU FishDAC produced nonfinite waveform");
+#else
+      throw std::runtime_error("GPU FishDAC requires GPU support");
+#endif
+    }
+
     void FishDACWaveformDecoder::operator()(const StorageView& input, StorageView& output) const {
       if (input.device() != Device::CPU || input.dtype() != DataType::FLOAT32
           || output.device() != Device::CPU || output.dtype() != DataType::FLOAT32
@@ -104,6 +152,7 @@ namespace ctranslate2 {
         if (overlaps(*p, output)) throw std::invalid_argument("FishDAC output aliases weights");
       for (dim_t i = 0; i < input.size(); ++i)
         if (!std::isfinite(input.data<float>()[i])) throw std::invalid_argument("FishDAC input must be finite");
+      if (_gpu_device_index >= 0) { forward_gpu(input, output); return; }
       StorageView current;
       causal(input, _initial, 1, current);
       for (const auto& block : _blocks) {

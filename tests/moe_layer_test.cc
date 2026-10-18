@@ -62,6 +62,74 @@ namespace {
 
 }
 
+TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  class GpuFixture : public models::Model {
+  public:
+    GpuFixture(ComputeType type, int index) {
+      auto add = [&](const std::string& scope) {
+        StorageView weight({16,16}, DataType::FLOAT32);
+        for (dim_t i = 0; i < weight.size(); ++i)
+          weight.data<float>()[i] = .1f * std::sin(float(i + scope.size()));
+        register_variable(scope + "/weight", std::move(weight));
+      };
+      add("moe/router");
+      register_variable("moe/shared_expert_gate/weight", StorageView({1,16}, .01f));
+      for (int e = -1; e < 16; ++e) {
+        const auto scope = e == -1 ? "moe/shared_expert" : "moe/experts_" + std::to_string(e);
+        for (const auto* projection : {"/gate_proj", "/up_proj", "/down_proj"}) add(scope + projection);
+      }
+      set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
+      config["drama3_gpu_compute_type"] = compute_type_to_str(type);
+      config["drama3_gpu_device_index"] = index;
+    }
+    std::unique_ptr<models::Model> clone() const override { return std::make_unique<GpuFixture>(*this); }
+  };
+  for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
+    const ScopedDeviceSetter setter(Device::CUDA, index);
+    for (auto type : {ComputeType::FLOAT32, ComputeType::INT8_FLOAT32}) {
+      try { resolve_compute_type(type, ComputeType::FLOAT32, Device::CUDA, index); }
+      catch (const std::invalid_argument&) { continue; }
+      SCOPED_TRACE(compute_type_to_str(type));
+      GpuFixture model(type, index);
+      layers::SparseMoE layer(model, "moe", 16, 2);
+      layers::Dense router(model, "moe/router"), shared_gate(model, "moe/shared_expert_gate");
+      auto expert_reference = [&](const std::string& scope, const StorageView& row) {
+        layers::Dense gate(model, scope + "/gate_proj"), up(model, scope + "/up_proj"), down(model, scope + "/down_proj");
+        StorageView gated, values, activated, output;
+        gate(row, gated);
+        up(row, values);
+        ops::get_activation_op(ops::ActivationType::Swish)(gated, activated);
+        ops::Mul()(activated, values, activated);
+        down(activated, output);
+        return output;
+      };
+      for (dim_t rows : {1, 3, 1}) {
+        StorageView input({rows,16}, DataType::FLOAT32), output;
+        for (dim_t i = 0; i < input.size(); ++i) input.data<float>()[i] = std::sin(float(i + 1));
+        layer(input, output);
+        StorageView logits, indices(DataType::INT32), weights, reference(input.shape(), 0.f);
+        router(input, logits);
+        ops::MoeTopK(2)(logits, indices, weights);
+        for (dim_t r = 0; r < rows; ++r) {
+          StorageView row({1,16}, input.data<float>() + r*16);
+          for (dim_t i = 0; i < 2; ++i) {
+            auto result = expert_reference("moe/experts_" + std::to_string(indices.data<int32_t>()[r*2+i]), row);
+            for (dim_t d = 0; d < 16; ++d)
+              reference.data<float>()[r*16+d] += weights.data<float>()[r*2+i] * result.data<float>()[d];
+          }
+          auto shared = expert_reference("moe/shared_expert", row);
+          StorageView gate;
+          shared_gate(row, gate);
+          const float probability = 1.f / (1.f + std::exp(-gate.data<float>()[0]));
+          for (dim_t d = 0; d < 16; ++d) reference.data<float>()[r*16+d] += probability * shared.data<float>()[d];
+        }
+        expect_storage_eq(output, reference, type == ComputeType::FLOAT32 ? 1e-5f : 5e-4f);
+      }
+    }
+  }
+}
+
 TEST(SparseMoETest, IndependentScalarEquation) {
   TinyMoEModel model;
   layers::SparseMoE layer(model, "moe", 3, 2);

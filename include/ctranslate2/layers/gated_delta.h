@@ -25,6 +25,9 @@ namespace ctranslate2 {
                       StorageView& history, StorageView& output) const;
 
     private:
+      void forward_gpu(const StorageView&, StorageView&, StorageView&, StorageView&) const;
+      bool _resident_gpu = false;
+      StorageView _gpu_conv, _gpu_conv_bias, _gpu_a_log, _gpu_dt_bias, _gpu_norm;
       Dense _qkv, _z, _a, _b, _out;
       const StorageView& _a_log;
       const StorageView& _dt_bias;

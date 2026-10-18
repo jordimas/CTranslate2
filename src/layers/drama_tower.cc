@@ -1,3 +1,4 @@
+#include "drama_gpu.h"
 #include "ctranslate2/layers/drama_tower.h"
 #include "ctranslate2/ops/rms_norm.h"
 
@@ -105,6 +106,9 @@ namespace ctranslate2 {
       const StorageView& final_norm;
       Dense eh_proj, gate, up, down;
       GatedSelfAttention attention;
+      bool resident_gpu;
+      int gpu_device_index;
+      StorageView gpu_attention_norm, gpu_ffn_norm, gpu_final_norm;
       float epsilon;
       dim_t dim;
 
@@ -122,6 +126,8 @@ namespace ctranslate2 {
         , up(model, scope + "/transformer_layer/feed_forward/up_proj")
         , down(model, scope + "/transformer_layer/feed_forward/down_proj")
         , attention(model, scope + "/transformer_layer/attention", cfg.attention)
+        , resident_gpu(drama_gpu_resident(model))
+        , gpu_device_index(resident_gpu ? model.config.at("drama3_gpu_device_index").get<int>() : 0)
         , epsilon(cfg.attention.norm_epsilon)
         , dim(attention.output_size()) {
         if (embedding.shape() != Shape{cfg.vocab_size, dim})
@@ -148,6 +154,11 @@ namespace ctranslate2 {
         weight(scope + "/transformer_layer/feed_forward/gate_proj", gate.output_size(), dim);
         weight(scope + "/transformer_layer/feed_forward/up_proj", gate.output_size(), dim);
         weight(scope + "/transformer_layer/feed_forward/down_proj", dim, gate.output_size());
+        if (resident_gpu) {
+          const ScopedDeviceSetter setter(Device::CUDA,gpu_device_index);
+          gpu_attention_norm=attention_norm.to(Device::CUDA);
+          gpu_ffn_norm=ffn_norm.to(Device::CUDA);gpu_final_norm=final_norm.to(Device::CUDA);
+        }
       }
 
       void operator()(const StorageView& hidden, const StorageView& next_frames,
@@ -177,6 +188,20 @@ namespace ctranslate2 {
         if (rows == 0) {
           output.resize_as(hidden);
           return;
+        }
+        if (resident_gpu) {
+          const ScopedDeviceSetter setter(Device::CUDA,gpu_device_index);
+          auto gpu_joined=joined.to(Device::CUDA);
+          StorageView gm(DataType::FLOAT32,Device::CUDA),gn(DataType::FLOAT32,Device::CUDA),ga(DataType::FLOAT32,Device::CUDA);
+          eh_proj(gpu_joined,gm);
+          ops::RMSNorm(epsilon,true)(gpu_attention_norm,gm,gn);attention(gn,cache,ga);
+          ops::Add()(gm,ga,gm);ops::RMSNorm(epsilon,true)(gpu_ffn_norm,gm,gn);
+          StorageView gates(DataType::FLOAT32,Device::CUDA),ups(DataType::FLOAT32,Device::CUDA);
+          StorageView activated(DataType::FLOAT32,Device::CUDA),projected(DataType::FLOAT32,Device::CUDA);
+          gate(gn,gates);up(gn,ups);ops::get_activation_op(ops::ActivationType::Swish)(gates,activated);
+          ops::Mul()(activated,ups,activated);down(activated,projected);ops::Add()(gm,projected,gm);
+          ops::RMSNorm(epsilon,true)(gpu_final_norm,gm,gn);
+          output.copy_from(gn);synchronize_stream(Device::CUDA);return;
         }
         eh_proj(joined, mixed);
         StorageView normalized, attended;
@@ -228,6 +253,9 @@ namespace ctranslate2 {
           throw std::invalid_argument("DramaTower requires compatible unpacked head matrices");
         _heads.emplace_back(std::make_unique<Dense>(model, head_scope));
       }
+      _resident_gpu=drama_gpu_resident(model);
+      if (_resident_gpu) _gpu_device_index=model.config.at("drama3_gpu_device_index").get<int>();
+
     }
 
     DramaTower::~DramaTower() = default;
@@ -240,12 +268,14 @@ namespace ctranslate2 {
     void DramaTower::initialize_state(DramaTowerState& state, dim_t max_tokens) const {
       if (max_tokens <= 0)
         throw std::invalid_argument("DramaTower requires positive cache capacity");
+      const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU,_gpu_device_index);
       DramaTowerState fresh;
       fresh.capacity = max_tokens;
       auto allocate = [&](size_t count, std::vector<GatedSelfAttentionCache>& caches) {
         for (size_t i = 0; i < count; ++i) {
           const Shape shape{max_tokens, _config.attention.num_kv_heads, _config.attention.head_dim};
-          caches.push_back({StorageView(shape, DataType::FLOAT32), StorageView(shape, DataType::FLOAT32), 0});
+          const auto device=_resident_gpu ? Device::CUDA : Device::CPU;
+          caches.push_back({StorageView(shape, DataType::FLOAT32, device), StorageView(shape, DataType::FLOAT32, device), 0});
         }
       };
       allocate(_shared.size(), fresh.shared);
@@ -282,8 +312,10 @@ namespace ctranslate2 {
         throw std::invalid_argument("DramaTower state/context limit is incompatible");
       for (const auto* caches : {&state.shared, &state.residual})
         for (const auto& cache : *caches) {
-          require_cpu_float(cache.keys);
-          require_cpu_float(cache.values);
+          for (const auto* tensor : {&cache.keys,&cache.values})
+            if (tensor->dtype()!=DataType::FLOAT32 || tensor->device()!=(_resident_gpu ? Device::CUDA : Device::CPU)
+                || (_resident_gpu && tensor->device_index()!=_gpu_device_index))
+              throw std::invalid_argument("DramaTower cache device/type is incompatible");
           if (cache.length != state.length || cache.keys.shape() != Shape{state.capacity, _config.attention.num_kv_heads, _config.attention.head_dim}
               || cache.values.shape() != cache.keys.shape())
             throw std::invalid_argument("DramaTower temporal cache position/dimensions are incompatible");

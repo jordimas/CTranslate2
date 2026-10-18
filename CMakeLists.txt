@@ -255,6 +255,9 @@ set(CUDA_SOURCES
   src/ops/conv1d_gpu.cu
   src/ops/dequantize_gpu.cu
   src/ops/dequantize_fp8_gpu.cu
+  src/ops/grouped_moe_gpu.cu
+  src/ops/drama_gpu.cu
+  src/ops/fish_dac_gpu.cu
   src/ops/flash_attention_gpu.cu
   src/ops/gather_gpu.cu
   src/ops/gumbel_max_gpu.cu

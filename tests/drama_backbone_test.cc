@@ -197,3 +197,82 @@ TEST(DramaBackboneTest, CandidateHeadValidatesUniqueInRangeIds) {
     EXPECT_THROW((layers::DramaBackbone(model, "backbone", cfg)), std::invalid_argument);
   }
 }
+
+// Compare the experimental device path with the original CPU graph using the
+// same GPU INT8 Dense projections. Exercise recurrent state, grouped KV heads,
+// rotary positions, selected experts and multi-token prefill followed by decode.
+TEST(DramaBackboneTest, ResidentGpuMatchesHybridProjectionReference) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  class Fixture : public models::Model {
+  public:
+    Fixture(bool resident, int device_index, dim_t key_dim) {
+      auto matrix = [&](const std::string& name, dim_t rows, dim_t cols) {
+        StorageView weight({rows,cols});
+        int salt=0; for (char c : name) salt += c;
+        for (dim_t i=0;i<weight.size();++i) weight.data<float>()[i]=.035f*std::sin(float(i*3+salt));
+        register_variable(name+"/weight",std::move(weight));
+      };
+      for (int i=0;i<2;++i) {
+        const auto s="backbone/layers_"+std::to_string(i)+"/";
+        register_variable(s+"input_layernorm/weight",StorageView({32},.1f));
+        register_variable(s+"post_attention_layernorm/weight",StorageView({32},-.05f));
+        matrix(s+"mlp/router",4,32); matrix(s+"mlp/shared_expert_gate",1,32);
+        for(int e=-1;e<4;++e) {
+          const auto path=s+"mlp/"+(e<0?"shared_expert":"experts_"+std::to_string(e));
+          matrix(path+"/gate_proj",32,32);matrix(path+"/up_proj",32,32);matrix(path+"/down_proj",32,32);
+        }
+        if(!i) {
+          matrix(s+"linear_attn/in_proj_qkv",2*key_dim+32,32); matrix(s+"linear_attn/in_proj_z",32,32);
+          matrix(s+"linear_attn/in_proj_a",2,32);matrix(s+"linear_attn/in_proj_b",2,32);
+          matrix(s+"linear_attn/out_proj",32,32);
+          register_variable(s+"linear_attn/conv1d/weight",StorageView({2*key_dim+32,1,3},.4f));
+          register_variable(s+"linear_attn/conv1d/bias",StorageView({2*key_dim+32},.01f));
+          register_variable(s+"linear_attn/A_log",StorageView({2},-.3f));
+          register_variable(s+"linear_attn/dt_bias",StorageView({2},.2f));
+          register_variable(s+"linear_attn/norm/weight",StorageView({16},1.3f));
+        } else {
+          matrix(s+"self_attn/q_proj",64,32);matrix(s+"self_attn/k_proj",16,32);
+          matrix(s+"self_attn/v_proj",16,32);matrix(s+"self_attn/o_proj",32,32);
+          register_variable(s+"self_attn/q_norm/weight",StorageView({16},.1f));
+          register_variable(s+"self_attn/k_norm/weight",StorageView({16},-.1f));
+        }
+      }
+      register_variable("backbone/norm/weight",StorageView({32},.1f));matrix("backbone/lm_head",32,32);
+      set_compute_type(ComputeType::FLOAT32,Device::CPU,0);
+      config["drama3_gpu_compute_type"]="int8_float32";
+      config["drama3_gpu_device_index"]=device_index;
+      config["drama3_gpu_resident_backbone"]=resident;
+    }
+    std::unique_ptr<models::Model> clone() const override {return std::make_unique<Fixture>(*this);}
+  };
+  for(int index=0;index<get_device_count(Device::CUDA);++index) {
+    try {resolve_compute_type(ComputeType::INT8_FLOAT32,ComputeType::FLOAT32,Device::CUDA,index);}
+    catch(const std::invalid_argument&) {continue;}
+    const ScopedDeviceSetter setter(Device::CUDA,index);
+    for(dim_t key_dim : {16,64,128}) for(bool interleaved : {false,true}) {
+      SCOPED_TRACE(key_dim);
+      Fixture reference_model(false,index,key_dim), resident_model(true,index,key_dim);
+      layers::DramaBlockConfig linear, attention;
+      linear.num_experts=attention.num_experts=4;linear.top_k=attention.top_k=2;
+      linear.key_heads=1;linear.value_heads=2;linear.key_dim=key_dim;linear.value_dim=16;
+      attention.kind=layers::DramaMixerKind::FullAttention;
+      attention.attention={2,1,16,16,10000.f,1e-5f,interleaved,true};
+      layers::DramaBackboneConfig cfg{{linear,attention},1e-5f,64,{1,3,7,15}};
+      layers::DramaBackbone reference(reference_model,"backbone",cfg), resident(resident_model,"backbone",cfg);
+      layers::DramaBackboneState rs,gs;reference.initialize_state(rs);resident.initialize_state(gs);
+      for(dim_t steps : {key_dim == 16 && !interleaved ? 33 : 3,1,2}) {
+        StorageView input({steps,32});
+        for(dim_t i=0;i<input.size();++i) input.data<float>()[i]=std::sin(float(i+rs.length));
+        StorageView rh,rl,gh,gl;reference(input,rs,rh,rl);resident(input,gs,gh,gl);
+        expect_storage_eq(gh,rh,2e-3f);expect_storage_eq(gl,rl,2e-3f);
+        EXPECT_EQ(rs.length,gs.length);
+        auto state=gs.layers[0].recurrent.to(Device::CPU);
+        auto history=gs.layers[0].history.to(Device::CPU);synchronize_stream(Device::CUDA);
+        expect_storage_eq(state,rs.layers[0].recurrent,2e-4f);
+        expect_storage_eq(history,rs.layers[0].history,2e-4f);
+        EXPECT_EQ(gs.layers[1].attention.length,rs.layers[1].attention.length);
+      }
+      resident.initialize_state(gs);EXPECT_EQ(gs.length,0);
+    }
+  }
+}

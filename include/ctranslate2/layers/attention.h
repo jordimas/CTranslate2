@@ -53,6 +53,8 @@ namespace ctranslate2 {
                       StorageView& output) const;
 
     private:
+      void forward_gpu(const StorageView&, GatedSelfAttentionCache&, StorageView&) const;
+      StorageView _gpu_query_norm, _gpu_key_norm;
       GatedSelfAttentionConfig _config;
       Dense _query;
       Dense _key;

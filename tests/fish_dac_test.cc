@@ -178,3 +178,44 @@ TEST(FishDACTest, RejectsMalformedWeightsAndStrides) {
   bad_finite.replace("model/3/conv/bias", StorageView({1}, std::numeric_limits<float>::quiet_NaN()));
   EXPECT_THROW(layers::FishDACWaveformDecoder(bad_finite, scope, {2}), std::invalid_argument);
 }
+
+TEST(FishDACTest, GpuWaveformMatchesCpuAndIndependentScalarReference) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  for(int index=0;index<get_device_count(Device::CUDA);++index) {
+    const ScopedDeviceSetter setter(Device::CUDA,index);
+    TinyFishDACModel cpu_model, gpu_model;
+    gpu_model.config["drama3_gpu_compute_type"]="int8_float32";
+    gpu_model.config["drama3_gpu_device_index"]=index;
+    gpu_model.config["drama3_gpu_waveform"]=true;
+    layers::FishDACWaveformDecoder cpu(cpu_model,scope,{2}), gpu(gpu_model,scope,{2});
+    for(dim_t time : {1,7,37}) {
+      StorageView input({1,1,time});
+      for(dim_t i=0;i<time;++i)input.data<float>()[i]=.4f*std::sin(float(i));
+      StorageView expected, actual;cpu(input,expected);gpu(input,actual);
+      expect_storage_eq(actual,expected,2e-6f);
+      const auto scalar=reference(cpu_model,input);
+      ASSERT_EQ(actual.size(),dim_t(scalar.size()));
+      for(dim_t i=0;i<actual.size();++i)EXPECT_NEAR(actual.data<float>()[i],scalar[i],2e-6);
+    }
+  }
+}
+
+#ifdef CT2_WITH_CUDA
+#include "ctranslate2/ops/fish_dac_gpu.h"
+TEST(FishDACTest, GpuCausalConvolutionTilesLongMultichannelInput) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  const ScopedDeviceSetter setter(Device::CUDA,0);
+  constexpr dim_t time=45000, cin=16, cout=8, kernel=7, dilation=3, left=(kernel-1)*dilation;
+  StorageView input({1,cin,time}),weight({cout,cin,kernel}),bias({cout},.01f);
+  for(dim_t i=0;i<input.size();++i)input.data<float>()[i]=.2f*std::sin(float(i));
+  for(dim_t i=0;i<weight.size();++i)weight.data<float>()[i]=.02f*std::cos(float(i));
+  StorageView padded({1,cin,time+left},0.f);
+  for(dim_t c=0;c<cin;++c)std::copy_n(input.data<float>()+c*time,time,padded.data<float>()+c*(time+left)+left);
+  StorageView reference;ops::Conv1D(1,0,dilation)(padded,weight,bias,reference);
+  auto gx=input.to(Device::CUDA),gw=weight.to(Device::CUDA),gb=bias.to(Device::CUDA);
+  StorageView output(DataType::FLOAT32,Device::CUDA);
+  ops::fish_causal_gpu(gx,gw,gb,dilation,output);
+  auto host=output.to(Device::CPU);synchronize_stream(Device::CUDA);
+  expect_storage_eq(host,reference,2e-5f);
+}
+#endif

@@ -1,5 +1,6 @@
 #include "ctranslate2/layers/drama_backbone.h"
 #include "ctranslate2/ops/rms_norm.h"
+#include "drama_gpu.h"
 
 #include <cmath>
 #include <cstdint>
@@ -64,6 +65,12 @@ namespace ctranslate2 {
         const StorageView ids({dim_t(_config.lm_candidates.size())}, _config.lm_candidates);
         _lm_head.select_weights(&ids);
       }
+      _resident_gpu = drama_gpu_resident(model);
+      if (_resident_gpu) {
+        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+        const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
+        _gpu_norm = _norm.to(Device::CUDA);
+      }
     }
 
     DataType DramaBackbone::output_type() const { return DataType::FLOAT32; }
@@ -122,14 +129,18 @@ namespace ctranslate2 {
         if (!std::isfinite(embedded.data<float>()[i]))
           throw std::invalid_argument("DramaBackbone embedded input must be finite");
       }
-      StorageView current(embedded);
+      if (!embedded.dim(0)) {
+        hidden.resize({0, output_size()}); logits.resize({0, vocabulary_size()}); return;
+      }
+      const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU, _gpu_device_index);
+      StorageView current = _resident_gpu ? embedded.to(Device::CUDA) : StorageView(embedded);
       for (size_t i = 0; i < _layers.size(); ++i) {
-        StorageView next;
+        StorageView next(DataType::FLOAT32, _resident_gpu ? Device::CUDA : Device::CPU);
         (*_layers[i])(current, state.layers[i], next);
         current = std::move(next);
       }
-      StorageView normalized;
-      ops::RMSNorm(_config.norm_epsilon, true)(_norm, current, normalized);
+      StorageView normalized(DataType::FLOAT32, _resident_gpu ? Device::CUDA : Device::CPU);
+      ops::RMSNorm(_config.norm_epsilon, true)(_resident_gpu ? _gpu_norm : _norm, current, normalized);
       StorageView projected;
       if (embedded.dim(0) == 0)
         projected.resize({0, vocabulary_size()});
@@ -143,6 +154,10 @@ namespace ctranslate2 {
           for (size_t i = 0; i < _config.lm_candidates.size(); ++i)
             projected.data<float>()[t * vocabulary_size() + _config.lm_candidates[i]]
               = selected.data<float>()[t * _config.lm_candidates.size() + i];
+      }
+      if (_resident_gpu) {
+        normalized = normalized.to(Device::CPU);
+        synchronize_stream(Device::CUDA);
       }
       for (const auto* tensor : {&normalized, &projected}) {
         for (dim_t i = 0; i < tensor->size(); ++i) {

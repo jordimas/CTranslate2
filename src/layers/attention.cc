@@ -1,3 +1,5 @@
+#include "ctranslate2/ops/drama_gpu.h"
+#include "drama_gpu.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/split.h"
 #include "ctranslate2/ops/rms_norm.h"
@@ -916,13 +918,70 @@ namespace ctranslate2 {
         }
         _parameters.push_back(norm);
       }
+      if (drama_gpu_resident(model)) {
+        const ScopedDeviceSetter setter(Device::CUDA, model.config.at("drama3_gpu_device_index").get<int>());
+        _gpu_query_norm = _query_norm.to(Device::CUDA); _gpu_key_norm = _key_norm.to(Device::CUDA);
+      }
     }
 
     DataType GatedSelfAttention::output_type() const { return DataType::FLOAT32; }
     dim_t GatedSelfAttention::output_size() const { return _hidden_size; }
 
+    void GatedSelfAttention::forward_gpu(const StorageView& input, GatedSelfAttentionCache& cache,
+                                         StorageView& output) const {
+#ifdef CT2_WITH_CUDA
+      const auto& cfg = _config;
+      for (const StorageView* tensor : std::initializer_list<const StorageView*>{&input, &cache.keys, &cache.values, &output})
+        if (tensor->device() != Device::CUDA || tensor->dtype() != DataType::FLOAT32
+            || tensor->device_index() != input.device_index())
+          throw std::invalid_argument("Resident attention requires matching GPU float32 tensors");
+      if (_gpu_query_norm.empty() || input.rank() != 2 || input.dim(1) != _hidden_size
+          || cache.keys.rank() != 3 || cache.keys.dim(1) != cfg.num_kv_heads || cache.keys.dim(2) != cfg.head_dim
+          || cache.values.shape() != cache.keys.shape() || cache.length < 0 || cache.length > cache.keys.dim(0)
+          || input.dim(0) > cache.keys.dim(0)-cache.length || &input == &output || overlaps(input, output)
+          || overlaps(input, cache.keys) || overlaps(input, cache.values) || overlaps(cache.keys, cache.values)
+          || overlaps(output, cache.keys) || overlaps(output, cache.values))
+        throw std::invalid_argument("Resident attention shapes/aliasing are incompatible");
+      const ScopedDeviceSetter setter(Device::CUDA, input.device_index());
+      const dim_t steps = input.dim(0);
+      if (!steps) { output.resize_as(input); return; }
+      StorageView queries(DataType::FLOAT32, Device::CUDA), keys(DataType::FLOAT32, Device::CUDA), values(DataType::FLOAT32, Device::CUDA);
+      _query(input, queries); _key(input, keys); _value(input, values);
+      StorageView normalized(DataType::FLOAT32, Device::CUDA);
+      ops::drama_extract_queries_gpu(queries, cfg.num_heads, cfg.head_dim, normalized);
+      normalized.reshape({1,steps,cfg.num_heads,cfg.head_dim});
+      keys.reshape({1,steps,cfg.num_kv_heads,cfg.head_dim});
+      ops::RMSNorm norm(cfg.norm_epsilon, cfg.zero_centered_qk_norm);
+      norm(_gpu_query_norm, normalized, normalized); norm(_gpu_key_norm, keys, keys);
+      if (cfg.rotary_dim) {
+        StorageView tq(DataType::FLOAT32, Device::CUDA), tk(DataType::FLOAT32, Device::CUDA);
+        transpose_op(normalized, tq); transpose_op(keys, tk);
+        _rotary.apply(tq, cache.length); _rotary.apply(tk, cache.length);
+        transpose_op(tq, normalized); transpose_op(tk, keys);
+      }
+      normalized.reshape({steps,cfg.num_heads,cfg.head_dim});
+      keys.reshape({steps,cfg.num_kv_heads*cfg.head_dim});
+      StorageView pq(DataType::FLOAT32, Device::CUDA), pk(DataType::FLOAT32, Device::CUDA), pv(DataType::FLOAT32, Device::CUDA);
+      StorageView lengths(DataType::INT32, Device::CUDA);
+      ops::drama_pack_attention_gpu(normalized, keys, values, cache.keys, cache.values, cache.length,
+                                    cfg.num_heads, cfg.num_kv_heads, cfg.head_dim, pq, pk, pv, lengths);
+      StorageView context(DataType::FLOAT32, Device::CUDA);
+      dot_product_attention(pq,pk,pv,&lengths,nullptr,nullptr,nullptr,nullptr,0,0,0,context,
+                            nullptr,true,1.f/std::sqrt(float(cfg.head_dim)));
+      StorageView attended(DataType::FLOAT32, Device::CUDA);
+      ops::drama_attention_gate_gpu(context, queries, cfg.num_heads, cfg.head_dim, attended);
+      _output(attended, output);
+      cache.length += steps;
+#else
+      throw std::runtime_error("Resident attention requires GPU support");
+#endif
+    }
+
     void GatedSelfAttention::operator()(const StorageView& input, GatedSelfAttentionCache& cache,
                                         StorageView& output) const {
+      if (input.device() == Device::CUDA && !_gpu_query_norm.empty()) {
+        forward_gpu(input, cache, output); return;
+      }
       for (const auto* tensor : {&input, static_cast<const StorageView*>(&cache.keys),
                                 static_cast<const StorageView*>(&cache.values),
                                 static_cast<const StorageView*>(&output)})

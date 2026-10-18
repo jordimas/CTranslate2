@@ -131,9 +131,13 @@ namespace ctranslate2 {
             const bool is_layer_out = false);
       DataType output_type() const override;
       dim_t output_size() const override;
+      // Drama3 GPU projections also accept device-resident float32 tensors.
+      // A GPU output stays on the current stream; CPU output synchronizes.
       void operator()(const StorageView& input, StorageView& output, const StorageView* residual = nullptr) const;
       void select_weights(const StorageView* index, const StorageView* extra_bias = nullptr);
     private:
+      friend class SparseMoE;
+      void prepare_gpu_weight(const StorageView& weight, const StorageView* scale) const;
       void forward_gpu(const StorageView& input, const StorageView& weight,
                        const StorageView* bias, const StorageView* scale,
                        const StorageView* residual, StorageView& output) const;

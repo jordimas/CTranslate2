@@ -379,3 +379,54 @@ TEST_F(DramaTowerTest, SamplingTiedCutoffIsSeededAndUniformWithinRetainedCandida
   }
   EXPECT_EQ(retained, 30);
 }
+
+TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  class Fixture : public models::Model {
+  public:
+    Fixture(bool resident) {
+      auto matrix=[&](const std::string& name,dim_t rows,dim_t cols) {
+        StorageView w({rows,cols});int salt=0;for(char c:name)salt+=c;
+        for(dim_t i=0;i<w.size();++i)w.data<float>()[i]=.025f*std::sin(float(i+salt));
+        register_variable("tower/"+name+"/weight",std::move(w));
+      };
+      matrix("codebook_embeddings",48,16);
+      for(int layer=-1;layer<2;++layer) {
+        const auto s=layer<0?std::string("shared_layers_0"):"residual_layers_"+std::to_string(layer);
+        matrix(s+(layer<0?"/semantic_embedding":"/codebook_embedding"),16,16);
+        for(const auto* norm:{"enorm","hnorm","final_layernorm","transformer_layer/attention_norm","transformer_layer/ffn_norm"})
+          register_variable("tower/"+s+"/"+norm+"/weight",StorageView({16},.1f));
+        matrix(s+"/eh_proj",16,32);
+        const auto a=s+"/transformer_layer/attention/";
+        matrix(a+"q_proj",32,16);matrix(a+"k_proj",16,16);matrix(a+"v_proj",16,16);matrix(a+"o_proj",16,16);
+        register_variable("tower/"+a+"q_norm/weight",StorageView({16},.05f));
+        register_variable("tower/"+a+"k_norm/weight",StorageView({16},-.05f));
+        const auto f=s+"/transformer_layer/feed_forward/";
+        matrix(f+"gate_proj",32,16);matrix(f+"up_proj",32,16);matrix(f+"down_proj",16,32);
+        if(layer>=0)matrix("heads_"+std::to_string(layer),16,16);
+      }
+      set_compute_type(ComputeType::FLOAT32,Device::CPU,0);
+      config["drama3_gpu_compute_type"]="int8_float32";config["drama3_gpu_device_index"]=0;
+      config["drama3_gpu_resident_backbone"]=resident;
+    }
+    std::unique_ptr<models::Model> clone() const override {return std::make_unique<Fixture>(*this);}
+  };
+  const ScopedDeviceSetter setter(Device::CUDA,0);
+  Fixture rm(false),gm(true);auto cfg=config();cfg.vocab_size=16;cfg.attention={1,1,16,16,100.f,1e-5f,true,true};
+  layers::DramaTower reference(rm,"tower",cfg),resident(gm,"tower",cfg);
+  layers::DramaTowerState rs,gs;reference.initialize_state(rs,8);resident.initialize_state(gs,8);
+  StorageView hidden({3,16});for(dim_t i=0;i<hidden.size();++i)hidden.data<float>()[i]=std::sin(float(i));
+  StorageView frames({3,4},std::vector<int32_t>{5,1,2,3,6,3,2,1,7,2,1,3});
+  reference.prefill(hidden,frames,frames,rs);resident.prefill(hidden,frames,frames,gs);
+  EXPECT_EQ(rs.length,gs.length);
+  for(size_t i=0;i<rs.residual.size();++i) {
+    auto keys=gs.residual[i].keys.to(Device::CPU);synchronize_stream(Device::CUDA);
+    // Only the initialized prefix is semantically defined.
+    expect_array_eq(keys.data<float>(),rs.residual[i].keys.data<float>(),3*16,2e-3f);
+  }
+  StorageView logits({1,8},-10.f);logits.data<float>()[6]=10.f;
+  StorageView token_hidden({1,16},hidden.data<float>()),previous({1,4},std::vector<int32_t>{6,1,2,3}),rf(DataType::INT32),gf(DataType::INT32);
+  reference.decode_greedy(logits,token_hidden,previous,rs,rf);
+  resident.decode_greedy(logits,token_hidden,previous,gs,gf);
+  expect_storage_eq(gf,rf);EXPECT_EQ(rs.length,gs.length);
+}

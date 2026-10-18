@@ -1,5 +1,6 @@
 #include "ctranslate2/layers/drama_block.h"
 #include "ctranslate2/ops/rms_norm.h"
+#include "drama_gpu.h"
 
 #include <cmath>
 #include <cstdint>
@@ -48,6 +49,12 @@ namespace ctranslate2 {
       if ((_linear && _linear->output_size() != output_size())
           || (_attention && _attention->output_size() != output_size()))
         throw std::invalid_argument("DramaBlock mixer and MoE hidden dimensions must match");
+      _resident_gpu = drama_gpu_resident(model);
+      if (_resident_gpu) {
+        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+        const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
+        _gpu_input_norm = _input_norm.to(Device::CUDA); _gpu_post_norm = _post_norm.to(Device::CUDA);
+      }
     }
 
     DataType DramaBlock::output_type() const { return DataType::FLOAT32; }
@@ -56,6 +63,7 @@ namespace ctranslate2 {
     void DramaBlock::initialize_state(DramaBlockState& state, dim_t max_tokens) const {
       if (max_tokens < 0 || (_attention && max_tokens == 0))
         throw std::invalid_argument("DramaBlock attention requires a positive cache capacity");
+      const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU, _gpu_device_index);
       DramaBlockState initialized;
       if (_linear)
         _linear->initialize_state(initialized.recurrent, initialized.history);
@@ -64,11 +72,35 @@ namespace ctranslate2 {
         initialized.attention.keys = StorageView({max_tokens, cfg.num_kv_heads, cfg.head_dim}, DataType::FLOAT32);
         initialized.attention.values = StorageView({max_tokens, cfg.num_kv_heads, cfg.head_dim}, DataType::FLOAT32);
       }
+      if (_resident_gpu && _attention) {
+        initialized.attention.keys = initialized.attention.keys.to(Device::CUDA);
+        initialized.attention.values = initialized.attention.values.to(Device::CUDA);
+      }
       state = std::move(initialized);
     }
 
     void DramaBlock::operator()(const StorageView& input, DramaBlockState& state,
                                 StorageView& output) const {
+      if (_resident_gpu && input.device() == Device::CUDA) {
+        if (input.dtype() != DataType::FLOAT32 || output.device() != Device::CUDA || output.dtype() != DataType::FLOAT32
+            || input.device_index() != _gpu_device_index || output.device_index() != _gpu_device_index
+            || input.rank() != 2 || input.dim(1) != output_size() || &input == &output || overlaps(input, output))
+          throw std::invalid_argument("Resident DramaBlock requires compatible distinct GPU tensors");
+        for (const auto* cache : {&state.recurrent, &state.history, &state.attention.keys, &state.attention.values})
+          if (overlaps(input, *cache) || overlaps(output, *cache) || &input == cache || &output == cache)
+            throw std::invalid_argument("Resident DramaBlock caches must not alias inputs/outputs");
+        const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
+        if (!input.dim(0)) { output.resize_as(input); return; }
+        StorageView normalized(DataType::FLOAT32, Device::CUDA), mixed(DataType::FLOAT32, Device::CUDA);
+        ops::RMSNorm(_config.norm_epsilon, true)(_gpu_input_norm, input, normalized);
+        if (_linear) (*_linear)(normalized, state.recurrent, state.history, mixed);
+        else (*_attention)(normalized, state.attention, mixed);
+        ops::Add()(mixed, input, mixed);
+        ops::RMSNorm(_config.norm_epsilon, true)(_gpu_post_norm, mixed, normalized);
+        StorageView experts(DataType::FLOAT32, Device::CUDA);
+        _moe(normalized, experts); ops::Add()(experts, mixed, output);
+        return;
+      }
       if (input.device() != Device::CPU || input.dtype() != DataType::FLOAT32
           || output.device() != Device::CPU || output.dtype() != DataType::FLOAT32
           || input.rank() != 2 || input.dim(1) != output_size())

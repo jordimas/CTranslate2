@@ -2,6 +2,13 @@
 #include "ctranslate2/ops/quantize.h"
 #include "cuda/helpers.h"
 
+#ifdef CT2_USE_HIP
+#include <hipcub/block/block_reduce.hpp>
+#define cub hipcub
+#else
+#include <cub/block/block_reduce.cuh>
+#endif
+
 namespace ctranslate2 { namespace ops {
 namespace {
   __global__ void accumulate(const float* expert, float probability,
@@ -11,22 +18,37 @@ namespace {
     const float weight = shared_logit ? 1.f / (1.f + expf(-*shared_logit)) : probability;
     output[i] = __fadd_rn(output[i], __fmul_rn(weight, expert[i]));
   }
+  struct RoutingCandidate {
+    float value;
+    int32_t index;
+  };
+  struct RoutingMaximum {
+    __device__ RoutingCandidate operator()(RoutingCandidate a, RoutingCandidate b) const {
+      return b.value > a.value || (b.value == a.value && b.index < a.index) ? b : a;
+    }
+  };
+  constexpr int routing_threads = 256;
   __global__ void route(const float* logits, int32_t* indices, float* weights, dim_t experts, dim_t k) {
-    // Router width is small (256 in Drama3); deterministic sequential selection
-    // preserves the CPU tie ordering and double-precision normalization.
+    // Parallel selection preserves the lowest-index tie ordering. Normalization
+    // retains the original sequential double-precision arithmetic.
+    using Reduction = cub::BlockReduce<RoutingCandidate, routing_threads>;
+    __shared__ typename Reduction::TempStorage temporary;
     const dim_t row = blockIdx.x;
-    if (threadIdx.x) return;
     const float* values = logits + row * experts;
     int32_t* ids = indices + row * k;
     for (dim_t i = 0; i < k; ++i) {
-      int32_t best = -1;
-      for (dim_t e = 0; e < experts; ++e) {
+      RoutingCandidate best{-INFINITY, INT32_MAX};
+      for (dim_t e = threadIdx.x; e < experts; e += blockDim.x) {
         bool selected = false;
         for (dim_t j = 0; j < i; ++j) if (ids[j] == e) selected = true;
-        if (!selected && (best < 0 || values[e] > values[best])) best = e;
+        if (!selected) best = RoutingMaximum()(best, {values[e], int32_t(e)});
       }
-      ids[i] = best;
+      best = Reduction(temporary).Reduce(best, RoutingMaximum());
+      if (threadIdx.x == 0) ids[i] = best.index;
+      // Publish the selected ID and allow reuse of reduction shared memory.
+      __syncthreads();
     }
+    if (threadIdx.x) return;
     const double maximum = values[ids[0]];
     double sum = 0;
     for (dim_t i = 0; i < k; ++i) sum += exp(double(values[ids[i]]) - maximum);
@@ -106,7 +128,7 @@ void moe_accumulate_gpu(const StorageView& expert, float probability,
 }
 void moe_topk_gpu(const StorageView& logits, dim_t k, StorageView& indices, StorageView& weights) {
   indices.resize({logits.dim(0), k}); weights.resize({logits.dim(0), k});
-  route<<<logits.dim(0),32,0,cuda::get_cuda_stream()>>>(logits.data<float>(),indices.data<int32_t>(),
+  route<<<logits.dim(0),routing_threads,0,cuda::get_cuda_stream()>>>(logits.data<float>(),indices.data<int32_t>(),
     weights.data<float>(),logits.dim(1),k);
   CUDA_CHECK(cudaGetLastError());
 }

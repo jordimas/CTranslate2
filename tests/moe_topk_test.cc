@@ -5,6 +5,35 @@
 
 #include "test_utils.h"
 #include "ctranslate2/ops/moe_topk.h"
+#include "ctranslate2/ops/grouped_moe.h"
+
+#ifdef CT2_WITH_CUDA
+TEST(MoeTopKGpuTest, ParallelRoutingMatchesCpuAcrossWidthsAndTies) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  const ScopedDeviceSetter setter(Device::CUDA, 0);
+  for (dim_t width : {1, 17, 256, 513}) {
+    for (dim_t k : {dim_t(1), std::min(dim_t(8), width), width}) {
+      SCOPED_TRACE("width=" + std::to_string(width) + ", k=" + std::to_string(k));
+      StorageView logits({3, width});
+      for (dim_t e = 0; e < width; ++e) {
+        logits.data<float>()[e] = 0.f;
+        logits.data<float>()[width + e] = float((e * 37) % 19 - 9);
+        logits.data<float>()[2 * width + e] = 10000.f + float(e % 13);
+      }
+      StorageView expected_ids(DataType::INT32), expected_weights;
+      ops::MoeTopK{k}(logits, expected_ids, expected_weights);
+      auto uploaded = logits.to(Device::CUDA);
+      StorageView ids(DataType::INT32, Device::CUDA), weights(DataType::FLOAT32, Device::CUDA);
+      ops::moe_topk_gpu(uploaded, k, ids, weights);
+      auto actual_ids = ids.to(Device::CPU);
+      auto actual_weights = weights.to(Device::CPU);
+      synchronize_stream(Device::CUDA);
+      expect_storage_eq(actual_ids, expected_ids);
+      expect_storage_eq(actual_weights, expected_weights, 1e-7f);
+    }
+  }
+}
+#endif
 
 TEST(MoeTopKTest, AnalyticSelectedSoftmax) {
   StorageView logits({2, 4}, std::vector<float>{0, 1, 2, 3, 1, 3, 2, 0});

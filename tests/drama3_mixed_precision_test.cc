@@ -106,9 +106,11 @@ TEST(Drama3MixedPrecisionTest, StandardComputeTypesUseBackendResolutionAndDense)
       EXPECT_EQ(model->effective_compute_type(), expected);
       const std::string scope = "backbone/layers_0/mlp/experts_0/gate_proj";
       layers::Dense dense(*model, scope);
-      StorageView input({1, 2}, std::vector<float>{2, 4}), output;
+      // Mixed signs avoid the u8*s8 pairwise saturation of pre-VNNI oneDNN
+      // kernels. This test checks compute-type resolution, not that limitation.
+      StorageView input({1, 2}, std::vector<float>{2, -4}), output;
       dense(input, output);
-      const std::vector<float> values = fp8 ? std::vector<float>{20.25f, -20.5f} : std::vector<float>{-2, -2};
+      const std::vector<float> values = fp8 ? std::vector<float>{-11.75f, 11.5f} : std::vector<float>{6, 6};
       expect_storage_eq(output, StorageView({1, 2}, values), .12f);
       EXPECT_EQ(model->get_variable("backbone/norm/weight").dtype(), DataType::FLOAT32);
       EXPECT_EQ(model->get_variable("codec/quantizer/upsample/0/1/pwconv1/weight").dtype(), DataType::FLOAT32);

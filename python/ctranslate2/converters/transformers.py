@@ -153,6 +153,7 @@ class TransformersConverter(Converter):
                 raise ValueError("Drama 3 does not support vocabulary mapping")
             quantization = quantization or "float32"
             from ctranslate2.converters import drama3
+
             drama3.resolve_quantization(drama3.FP8_POLICY, quantization)
             self._drama3_quantization = quantization
             if path.resolve().is_relative_to(Path(output_dir).resolve()):

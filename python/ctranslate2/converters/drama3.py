@@ -513,7 +513,9 @@ def load_spec(
         "source_config": config,
         "source_revision": source_revision,
         "activation_dtype": "float32",
-        "matrix_dtype": "fp8_float32" if quantization_policy == FP8_POLICY else quantization,
+        "matrix_dtype": "fp8_float32"
+        if quantization_policy == FP8_POLICY
+        else quantization,
         "quantization_policy": quantization_policy,
     }
     if quantization_policy == FP8_POLICY:

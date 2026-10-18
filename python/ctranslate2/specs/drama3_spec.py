@@ -17,8 +17,10 @@ class Drama3Spec(model_spec.ModelSpec):
         self._model_name = model_name
         self._config = model_spec.ModelConfig(**config) if config is not None else None
         self._matrix_names = {
-            name for name, value in variables.items()
-            if not name.startswith("codec/") and name.endswith("/weight")
+            name
+            for name, value in variables.items()
+            if not name.startswith("codec/")
+            and name.endswith("/weight")
             and len(value.shape) == 2
         }
         parameters = {}

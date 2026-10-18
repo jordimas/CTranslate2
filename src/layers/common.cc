@@ -331,7 +331,11 @@ namespace ctranslate2 {
         }
         if (_fp8_scale_inv) {
           _gpu_scale_inv = _fp8_scale_inv->to(Device::CUDA);
-          if (weight_type == DataType::INT8) {
+          // Prepare half-precision experts once, just like INT8 experts, instead
+          // of decoding and synchronizing their FP8 weights on every projection.
+          if (weight_type == DataType::INT8
+              || weight_type == DataType::FLOAT16
+              || weight_type == DataType::BFLOAT16) {
             StorageView decoded(DataType::FLOAT32, Device::CUDA);
             ops::DequantizeFP8()(uploaded, _gpu_scale_inv, decoded);
             uploaded = std::move(decoded);

@@ -172,6 +172,36 @@ namespace {
   };
 }
 
+TEST(Drama3ModelTest, GpuCachePreservesStandardInt8Storage) {
+  MappedDramaFixture files;
+  ScopedMemoryBudget legacy(nullptr, "CT2_DRAMA_CPU_MMAP");
+  ScopedMemoryBudget cache("8", "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
+  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::DEFAULT);
+  EXPECT_EQ(model->effective_compute_type(), ComputeType::INT8_FLOAT32);
+  const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
+  EXPECT_EQ(weight.dtype(), DataType::INT8);
+  EXPECT_FALSE(weight.owns_data());
+}
+
+TEST(Drama3ModelTest, GpuCacheLoadsFloatingPointCheckpointsWithoutQuantizing) {
+  MappedDramaFixture files;
+  ScopedMemoryBudget legacy(nullptr, "CT2_DRAMA_CPU_MMAP");
+  ScopedMemoryBudget cache("8", "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
+  for (const auto* policy : {"standard", "experts_fp8_sensitive_float32"}) {
+    auto reader = fixture({
+      {"model_type", "drama3"}, {"ct2_layout_version", 1}, {"source_config", nlohmann::json::object()},
+      {"quantization_policy", policy}, {"fp8_format", "e4m3fn_block128"}});
+    for (const auto* filename : {"config.json", "model.bin"}) {
+      auto input = reader.get_required_file(filename, true);
+      std::ofstream(files.directory + "/" + filename, std::ios::binary) << input->rdbuf();
+    }
+    auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::DEFAULT);
+    EXPECT_EQ(model->effective_compute_type(), ComputeType::FLOAT32);
+    expect_storage_eq(model->get_variable("backbone/projection/weight"),
+                      StorageView({2, 2}, std::vector<float>{1, -2, 3, -4}));
+  }
+}
+
 TEST(Drama3ModelTest, MappedExpertsPreserveBytesScalesAndModelCopyLifetime) {
   if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "INT8 unavailable";
   MappedDramaFixture fixture;

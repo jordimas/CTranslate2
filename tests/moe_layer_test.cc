@@ -95,10 +95,11 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
       GpuFixture model(type, index);
       layers::SparseMoE layer(model, "moe", 16, 2);
       std::unique_ptr<layers::SparseMoE> cached;
-      if (type == ComputeType::INT8_FLOAT32) {
-        model.config["drama3_gpu_expert_cache_bytes"] = 2880;  // Three experts, including row scales.
-        cached = std::make_unique<layers::SparseMoE>(model, "moe", 16, 2);
-      }
+      const auto weight_type = compute_type_to_data_type(type).first;
+      const size_t cache_bytes = weight_type == DataType::INT8 ? 2880
+        : 3 * 3 * 256 * (weight_type == DataType::FLOAT32 ? 4 : 2);
+      model.config["drama3_gpu_expert_cache_bytes"] = cache_bytes;
+      cached = std::make_unique<layers::SparseMoE>(model, "moe", 16, 2);
       layers::Dense router(model, "moe/router"), shared_gate(model, "moe/shared_expert_gate");
       auto expert_reference = [&](const std::string& scope, const StorageView& row) {
         layers::Dense gate(model, scope + "/gate_proj"), up(model, scope + "/up_proj"), down(model, scope + "/down_proj");
@@ -142,7 +143,7 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
           auto result = device_output.to(Device::CPU);
           synchronize_stream(Device::CUDA);
           expect_storage_eq(result, resident, 1e-6f);
-          EXPECT_EQ(cached->gpu_expert_cache_bytes(), 2880);
+          EXPECT_EQ(cached->gpu_expert_cache_bytes(), cache_bytes);
         }
       }
     }
@@ -190,6 +191,7 @@ TEST(SparseMoETest, BoundedGpuCacheEvictsAndReloadsWithoutChangingResults) {
     EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
     model.config["drama3_gpu_expert_cache_bytes"] = 30;
     model.config["drama3_gpu_compute_type"] = "float32";
+    model.config["drama3_gpu_expert_cache_bytes"] = 23;
     EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
   }
 }

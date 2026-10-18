@@ -70,14 +70,15 @@ Limit Drama3's cached GPU expert weights and their quantization scales in
 **decimal GB**, for example `CT2_DRAMA3_GPU_EXPERT_CACHE_GB=8`. Unset, empty,
 or `0` keeps the existing unbounded lazy-upload behavior. Invalid values raise
 an error. This option supports both NVIDIA CUDA and AMD ROCm/HIP, with
-`device="cuda"` and `compute_type="int8"` or `"int8_float32"`.
+`device="cuda"` and any supported GPU compute type.
 
-Requires Linux and a local standard INT8 Drama3 checkpoint. It automatically
-maps CPU expert weights and preserves their INT8 storage. The budget is divided
+Requires Linux and a local Drama3 checkpoint, including FP8, standard INT8,
+and floating-point checkpoints. CPU byte-encoded expert weights are mapped;
+floating-point CPU weights remain resident. GPU weights use the requested compute
+type, so FLOAT16/BFLOAT16 require more cache space than INT8. The budget is divided
 equally among backbone layers. Each layer uses LRU eviction and must fit its
 selected routed experts plus its shared expert; smaller budgets raise an error.
-Uploads and eviction synchronize with the GPU stream. Biases and unequal expert
-widths are unsupported in this initial implementation.
+Uploads and eviction synchronize with the GPU stream.
 
 **This is an expert-cache budget, not a total VRAM limit.** Other GPU weights,
 activations, generation state, upload temporaries, allocator rounding and retained

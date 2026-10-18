@@ -135,10 +135,23 @@ namespace ctranslate2 {
         _experts.emplace_back(std::make_unique<Expert>(model, name));
       }
       if (cache_bytes) {
-        if (!_grouped_gpu)
-          throw std::invalid_argument("Drama3 expert cache requires bias-free, equal-width INT8 GPU experts");
-        for (const auto* dense : {&_shared.gate, &_shared.up, &_shared.down})
-          _cache_expert_bytes += dense->_weight.size() + dense->_weight.dim(0) * sizeof(float);
+        if (_shared.gpu_device_index < 0)
+          throw std::invalid_argument("Drama3 expert cache requires GPU execution");
+        // Reserve for the largest expert, including retained FP8 block scales.
+        for (size_t id = 0; id <= _experts.size(); ++id) {
+          size_t bytes = 0;
+          const auto& expert = cached_expert(id);
+          for (const auto* dense : {&expert.gate, &expert.up, &expert.down}) {
+            const auto type = compute_type_to_data_type(dense->_gpu_compute_type).first;
+            if (type == DataType::INT8)
+              bytes += dense->_weight.size() + dense->_weight.dim(0) * sizeof(float);
+            else if (type == DataType::FLOAT32 && dense->_fp8_scale_inv)
+              bytes += dense->_weight.size() + dense->_fp8_scale_inv->size() * sizeof(float);
+            else
+              bytes += dense->_weight.size() * (type == DataType::FLOAT32 ? 4 : 2);
+          }
+          _cache_expert_bytes = std::max(_cache_expert_bytes, bytes);
+        }
         _cache_capacity = std::min<uint64_t>(num_experts + 1, cache_bytes / _cache_expert_bytes);
         if (_cache_capacity < static_cast<size_t>(_k + 1))
           throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB is too small: each layer must fit "
@@ -155,7 +168,8 @@ namespace ctranslate2 {
       for (const auto id : _cache_lru) {
         const auto& expert = cached_expert(id);
         for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
-          bytes += dense->_gpu_weight.reserved_memory() + dense->_gpu_scale.reserved_memory();
+          bytes += dense->_gpu_weight.reserved_memory() + dense->_gpu_scale.reserved_memory()
+            + dense->_gpu_scale_inv.reserved_memory();
       }
       return bytes;
     }
@@ -260,7 +274,7 @@ namespace ctranslate2 {
       const ScopedDeviceSetter setter(Device::CUDA, _shared.gpu_device_index);
       output.resize_as(input);
       if (!input.dim(0)) return;
-      if (_cache_capacity) {
+      if (_cache_capacity && _grouped_gpu) {
         forward_grouped_gpu(input, output);
         return;
       }
@@ -276,6 +290,7 @@ namespace ctranslate2 {
         StorageView shared_gate(DataType::FLOAT32, Device::CUDA);
         _shared_gate(input, shared_gate);
         for (dim_t r = 0; r < input.dim(0); ++r) {
+          if (_cache_capacity) cache_experts(indices.data<int32_t>() + r * _k);
           StorageView row({1, _input_size}, const_cast<float*>(input.data<float>()) + r * _input_size, Device::CUDA);
           StorageView result({1, _input_size}, output.data<float>() + r * _input_size, Device::CUDA);
           for (dim_t i = 0; i < _k; ++i) {
@@ -365,6 +380,10 @@ namespace ctranslate2 {
       StorageView row({1, _input_size}, DataType::FLOAT32);
       StorageView expert_output, shared_output, shared_gate;
       for (dim_t r = 0; r < rows; ++r) {
+        if (_cache_capacity) {
+          const ScopedDeviceSetter setter(Device::CUDA, _shared.gpu_device_index);
+          cache_experts(indices.data<int32_t>() + r * _k);
+        }
         for (dim_t d = 0; d < _input_size; ++d)
           row.data<float>()[d] = input.data<float>()[r * _input_size + d];
         auto* destination = result.data<float>() + r * _input_size;

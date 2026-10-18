@@ -154,16 +154,15 @@ namespace ctranslate2 { namespace models {
       const ScopedDeviceSetter device_setter(target, device_index);
       const auto requested = str_to_compute_type(compute);
       const auto cache_budget = drama3_gpu_expert_cache_budget();
-      if (cache_budget && (target != Device::CUDA
-                           || (requested != ComputeType::INT8 && requested != ComputeType::INT8_FLOAT32)))
-        throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB requires GPU int8 or int8_float32 compute");
+      if (cache_budget && target != Device::CUDA)
+        throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB requires GPU execution");
       if (target == Device::CUDA && requested != ComputeType::DEFAULT)
         resolve_compute_type(requested, ComputeType::FLOAT32, target, device_index);
       set_num_threads(threads);
       // Set per-instance execution options before publishing the model to layers.
       auto loaded = std::const_pointer_cast<Model>(Model::load(path, Device::CPU, 0,
                                 target == Device::CPU ? requested
-                                : cache_budget ? ComputeType::INT8_FLOAT32 : ComputeType::FLOAT32));
+                                : cache_budget ? ComputeType::DEFAULT : ComputeType::FLOAT32));
       loaded->config.erase("drama3_gpu_compute_type");
       loaded->config.erase("drama3_gpu_device_index");
       loaded->config.erase("drama3_gpu_expert_cache_bytes");

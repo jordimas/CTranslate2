@@ -645,15 +645,23 @@ namespace ctranslate2 {
       const bool drama3 = model->config.is_object()
         && model->config.value("model_type", std::string()) == "drama3";
       const uint64_t memory_budget = drama3 ? drama3_memory_budget() : 0;
-      if (drama3 && (memory_budget || drama3_gpu_expert_cache_budget()
-                    || read_bool_from_env("CT2_DRAMA_CPU_MMAP", false))) {
+      const bool gpu_expert_cache = drama3 && drama3_gpu_expert_cache_budget();
+      if (gpu_expert_cache && device == Device::CPU && compute_type == ComputeType::DEFAULT)
+        compute_type = model->config.value("quantization_policy", std::string()) == "standard"
+          && model->config.value("matrix_dtype", std::string()) == "int8"
+          ? ComputeType::INT8_FLOAT32 : ComputeType::FLOAT32;
+      const bool cpu_expert_mapping = drama3 && (memory_budget
+        || read_bool_from_env("CT2_DRAMA_CPU_MMAP", false));
+      if (cpu_expert_mapping || gpu_expert_cache) {
         if (device != Device::CPU || tensor_parallel
-            || (compute_type != ComputeType::INT8 && compute_type != ComputeType::INT8_FLOAT32)
-            || model->config.value("quantization_policy", std::string()) != "standard"
-            || model->config.value("matrix_dtype", std::string()) != "int8"
+            || (cpu_expert_mapping
+                && ((compute_type != ComputeType::INT8 && compute_type != ComputeType::INT8_FLOAT32)
+                    || model->config.value("quantization_policy", std::string()) != "standard"
+                    || model->config.value("matrix_dtype", std::string()) != "int8"))
             || !dynamic_cast<ModelFileReader*>(&model_reader))
-          throw std::invalid_argument("CT2_DRAMA_CPU_MMAP requires a local standard INT8 Drama3 checkpoint "
-                                      "with CPU int8 or int8_float32 compute and no tensor parallelism");
+          throw std::invalid_argument("Drama3 mapped weights require a local checkpoint, CPU loading, "
+                                      "and no tensor parallelism; CPU memory options additionally require "
+                                      "standard INT8 weights and int8 or int8_float32 compute");
 #if defined(__linux__)
         enforce_drama3_memory_budget(memory_budget);
         const std::string filename = model_reader.get_model_id() + "/" + binary_file;

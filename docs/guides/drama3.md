@@ -138,19 +138,21 @@ The graph is not entirely GPU-resident; tensor parallelism is unsupported.
 
 By default, the host checkpoint remains resident, with non-FP8 parameters loaded
 as FLOAT32 regardless of GPU precision. Weights upload on first use and stay
-cached, so GPU memory grows as new experts are selected. Floating-point execution
-caches FP8 expert bytes and decodes them on GPU per projection; INT8 execution
-quantizes projections on first use. Existing converted checkpoints work unchanged;
+cached, so GPU memory grows as new experts are selected. FLOAT32 execution
+caches FP8 expert bytes and decodes them on GPU per projection; FLOAT16/BFLOAT16
+decode once on upload, while INT8 quantizes projections on first use. Existing converted checkpoints work unchanged;
 output audio and codes remain CPU arrays.
 
 ### Memory settings
 
-Local standard INT8 checkpoints support two optional memory settings:
+Two optional memory settings are available:
 
 - [`CT2_DRAMA3_MAX_MEMORY_GB`](../environment_variables.md)
-  limits the whole process's CPU memory in decimal GB; CPU execution only.
+  limits the whole process's CPU memory in decimal GB; CPU execution with a
+  local standard INT8 checkpoint only.
 - [`CT2_DRAMA3_GPU_EXPERT_CACHE_GB`](../environment_variables.md)
-  limits cached GPU expert weights in decimal GB on CUDA or ROCm, not total VRAM.
+  limits cached GPU expert weights in decimal GB on CUDA or ROCm, not total VRAM;
+  supports FP8, standard INT8, and floating-point checkpoints.
 
 Unset or `0` disables either option. See the links for supported compute types,
 requirements, and limitations.

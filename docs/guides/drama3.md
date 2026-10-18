@@ -184,9 +184,9 @@ not need to change, and output audio and codes remain CPU arrays.
 
 For local standard INT8 checkpoints, two optional environment variables control memory use:
 
-- [`CT2_DRAMA3_MAX_MEMORY_GB`](../environment_variables.md#ct2_drama3_max_memory_gb)
+- [`CT2_DRAMA3_MAX_MEMORY_GB`](../environment_variables.md)
   limits the whole process's CPU memory in decimal GB; CPU execution only.
-- [`CT2_DRAMA3_GPU_EXPERT_CACHE_GB`](../environment_variables.md#ct2_drama3_gpu_expert_cache_gb)
+- [`CT2_DRAMA3_GPU_EXPERT_CACHE_GB`](../environment_variables.md)
   limits cached GPU expert weights in decimal GB on CUDA or ROCm, not total VRAM.
 
 Both are disabled when unset or `0`. See the linked environment variable documentation

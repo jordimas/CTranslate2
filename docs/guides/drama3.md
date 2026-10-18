@@ -152,10 +152,49 @@ FLOAT32 activations.
 
 With default FP8 storage and FLOAT32 execution, selected expert weights are
 decoded on demand. Requesting INT8 or INT16 execution decodes and quantizes the
-matrices during loading, which requires additional temporary memory. All expert
-weights remain resident; sparse selection reduces computation, not weight storage.
+matrices during loading, which requires additional temporary memory. By default,
+all expert weights remain resident; sparse selection reduces computation, not
+weight storage. The optional CPU memory budget below enables mapped experts.
 Requests on one model instance execute sequentially with independent per-call
 state.
+
+### CPU memory budget
+
+**This parameter limits CPU system RAM only. It does not cap GPU VRAM and cannot
+be used with GPU execution.**
+
+For a **local standard INT8 checkpoint**, set the new environment parameter
+before loading the model:
+
+```bash
+export CT2_DRAMA3_MAX_MEMORY_GB=20
+```
+
+```python
+model = Drama3(
+    "/path/to/drama-3-ct2-int8", device="cpu", compute_type="int8"
+)
+```
+
+The value is an absolute limit in decimal GB: `20` means 20,000,000,000 bytes.
+Unset, empty, or `0` disables the option. Positive values automatically enable
+memory-mapped expert weights, so no separate mapping flag is needed. Invalid or
+negative values raise an error. `int8_float32` compute is also supported; the
+source-FP8 checkpoint and runtime precision expansion are not supported here.
+
+Linux cgroup v2 enforces the cap for the **whole calling process**, including
+charged file cache and subsequent children, with swap disabled. The limit
+persists until process exit, even after unloading the model. Use a dedicated
+worker when embedding inference in another application. Mapping retains the
+checkpoint's exact INT8 weights; lower budgets can increase disk reads and
+latency. A budget too small for runtime allocations can still cause an OOM kill.
+
+An existing equal or tighter cgroup cap with swap disabled is reused. Otherwise,
+a running systemd user manager and `libsystemd.so.0` are required to establish a temporary
+scope automatically. Failure to establish the cap raises an error before weights
+are loaded. The option currently rejects GPU execution. See the
+[environment variable reference](../environment_variables.md#ct2_drama3_max_memory_gb)
+for enforcement and container details.
 
 ### CUDA and ROCm
 

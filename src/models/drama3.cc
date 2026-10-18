@@ -6,6 +6,7 @@
 #include "ctranslate2/layers/fish_dac_decoder.h"
 #include "ctranslate2/utils.h"
 #include "ctranslate2/ops/dequantize_fp8.h"
+#include "drama3_memory.h"
 
 #include <algorithm>
 #include <chrono>
@@ -146,6 +147,8 @@ namespace ctranslate2 { namespace models {
       if (!count)
         throw std::invalid_argument("Drama3 requires positive intra_threads");
       const auto target = str_to_device(device);
+      if (target != Device::CPU && drama3_memory_budget())
+        throw std::invalid_argument("CT2_DRAMA3_MAX_MEMORY_GB currently supports CPU execution only");
       if (device_index < 0 || device_index >= get_device_count(target))
         throw std::invalid_argument("Invalid Drama3 device index: " + std::to_string(device_index));
       const ScopedDeviceSetter device_setter(target, device_index);

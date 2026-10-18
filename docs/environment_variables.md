@@ -64,6 +64,38 @@ Force CTranslate2 to select a specific instruction set architecture (ISA). Possi
 This does not impact backend libraries (such as Intel MKL) which usually have their own environment variables to configure ISA dispatching.
 ```
 
+## `CT2_DRAMA3_MAX_MEMORY_GB`
+
+Set an absolute CPU memory budget for Drama3 in **decimal GB** (1 GB =
+1,000,000,000 bytes), for example `CT2_DRAMA3_MAX_MEMORY_GB=20`.
+
+Unset, empty, or `0` disables this option. Positive values, including fractions,
+automatically enable mapped INT8 expert weights. Invalid, negative, nonfinite,
+or out-of-range values raise an error. Other model types ignore this variable.
+
+**This limit applies only to CPU system RAM. It does not limit GPU VRAM.**
+The option currently requires Linux cgroup v2, a local standard INT8 Drama3
+checkpoint, and CPU `int8` or `int8_float32` compute. GPU requests fail explicitly.
+
+The cap covers the **entire calling process**, its charged file cache, kernel
+memory, and subsequent children. Swap is disabled. The limit persists until
+process exit, including after model unloading; use a dedicated inference worker
+when embedding CT2 in a larger application. It does not reserve RAM or change
+quantization. A budget below the non-reclaimable working set can cause an OOM kill.
+
+CT2 reuses an equal or tighter effective cgroup memory limit if swap is already
+disabled. Otherwise it uses `libsystemd.so.0` and the systemd user manager to create a
+temporary scope containing this process only, preserving any tighter existing
+memory limit. This does not modify the parent scope. Missing systemd libraries/user manager or
+denied scope creation produces an error before loading weights. Containers
+without systemd can instead configure a sufficient cgroup cap and disable swap
+externally. Configure limits for all workers together if the container runs
+multiple inference processes.
+
+Set the variable before loading the model. Unsetting it later does not remove
+an already-applied process limit. The existing `CT2_DRAMA_CPU_MMAP=1` flag still
+enables mapping alone, without establishing a cap.
+
 ## `CT2_PACKED_GEMM`
 
 Enable or disable the packed GEMM API for Intel MKL. Packed GEMM is enabled by default when using the MKL backend and improves decoding performance by pre-packing weight matrices at model load time. Set to `0` to disable it. See [Intel's article](https://software.intel.com/content/www/us/en/develop/articles/introducing-the-new-packed-apis-for-gemm.html) to learn more about packed GEMM.

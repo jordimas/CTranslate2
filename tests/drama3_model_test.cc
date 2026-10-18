@@ -5,8 +5,32 @@
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
 #include "ctranslate2/models/model_reader.h"
+#include "drama3_memory.h"
 
 namespace {
+  struct ScopedMemoryBudget {
+    std::string previous;
+    bool had_previous;
+    explicit ScopedMemoryBudget(const char* value) {
+      const char* old = std::getenv("CT2_DRAMA3_MAX_MEMORY_GB");
+      had_previous = old != nullptr;
+      if (old) previous = old;
+#if defined(_WIN32)
+      _putenv_s("CT2_DRAMA3_MAX_MEMORY_GB", value ? value : "");
+#else
+      if (value) setenv("CT2_DRAMA3_MAX_MEMORY_GB", value, 1);
+      else unsetenv("CT2_DRAMA3_MAX_MEMORY_GB");
+#endif
+    }
+    ~ScopedMemoryBudget() {
+#if defined(_WIN32)
+      _putenv_s("CT2_DRAMA3_MAX_MEMORY_GB", had_previous ? previous.c_str() : "");
+#else
+      if (had_previous) setenv("CT2_DRAMA3_MAX_MEMORY_GB", previous.c_str(), 1);
+      else unsetenv("CT2_DRAMA3_MAX_MEMORY_GB");
+#endif
+    }
+  };
   void append_integer(std::string& bytes, uint32_t value, size_t width) {
     for (size_t i = 0; i < width; ++i) bytes.push_back(static_cast<char>((value >> (8*i)) & 255));
   }
@@ -48,6 +72,33 @@ namespace {
     reader.register_file("model.bin", std::move(bytes));
     reader.register_file("config.json", config.dump());
     return reader;
+  }
+}
+
+TEST(Drama3ModelTest, MemoryBudgetParsesDecimalGbAndRejectsInvalidValues) {
+  EXPECT_EQ(parse_drama3_memory_budget(""), 0);
+  EXPECT_EQ(parse_drama3_memory_budget("0"), 0);
+  EXPECT_EQ(parse_drama3_memory_budget("20"), 20000000000ULL);
+  EXPECT_EQ(parse_drama3_memory_budget("0.5"), 500000000ULL);
+  for (const char* value : {"-1", "nan", "inf", "twenty", "20GB", "20junk", "1e100", "1e-20"})
+    EXPECT_THROW(parse_drama3_memory_budget(value), std::invalid_argument) << value;
+  ScopedMemoryBudget unset(nullptr);
+  EXPECT_EQ(drama3_memory_budget(), 0);
+}
+
+TEST(Drama3ModelTest, ZeroMemoryBudgetKeepsExistingLoading) {
+  ScopedMemoryBudget budget("0");
+  auto reader = fixture();
+  EXPECT_NO_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32));
+}
+
+TEST(Drama3ModelTest, PositiveMemoryBudgetRejectsGpuBeforeLoading) {
+  ScopedMemoryBudget budget("20");
+  try {
+    models::Drama3 model("missing-model", 1, "int8", "cuda");
+    FAIL() << "Expected unsupported GPU budget";
+  } catch (const std::invalid_argument& error) {
+    EXPECT_NE(std::string(error.what()).find("CT2_DRAMA3_MAX_MEMORY_GB"), std::string::npos);
   }
 }
 
@@ -126,6 +177,14 @@ TEST(Drama3ModelTest, MappedExpertsRejectMemoryReadersAndSourceFp8) {
   MappedDramaFixture scope;
   auto reader = fixture();
   EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::INT8), std::invalid_argument);
+}
+
+TEST(Drama3ModelTest, PositiveMemoryBudgetEnablesMappingWithoutLegacyFlag) {
+  MappedDramaFixture scope;
+  setenv("CT2_DRAMA_CPU_MMAP", "0", 1);
+  ScopedMemoryBudget budget("20");
+  auto reader = fixture();
+  EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32), std::invalid_argument);
 }
 #endif
 

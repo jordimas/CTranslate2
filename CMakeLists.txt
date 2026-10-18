@@ -129,6 +129,7 @@ set(SOURCES
   src/dtw.cc
   src/encoder.cc
   src/env.cc
+  src/drama3_memory.cc
   src/filesystem.cc
   src/generator.cc
   src/layers/attention_layer.cc

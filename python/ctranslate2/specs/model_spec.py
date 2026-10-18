@@ -253,10 +253,10 @@ class LayerSpec(FrozenAttr, metaclass=FrozenMeta):
                     amax = np.amax(np.absolute(value), axis=1)
                     # Keep the row scale representable as float32.  Very small,
                     # nonzero FP8-dequantized rows would otherwise overflow here.
-                    amax = np.maximum(
-                        amax, np.float32(127.0 / np.finfo(np.float32).max)
-                    )
-                    scale = 127.0 / amax
+                    amax[amax == 0] = 127.0
+                    scale = np.minimum(
+                        127.0 / amax.astype(np.float64), np.finfo(np.float32).max
+                    ).astype(np.float32)
                     value *= np.expand_dims(scale, 1)
                     value = np.rint(value)
                     value = value.astype(np.int8)

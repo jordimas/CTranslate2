@@ -8,8 +8,11 @@ import numpy as np
 
 from drama_test_utils import shard
 
-from ctranslate2.converters import drama3 as converter
+from ctranslate2.converters import drama3_weights
 from ctranslate2.converters.converter import publish_directory
+from ctranslate2.converters.transformers import Drama3Loader as converter
+from ctranslate2.specs.drama3_spec import Drama3Spec
+
 
 
 def config():
@@ -18,7 +21,7 @@ def config():
 
 
 def optimized_variables(variables):
-    spec = converter.Drama3Spec(variables)
+    spec = Drama3Spec(variables)
     spec.validate()
     spec.optimize(quantization="float32")
     values = spec.variables()
@@ -60,11 +63,12 @@ class DramaModelConversionTest(unittest.TestCase):
         bf16 = (original.view(np.uint32) >> 16).astype("<u2")
         path = self.root / "tower.safetensors"
         shard(path, {name: (bf16, "BF16")})
-        reader = converter.READERS.SafeTensorMatrixReader(path)
+        reader = drama3_weights.SafeTensorMatrixReader(path)
         for kind, rows in (("q_proj", [0, 1, 4, 5, 2, 3, 6, 7]),
                            ("k_proj", [8, 9]), ("v_proj", [10, 11])):
-            adapter = converter.TowerMatrixReader(reader, name, kind, 2, 1, 2)
-            chunks = list(adapter.iter_matrix_rows(name, chunk_rows=3))
+            item = {"source": name, "tower_slice": kind, "shape": (len(rows), 2)}
+            chunks = list(converter.tower_matrix_chunks(
+                reader, item, config()["audio_decoder_config"], chunk_rows=3))
             self.assertTrue(all(len(chunk) <= 3 for chunk in chunks))
             np.testing.assert_array_equal(np.concatenate(chunks), original[rows])
         metadata = {name: {**reader.tensors[name], "shard": path.name}}
@@ -85,7 +89,7 @@ class DramaModelConversionTest(unittest.TestCase):
         shard(weight_path, {name: (np.full((129, 129), 0x38, np.uint8), "F8_E4M3FN")})
         scales = np.array([[.5, 1], [2, 4]], np.float32)
         shard(scale_path, {scale_name: (scales, "F32")})
-        readers = {p.name: converter.READERS.SafeTensorMatrixReader(p) for p in (weight_path, scale_path)}
+        readers = {p.name: drama3_weights.SafeTensorMatrixReader(p) for p in (weight_path, scale_path)}
         tensors = {n: {**t, "shard": p} for p, r in readers.items() for n, t in r.tensors.items()}
         plan = converter.build_plan(tensors, config())
         self.assertEqual(plan[0]["scale_shard"], scale_path.name)
@@ -113,7 +117,7 @@ class DramaModelConversionTest(unittest.TestCase):
         path = self.root / "vectors.safetensors"
         values = np.array([-.5, .3], dtype="<f4")
         shard(path, {name: (values, "F32")})
-        reader = converter.READERS.SafeTensorMatrixReader(path)
+        reader = drama3_weights.SafeTensorMatrixReader(path)
         metadata = {name: {**reader.tensors[name], "shard": path.name}}
         plan = converter.build_plan(metadata, config())
         self.assertEqual(plan[0]["dtype"], "float32")
@@ -125,7 +129,7 @@ class DramaModelConversionTest(unittest.TestCase):
         original = np.arange(24, dtype=np.float32).reshape(6, 1, 4)
         path = self.root / "convolution.safetensors"
         shard(path, {name: (original, "F32")})
-        reader = converter.READERS.SafeTensorMatrixReader(path)
+        reader = drama3_weights.SafeTensorMatrixReader(path)
         metadata = {name: {**reader.tensors[name], "shard": path.name}}
         plan = converter.build_plan(metadata, config())
         loaded = converter.load_model_tensors(plan, {path.name: reader}, config())
@@ -170,7 +174,7 @@ class DramaModelConversionTest(unittest.TestCase):
         path = self.root / "nonfinite.safetensors"
         name = "model.language_model.norm.weight"
         shard(path, {name: (np.array([np.nan], np.float32), "F32")})
-        reader = converter.READERS.SafeTensorMatrixReader(path)
+        reader = drama3_weights.SafeTensorMatrixReader(path)
         with self.assertRaises(ValueError):
             list(converter.float_chunks(reader, name))
 

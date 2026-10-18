@@ -3,7 +3,7 @@
 Rank-two matrices and explicitly selected rank-three expert matrices are supported.
 No tensor-name conventions or automatic quantization-scale matching are assumed.
 Files must remain immutable throughout reading. Safetensors validates and maps
-shards; PyTorch exposes FP8/BF16 storage as NumPy byte/word views.
+shards; PyTorch converts individual FP8/BF16 chunks to float32.
 """
 
 from pathlib import Path
@@ -34,32 +34,15 @@ def _is_int(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def decode_e4m3fn(raw):
-    """Decode E4M3 finite-numbers FP8 (bias 7); 0x7f/0xff are NaNs."""
-    raw = np.asarray(raw, dtype=np.uint8)
-    exponent = (raw >> 3) & 15
-    mantissa = raw & 7
-    magnitude = np.where(
-        exponent == 0,
-        mantissa.astype(np.float32) / np.float32(512),
-        np.ldexp(
-            np.float32(1) + mantissa.astype(np.float32) / 8,
-            exponent.astype(np.int32) - 7,
-        ),
-    ).astype(np.float32)
-    magnitude = np.where(
-        (exponent == 15) & (mantissa == 7), np.float32(np.nan), magnitude
-    )
-    return np.copysign(magnitude, np.where(raw & 128, np.float32(-1), np.float32(1)))
-
-
 def _float32(raw, dtype):
+    import torch
+
+    tensor = torch.from_numpy(raw)
     if dtype == "BF16":
-        return (raw.astype(np.uint32) << 16).view(np.float32)
-    if dtype.startswith("F8_"):
-        return decode_e4m3fn(raw)
-    # Copy even F32 slices: yielded chunks remain valid independently of mappings.
-    return np.array(raw, dtype=np.float32, copy=True)
+        tensor = tensor.view(torch.bfloat16)
+    elif dtype.startswith("F8_"):
+        tensor = tensor.view(torch.float8_e4m3fn)
+    return tensor.to(dtype=torch.float32, copy=True).numpy()
 
 
 class SafeTensorMatrixReader:
@@ -92,13 +75,17 @@ class SafeTensorMatrixReader:
         except SafetensorError as error:
             raise ValueError(f"invalid safetensors shard: {error}") from error
 
-    def _map(self, name):
+    def _map(self, name, index=None):
         import torch
 
         stat = self.path.stat()
         if (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns) != self._identity:
             raise ValueError("checkpoint shard changed after header inspection")
-        tensor = self._shard.get_tensor(name)
+        tensor = (
+            self._shard.get_tensor(name)
+            if index is None
+            else self._shard.get_slice(name)[index]
+        )
         # Reinterpret unsupported NumPy dtypes without copying or decoding a bank.
         if tensor.dtype == torch.bfloat16:
             tensor = tensor.view(torch.uint16)
@@ -171,12 +158,12 @@ class SafeTensorMatrixReader:
             scales = scale_source._map(inverse_scale)
             if rank == 3:
                 scales = scales[expert_index]
-        matrix = self._map(name)
-        if rank == 3:
-            matrix = matrix[expert_index]
         for start in range(0, rows, chunk_rows):
             stop = min(start + chunk_rows, rows)
-            chunk = _float32(matrix[start:stop], tensor["dtype"])
+            index = (
+                (expert_index, slice(start, stop)) if rank == 3 else slice(start, stop)
+            )
+            chunk = _float32(self._map(name, index), tensor["dtype"])
             if scales is not None:
                 first_block = start // br
                 scale_rows = _float32(

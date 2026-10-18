@@ -30,7 +30,8 @@ class Drama3WeightsTest(unittest.TestCase):
 
     def test_fp8_bit_patterns(self):
         raw = np.array([0, 128, 1, 129, 7, 8, 56, 184, 126, 254, 127, 255], dtype=np.uint8)
-        result = weights.decode_e4m3fn(raw)
+        write_tensors(self.path, {"matrix": ("F8_E4M3FN", raw.reshape(1, -1))})
+        result = next(weights.SafeTensorMatrixReader(self.path).iter_matrix_rows("matrix"))[0]
         np.testing.assert_array_equal(result[:10],
                                       [0, -0., 1 / 512, -1 / 512, 7 / 512, 1 / 64, 1, -1, 448, -448])
         self.assertFalse(np.signbit(result[0]))

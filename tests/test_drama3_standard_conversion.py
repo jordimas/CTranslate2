@@ -12,8 +12,12 @@ import numpy as np
 
 from drama_test_utils import shard
 
-from ctranslate2.converters import drama3 as c
 from ctranslate2.converters import Converter, TransformersConverter
+from ctranslate2.converters import drama3_codec
+from ctranslate2.converters.transformers import Drama3Loader as c
+from ctranslate2.specs.drama3_spec import Drama3Spec
+from ctranslate2.specs.model_spec import ACCEPTED_MODEL_TYPES
+
 
 
 def tensor_offset(path, name):
@@ -70,7 +74,7 @@ class ConversionFixture(unittest.TestCase):
         shard(self.source / shard_name, tensors)
         (self.source / "model.safetensors.index.json").write_text(
             json.dumps({"weight_map": {name: shard_name for name in tensors}}))
-        codec = c.codec
+        codec = drama3_codec
         self.codec = np.array([[.234567, -.345678]], np.float32)
         self.enterContext(patch.object(codec, "codec_parameter_shapes", return_value={"decoder.weight": (1, 2)}))
         self.enterContext(patch.object(codec, "load_checkpoint", return_value={"decoder.weight": self.codec}))
@@ -87,7 +91,7 @@ class StandardConversionTest(ConversionFixture):
         self.assertFalse(any(name.endswith("_scale") for name in values))
 
     def test_invalid_codec_is_rejected_before_loading_backbone(self):
-        with patch.object(c.codec, "conversion_plan", side_effect=ValueError("invalid codec")), \
+        with patch.object(drama3_codec, "conversion_plan", side_effect=ValueError("invalid codec")), \
                 patch.object(c, "load_model_tensors") as load:
             with self.assertRaisesRegex(ValueError, "invalid codec"):
                 TransformersConverter(self.source).convert(str(self.output))
@@ -95,7 +99,7 @@ class StandardConversionTest(ConversionFixture):
         self.assertFalse(self.output.exists())
 
     def test_failure_removes_partial_package(self):
-        with patch.object(c.Drama3Spec, "save", side_effect=RuntimeError("write failed")):
+        with patch.object(Drama3Spec, "save", side_effect=RuntimeError("write failed")):
             with self.assertRaisesRegex(RuntimeError, "write failed"):
                 TransformersConverter(self.source).convert(str(self.output))
         self.assertFalse(self.output.exists())
@@ -121,7 +125,7 @@ class StandardConversionTest(ConversionFixture):
         converter = TransformersConverter(self.source)
         converter.convert(str(self.output))
         previous = (self.output / 'model.bin').read_bytes()
-        with patch.object(c.Drama3Spec, 'save', side_effect=RuntimeError('write failed')):
+        with patch.object(Drama3Spec, 'save', side_effect=RuntimeError('write failed')):
             with self.assertRaisesRegex(RuntimeError, 'write failed'):
                 converter.convert(str(self.output), force=True)
         self.assertEqual((self.output / 'model.bin').read_bytes(), previous)
@@ -138,12 +142,15 @@ class StandardConversionTest(ConversionFixture):
         expert = "backbone/layers_0/mlp/experts_0/up_proj/weight"
         original = np.array([[1, -1], [.5, .25]], np.float32) * np.float32(1.0001)
         converter = TransformersConverter(self.source)
-        for quantization in c.ACCEPTED_MODEL_TYPES:
+        for quantization in ACCEPTED_MODEL_TYPES:
             with self.subTest(quantization=quantization):
                 converter.convert(str(self.output), quantization=quantization, force=True)
                 values = read_model(self.output / "model.bin")
                 report = converter.conversion_report
                 self.assertEqual(report["quantization"], quantization)
+                self.assertEqual(sum(value.nbytes for value in values.values()),
+                                 report["estimated_payload_bytes"])
+                self.assertEqual(len(values), report["variable_count"])
                 if quantization == "float32":
                     self.assertIn(expert + "_scale_inv", values)
                     continue
@@ -167,6 +174,16 @@ class StandardConversionTest(ConversionFixture):
                 self.assertEqual(json.loads((self.output / "config.json").read_text())["quantization_policy"], c.STANDARD_POLICY)
         converter.convert(str(self.output), force=True)
         self.assertIn(expert + "_scale_inv", read_model(self.output / "model.bin"))
+
+    def test_drama3_loader_builds_spec_through_base_loader(self):
+        loader = c(quantization="int8")
+        spec = loader(self.source, None)
+        np.testing.assert_array_equal(
+            spec.variables()["backbone/lm_head/weight"], self.sensitive
+        )
+        self.assertEqual(loader.conversion_report["quantization"], "int8")
+        self.assertFalse(loader.conversion_report["dry_run"])
+        self.assertEqual(spec.config.model_type, "drama3")
 
     def test_transformers_converter_dispatches_local_drama3(self):
         from ctranslate2.converters import TransformersConverter

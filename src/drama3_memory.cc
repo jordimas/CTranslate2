@@ -22,7 +22,7 @@ struct sd_bus_message;
 #endif
 
 namespace ctranslate2 {
-  uint64_t parse_drama3_memory_budget(const std::string& value) {
+  uint64_t parse_drama3_memory_budget(const std::string& value, const char* name) {
     if (value.empty()) return 0;
     try {
       size_t parsed = 0;
@@ -34,12 +34,17 @@ namespace ctranslate2 {
         return static_cast<uint64_t>(bytes);
     } catch (const std::exception&) {
     }
-    throw std::invalid_argument("CT2_DRAMA3_MAX_MEMORY_GB must be 0 (disabled) or a positive "
+    throw std::invalid_argument(std::string(name) + " must be 0 (disabled) or a positive "
                                 "number of decimal GB");
   }
 
   uint64_t drama3_memory_budget() {
     return parse_drama3_memory_budget(read_string_from_env("CT2_DRAMA3_MAX_MEMORY_GB"));
+  }
+
+  uint64_t drama3_gpu_expert_cache_budget() {
+    return parse_drama3_memory_budget(read_string_from_env("CT2_DRAMA3_GPU_EXPERT_CACHE_GB"),
+                                     "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
   }
 
 #if defined(__linux__)

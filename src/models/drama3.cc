@@ -153,25 +153,39 @@ namespace ctranslate2 { namespace models {
         throw std::invalid_argument("Invalid Drama3 device index: " + std::to_string(device_index));
       const ScopedDeviceSetter device_setter(target, device_index);
       const auto requested = str_to_compute_type(compute);
+      const auto cache_budget = drama3_gpu_expert_cache_budget();
+      if (cache_budget && (target != Device::CUDA
+                           || (requested != ComputeType::INT8 && requested != ComputeType::INT8_FLOAT32)))
+        throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB requires GPU int8 or int8_float32 compute");
       if (target == Device::CUDA && requested != ComputeType::DEFAULT)
         resolve_compute_type(requested, ComputeType::FLOAT32, target, device_index);
       set_num_threads(threads);
       // Set per-instance execution options before publishing the model to layers.
       auto loaded = std::const_pointer_cast<Model>(Model::load(path, Device::CPU, 0,
-                                target == Device::CPU ? requested : ComputeType::FLOAT32));
+                                target == Device::CPU ? requested
+                                : cache_budget ? ComputeType::INT8_FLOAT32 : ComputeType::FLOAT32));
       loaded->config.erase("drama3_gpu_compute_type");
       loaded->config.erase("drama3_gpu_device_index");
+      loaded->config.erase("drama3_gpu_expert_cache_bytes");
       if (target == Device::CUDA) {
         const auto resolved = resolve_compute_type(requested,
                                                    loaded->saved_compute_type(), target, device_index);
         loaded->config["drama3_gpu_compute_type"] = compute_type_to_str(resolved);
         loaded->config["drama3_gpu_device_index"] = device_index;
       }
-      model = std::move(loaded);
-      if (!dynamic_cast<const Drama3Model*>(model.get()))
+      if (!dynamic_cast<const Drama3Model*>(loaded.get()))
         throw std::invalid_argument("Expected a converted Drama3Spec model");
-      const auto& source = model->config.at("source_config");
+      const auto& source = loaded->config.at("source_config");
       const auto& text = source.at("text_config");
+      if (cache_budget) {
+        const auto layers = text.at("num_hidden_layers").get<int64_t>();
+        if (layers <= 0)
+          throw std::invalid_argument("Drama3 expert cache requires a positive layer count");
+        loaded->config["drama3_gpu_expert_cache_bytes"] = cache_budget / layers;
+        if (cache_budget / layers == 0)
+          throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB is too small");
+      }
+      model = std::move(loaded);
       const auto& audio = source.at("audio_decoder_config");
       layers::DramaBackboneConfig bc;
       bc.norm_epsilon = text.at("rms_norm_eps").get<float>();

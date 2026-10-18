@@ -227,6 +227,32 @@ execution and are decoded on the GPU for each projection. INT8 execution instead
 quantizes each projection once when it is first used. Converted checkpoints do
 not need to change, and output audio and codes remain CPU arrays.
 
+### Bounded GPU expert cache
+
+For a standard INT8 checkpoint, enable a bounded expert cache on CUDA or ROCm:
+
+```bash
+export CT2_DRAMA3_GPU_EXPERT_CACHE_GB=8
+```
+
+```python
+model = Drama3(str(model_path), device="cuda", compute_type="int8")
+```
+
+The value uses decimal GB. Unset or `0` keeps existing behavior. With a positive
+budget, CPU expert weights are memory-mapped and retained as INT8. Each backbone
+layer receives an equal share of the cache and evicts least-recently-used experts.
+Only selected experts and the shared expert must fit simultaneously. Eviction
+synchronizes with the GPU stream; prefill processes rows individually to keep
+the cache bounded. This first version prioritizes correctness over transfer overlap.
+
+The value limits cached expert tensors and scales, **not total VRAM**. Leave room
+for other weights, activations, upload temporaries and the GPU allocator. An 8 GB
+cache is a starting point for a 16 GB discrete GPU, not a verified fit guarantee.
+Mapped CPU pages still consume RAM as used. The CPU-only
+`CT2_DRAMA3_MAX_MEMORY_GB` cap remains unsupported during GPU execution.
+See the [environment variable reference](../environment_variables.md#ct2_drama3_gpu_expert_cache_gb).
+
 ## Supported scope
 
 The implementation provides offline synthesis and waveform

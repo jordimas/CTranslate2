@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ctranslate2/ops/moe_topk.h"
+#include <list>
 
 namespace ctranslate2 {
   namespace layers {
@@ -11,7 +12,7 @@ namespace ctranslate2 {
     // Computes only selected routed experts, plus a sigmoid-gated shared expert.
     // Model variables must outlive this layer and remain unchanged. Requires
     // unpacked /weight matrices: model loading must disable weight prepacking.
-    // Dense handles INT8 matmul; all weights are resident, not offloaded.
+    // GPU INT8 experts optionally use a bounded cache backed by CPU weights.
     // No residual connection or normalization is applied.
     class SparseMoE : public Layer {
     public:
@@ -20,6 +21,8 @@ namespace ctranslate2 {
       DataType output_type() const override;
       dim_t output_size() const override;
       void operator()(const StorageView& input, StorageView& output) const;
+      size_t gpu_expert_cache_bytes() const;
+      size_t gpu_expert_cache_misses() const { return _cache_misses; }
 
     private:
       // Applies a gated feed-forward network for one routed or shared expert.
@@ -34,6 +37,12 @@ namespace ctranslate2 {
 
       void forward_grouped_gpu(const StorageView& input, StorageView& output) const;
       void forward_resident_gpu(const StorageView& input, StorageView& output) const;
+      void cache_experts(const int32_t* selected) const;
+      const Expert& cached_expert(dim_t id) const;
+      size_t _cache_capacity = 0;
+      size_t _cache_expert_bytes = 0;
+      mutable size_t _cache_misses = 0;
+      mutable std::list<dim_t> _cache_lru;
       mutable StorageView _gpu_experts;
       bool _resident_gpu = false;
       bool _grouped_gpu = false;

@@ -64,6 +64,27 @@ Force CTranslate2 to select a specific instruction set architecture (ISA). Possi
 This does not impact backend libraries (such as Intel MKL) which usually have their own environment variables to configure ISA dispatching.
 ```
 
+## `CT2_DRAMA3_GPU_EXPERT_CACHE_GB`
+
+Limit Drama3's cached GPU expert weights and their quantization scales in
+**decimal GB**, for example `CT2_DRAMA3_GPU_EXPERT_CACHE_GB=8`. Unset, empty,
+or `0` keeps the existing unbounded lazy-upload behavior. Invalid values raise
+an error. This option supports both NVIDIA CUDA and AMD ROCm/HIP, with
+`device="cuda"` and `compute_type="int8"` or `"int8_float32"`.
+
+Requires Linux and a local standard INT8 Drama3 checkpoint. It automatically
+maps CPU expert weights and preserves their INT8 storage. The budget is divided
+equally among backbone layers. Each layer uses LRU eviction and must fit its
+selected routed experts plus its shared expert; smaller budgets raise an error.
+Uploads and eviction synchronize with the GPU stream. Biases and unequal expert
+widths are unsupported in this initial implementation.
+
+**This is an expert-cache budget, not a total VRAM limit.** Other GPU weights,
+activations, generation state, upload temporaries, allocator rounding and retained
+allocator blocks require additional space. CPU mapped pages also require system
+RAM; on integrated GPUs, GPU allocations share that physical RAM. The CPU-only
+`CT2_DRAMA3_MAX_MEMORY_GB` process cap cannot currently be combined with GPU execution.
+
 ## `CT2_DRAMA3_MAX_MEMORY_GB`
 
 Set an absolute CPU memory budget for Drama3 in **decimal GB** (1 GB =

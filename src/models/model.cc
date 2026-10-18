@@ -645,7 +645,8 @@ namespace ctranslate2 {
       const bool drama3 = model->config.is_object()
         && model->config.value("model_type", std::string()) == "drama3";
       const uint64_t memory_budget = drama3 ? drama3_memory_budget() : 0;
-      if (drama3 && (memory_budget || read_bool_from_env("CT2_DRAMA_CPU_MMAP", false))) {
+      if (drama3 && (memory_budget || drama3_gpu_expert_cache_budget()
+                    || read_bool_from_env("CT2_DRAMA_CPU_MMAP", false))) {
         if (device != Device::CPU || tensor_parallel
             || (compute_type != ComputeType::INT8 && compute_type != ComputeType::INT8_FLOAT32)
             || model->config.value("quantization_policy", std::string()) != "standard"

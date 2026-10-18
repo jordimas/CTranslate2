@@ -78,10 +78,13 @@ namespace ctranslate2 {
           || num_experts <= 0 || k > num_experts)
         throw std::invalid_argument("SparseMoE requires CPU float32 activations and 0 < k <= num_experts");
 
+      const auto cache_bytes = model.config.contains("drama3_gpu_expert_cache_bytes")
+        ? model.config.at("drama3_gpu_expert_cache_bytes").get<uint64_t>() : 0;
       _resident_gpu = drama_gpu_resident(model);
       _grouped_gpu = _shared.gpu_device_index >= 0
         && _shared.gate._gpu_compute_type == ComputeType::INT8_FLOAT32
-        && (read_bool_from_env("CT2_DRAMA_GPU_GROUPED_MOE", false) || _resident_gpu);
+        && (read_bool_from_env("CT2_DRAMA_GPU_GROUPED_MOE", false) || _resident_gpu
+            || cache_bytes);
       // Requires unpacked /weight variables; the model must disable packing.
       // Dense still handles quantized matrices and their scale metadata.
       auto matrix = [&](const std::string& name) -> const StorageView& {
@@ -131,21 +134,97 @@ namespace ctranslate2 {
         supports_grouped(name);
         _experts.emplace_back(std::make_unique<Expert>(model, name));
       }
+      if (cache_bytes) {
+        if (!_grouped_gpu)
+          throw std::invalid_argument("Drama3 expert cache requires bias-free, equal-width INT8 GPU experts");
+        for (const auto* dense : {&_shared.gate, &_shared.up, &_shared.down})
+          _cache_expert_bytes += dense->_weight.size() + dense->_weight.dim(0) * sizeof(float);
+        _cache_capacity = std::min<uint64_t>(num_experts + 1, cache_bytes / _cache_expert_bytes);
+        if (_cache_capacity < static_cast<size_t>(_k + 1))
+          throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB is too small: each layer must fit "
+                                      "the selected experts plus its shared expert");
+      }
+    }
+
+    const SparseMoE::Expert& SparseMoE::cached_expert(dim_t id) const {
+      return id == static_cast<dim_t>(_experts.size()) ? _shared : *_experts[id];
+    }
+
+    size_t SparseMoE::gpu_expert_cache_bytes() const {
+      size_t bytes = 0;
+      for (const auto id : _cache_lru) {
+        const auto& expert = cached_expert(id);
+        for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
+          bytes += dense->_gpu_weight.reserved_memory() + dense->_gpu_scale.reserved_memory();
+      }
+      return bytes;
+    }
+
+    void SparseMoE::cache_experts(const int32_t* selected) const {
+      // All descriptors from the previous row must finish before eviction.
+      // This uses CT2's shared CUDA/HIP stream API on the configured device.
+      synchronize_stream(Device::CUDA);
+      auto pinned = [&](dim_t id) {
+        return id == static_cast<dim_t>(_experts.size())
+          || std::find(selected, selected + _k, id) != selected + _k;
+      };
+      for (dim_t i = 0; i <= _k; ++i) {
+        const dim_t id = i == _k ? _experts.size() : selected[i];
+        auto entry = std::find(_cache_lru.begin(), _cache_lru.end(), id);
+        if (entry != _cache_lru.end()) {
+          _cache_lru.splice(_cache_lru.end(), _cache_lru, entry);
+          continue;
+        }
+        if (_cache_lru.size() == _cache_capacity) {
+          auto victim = std::find_if(_cache_lru.begin(), _cache_lru.end(),
+                                     [&](dim_t old) { return !pinned(old); });
+          if (victim == _cache_lru.end())
+            throw std::runtime_error("Drama3 expert cache has no evictable entry");
+          const auto& expert = cached_expert(*victim);
+          for (const auto* dense : {&expert.gate, &expert.up, &expert.down}) {
+            dense->_gpu_weight.release();
+            dense->_gpu_scale.release();
+            dense->_gpu_scale_inv.release();
+          }
+          _cache_lru.erase(victim);
+        }
+        const auto& expert = cached_expert(id);
+        try {
+          for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
+            dense->prepare_gpu_weight(dense->_weight, dense->_qscale);
+        } catch (...) {
+          synchronize_stream(Device::CUDA);
+          for (const auto* dense : {&expert.gate, &expert.up, &expert.down}) {
+            dense->_gpu_weight.release();
+            dense->_gpu_scale.release();
+            dense->_gpu_scale_inv.release();
+          }
+          throw;
+        }
+        _cache_lru.push_back(id);
+        ++_cache_misses;
+      }
     }
 
     void SparseMoE::forward_grouped_gpu(const StorageView& input, StorageView& output) const {
 #ifdef CT2_WITH_CUDA
       const ScopedDeviceSetter setter(Device::CUDA, _shared.gpu_device_index);
-      StorageView gpu_input = input.to(Device::CUDA);
+      StorageView uploaded_input;
+      const StorageView* gpu_input = &input;
+      if (input.device() != Device::CUDA) {
+        uploaded_input = input.to(Device::CUDA);
+        gpu_input = &uploaded_input;
+      }
       StorageView logits;
-      _router(gpu_input, logits);
+      _router(*gpu_input, logits);
       StorageView indices(DataType::INT32), probabilities;
       _topk(logits, indices, probabilities);
       StorageView gpu_probabilities = probabilities.to(Device::CUDA);
       StorageView result(input.shape(), DataType::FLOAT32, Device::CUDA);
       const dim_t width = _shared.gate.output_size();
       for (dim_t r = 0; r < input.dim(0); ++r) {
-        StorageView row({1, _input_size}, gpu_input.data<float>() + r * _input_size, Device::CUDA);
+        if (_cache_capacity) cache_experts(indices.data<int32_t>() + r * _k);
+        StorageView row({1, _input_size}, const_cast<float*>(gpu_input->data<float>()) + r * _input_size, Device::CUDA);
         StorageView weights({_k}, gpu_probabilities.data<float>() + r * _k, Device::CUDA);
         std::vector<ops::MoeExpertWeights> pointers;
         for (dim_t e = 0; e <= _k; ++e) {
@@ -181,6 +260,10 @@ namespace ctranslate2 {
       const ScopedDeviceSetter setter(Device::CUDA, _shared.gpu_device_index);
       output.resize_as(input);
       if (!input.dim(0)) return;
+      if (_cache_capacity) {
+        forward_grouped_gpu(input, output);
+        return;
+      }
       if (!_grouped_gpu) {
         // Keep expert activations and reduction on-device for every compute type.
         // Routing stays on the existing CPU top-k path. Shared gating and

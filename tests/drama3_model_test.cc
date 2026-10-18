@@ -9,25 +9,27 @@
 
 namespace {
   struct ScopedMemoryBudget {
+    const char* name;
     std::string previous;
     bool had_previous;
-    explicit ScopedMemoryBudget(const char* value) {
-      const char* old = std::getenv("CT2_DRAMA3_MAX_MEMORY_GB");
+    explicit ScopedMemoryBudget(const char* value, const char* variable = "CT2_DRAMA3_MAX_MEMORY_GB")
+      : name(variable) {
+      const char* old = std::getenv(name);
       had_previous = old != nullptr;
       if (old) previous = old;
 #if defined(_WIN32)
-      _putenv_s("CT2_DRAMA3_MAX_MEMORY_GB", value ? value : "");
+      _putenv_s(name, value ? value : "");
 #else
-      if (value) setenv("CT2_DRAMA3_MAX_MEMORY_GB", value, 1);
-      else unsetenv("CT2_DRAMA3_MAX_MEMORY_GB");
+      if (value) setenv(name, value, 1);
+      else unsetenv(name);
 #endif
     }
     ~ScopedMemoryBudget() {
 #if defined(_WIN32)
-      _putenv_s("CT2_DRAMA3_MAX_MEMORY_GB", had_previous ? previous.c_str() : "");
+      _putenv_s(name, had_previous ? previous.c_str() : "");
 #else
-      if (had_previous) setenv("CT2_DRAMA3_MAX_MEMORY_GB", previous.c_str(), 1);
-      else unsetenv("CT2_DRAMA3_MAX_MEMORY_GB");
+      if (had_previous) setenv(name, previous.c_str(), 1);
+      else unsetenv(name);
 #endif
     }
   };
@@ -90,6 +92,23 @@ TEST(Drama3ModelTest, ZeroMemoryBudgetKeepsExistingLoading) {
   ScopedMemoryBudget budget("0");
   auto reader = fixture();
   EXPECT_NO_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32));
+}
+
+TEST(Drama3ModelTest, GpuExpertCacheValidatesBudgetAndDeviceBeforeLoading) {
+  for (const char* value : {"", "0", "8", "0.5", "-1", "nan", "8GB"}) {
+    ScopedMemoryBudget cache(value, "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
+    if (!*value || std::string(value) == "0") {
+      EXPECT_EQ(drama3_gpu_expert_cache_budget(), 0);
+      auto reader = fixture();
+      EXPECT_NO_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32));
+    } else {
+      EXPECT_THROW(models::Drama3("missing", 1, "int8", "cpu"), std::invalid_argument);
+    }
+  }
+  ScopedMemoryBudget cache("8", "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
+  EXPECT_EQ(drama3_gpu_expert_cache_budget(), 8000000000ULL);
+  auto reader = fixture();
+  EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::INT8), std::invalid_argument);
 }
 
 TEST(Drama3ModelTest, PositiveMemoryBudgetRejectsGpuBeforeLoading) {

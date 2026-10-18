@@ -94,6 +94,11 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
       SCOPED_TRACE(compute_type_to_str(type));
       GpuFixture model(type, index);
       layers::SparseMoE layer(model, "moe", 16, 2);
+      std::unique_ptr<layers::SparseMoE> cached;
+      if (type == ComputeType::INT8_FLOAT32) {
+        model.config["drama3_gpu_expert_cache_bytes"] = 2880;  // Three experts, including row scales.
+        cached = std::make_unique<layers::SparseMoE>(model, "moe", 16, 2);
+      }
       layers::Dense router(model, "moe/router"), shared_gate(model, "moe/shared_expert_gate");
       auto expert_reference = [&](const std::string& scope, const StorageView& row) {
         layers::Dense gate(model, scope + "/gate_proj"), up(model, scope + "/up_proj"), down(model, scope + "/down_proj");
@@ -132,8 +137,60 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
         auto resident = device_output.to(Device::CPU);
         synchronize_stream(Device::CUDA);
         expect_storage_eq(resident, reference, type == ComputeType::FLOAT32 ? 1e-5f : 5e-4f);
+        if (cached) {
+          (*cached)(device_input, device_output);
+          auto result = device_output.to(Device::CPU);
+          synchronize_stream(Device::CUDA);
+          expect_storage_eq(result, resident, 1e-6f);
+          EXPECT_EQ(cached->gpu_expert_cache_bytes(), 2880);
+        }
       }
     }
+  }
+}
+
+TEST(SparseMoETest, BoundedGpuCacheEvictsAndReloadsWithoutChangingResults) {
+  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  for (int device = 0; device < get_device_count(Device::CUDA); ++device) {
+    const ScopedDeviceSetter setter(Device::CUDA, device);
+    TinyMoEModel model;
+    model.install_explicit_int8_weights();
+    model.config["drama3_gpu_compute_type"] = "int8_float32";
+    model.config["drama3_gpu_device_index"] = device;
+    layers::SparseMoE baseline(model, "moe", 3, 1);
+    // One 1x1 INT8 matrix and one float scale per projection. Two slots
+    // fit the shared expert and exactly one routed expert, forcing eviction.
+    model.config["drama3_gpu_expert_cache_bytes"] = 30;
+    layers::SparseMoE cached(model, "moe", 3, 1);
+    size_t expected_misses = 0;
+    for (float value : {1.f, 1.f, -1.f, -1.f, 2.f}) {
+      SCOPED_TRACE(value);
+      auto input = StorageView({1,1}, value).to(Device::CUDA);
+      StorageView expected(DataType::FLOAT32, Device::CUDA), actual(DataType::FLOAT32, Device::CUDA);
+      baseline(input, expected);
+      cached(input, actual);
+      auto reference = expected.to(Device::CPU), result = actual.to(Device::CPU);
+      synchronize_stream(Device::CUDA);
+      expect_storage_eq(result, reference, 1e-6f);
+      EXPECT_EQ(cached.gpu_expert_cache_bytes(), 30);
+      if (!expected_misses) expected_misses = 2;
+      else if (value == -1.f && expected_misses == 2) ++expected_misses;
+      else if (value == 2.f) ++expected_misses;
+      EXPECT_EQ(cached.gpu_expert_cache_misses(), expected_misses);
+    }
+    // Exercise several routing decisions in one prefill and the CPU-input path.
+    StorageView input({4,1}, std::vector<float>{1,-1,2,-2}), expected, actual;
+    baseline(input, expected);
+    cached(input, actual);
+    expect_storage_eq(actual, expected, 1e-6f);
+    EXPECT_LE(cached.gpu_expert_cache_bytes(), 30);
+    EXPECT_EQ(baseline.gpu_expert_cache_bytes(), 0);
+    EXPECT_EQ(baseline.gpu_expert_cache_misses(), 0);
+    model.config["drama3_gpu_expert_cache_bytes"] = 29;
+    EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
+    model.config["drama3_gpu_expert_cache_bytes"] = 30;
+    model.config["drama3_gpu_compute_type"] = "float32";
+    EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
   }
 }
 

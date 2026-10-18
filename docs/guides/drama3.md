@@ -52,23 +52,14 @@ converter = TransformersConverter("/path/to/drama-3-official")
 converter.convert("/path/to/drama-3-ct2", quantization="float32")
 ```
 
-The converter detects `model_type: fish_omni` in the local checkpoint's
-configuration and dispatches to the Drama 3 loader. No separate command or
-Fish Speech installation is needed. It uses the standard CTranslate2 model
-specification, validation, optimization, and serialization. Routed experts retain
-original E4M3FN FP8 bytes and 128-by-128 block scales. Sensitive matrices and the
-codec remain FLOAT32 with default or `float32` conversion. Other standard conversion
-types (`float16`, `bfloat16`, `int8`, `int8_float32`, `int8_float16`,
-`int8_bfloat16`, and `int16`) decode the FP8 weights before applying the standard
-CTranslate2 quantizer to non-codec matrices. Normalization, recurrent parameters,
-and codec weights remain FLOAT32. For example, use `--quantization int8_float32`
-for INT8 storage with FLOAT32 activations. Vocabulary mapping is unsupported. The codec
-tensor contract is included in the installed Python package; conversion does
-not require development scripts or a Fish Speech checkout.
+Conversion uses the standard CTranslate2 converter and does not require
+Fish Speech. Use `--quantization int8_float32` for INT8 weights with FLOAT32
+activations; codec weights remain FLOAT32. See the
+[quantization guide](../quantization.md) for other conversion options.
+Vocabulary mapping is unsupported.
 
-The converter holds the model and codec weights in memory before serialization.
-A dry run checks mappings and shapes, but does not validate the converted
-waveform or speech quality.
+Conversion loads the model and codec weights into memory before saving, so
+sufficient RAM is required. A dry run does not verify speech quality.
 
 ## Text-to-speech
 

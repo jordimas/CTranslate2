@@ -143,10 +143,15 @@ namespace ctranslate2 {
 
     static CudaAllocator resolve_cuda_allocator() {
       const bool cuda_malloc_async_is_supported = support_cuda_malloc_async();
-      const auto allocator_name = read_string_from_env("CT2_CUDA_ALLOCATOR",
-                                                       cuda_malloc_async_is_supported
-                                                       ? "cuda_malloc_async"
-                                                       : "cub_caching");
+      // HIP memory-pool teardown can crash after large model allocations.
+      // Keep the asynchronous allocator available as an explicit opt-in.
+#ifdef CT2_USE_HIP
+      const char* default_allocator = "cub_caching";
+#else
+      const char* default_allocator = cuda_malloc_async_is_supported
+        ? "cuda_malloc_async" : "cub_caching";
+#endif
+      const auto allocator_name = read_string_from_env("CT2_CUDA_ALLOCATOR", default_allocator);
 
       CudaAllocator allocator = CudaAllocator::MallocAsync;
 

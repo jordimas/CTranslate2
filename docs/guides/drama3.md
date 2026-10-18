@@ -4,10 +4,6 @@ Drama 3 provides experimental offline text-to-speech on CPU, with optional
 CUDA or ROCm acceleration for backbone and tower projections. The native runtime
 generates audio codes and decodes them to a mono waveform.
 
-The examples use `ctranslate2` conversion and inference APIs and include prompt
-preparation and WAV writing. No companion TTS package, sample scripts, or separate
-source checkout is required.
-
 ## Supported scope
 
 Supported: offline synthesis and waveform decoding. Unsupported: reference-audio

@@ -175,11 +175,13 @@ namespace ctranslate2 {
       virtual void set_compute_type(ComputeType type, Device device, int device_index, bool update_weight=true);
 
 
-    private:
-      void process_linear_weights();
+      // Convert one variable and register its quantization scale, if needed.
       void ensure_dtype(const std::string& name,
                         StorageView& variable,
                         const DataType target_dtype);
+
+    private:
+      void process_linear_weights();
       ComputeType infer_compute_type() const;
 
       Device _device = Device::CPU;

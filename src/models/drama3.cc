@@ -64,10 +64,15 @@ namespace ctranslate2 { namespace models {
       // the checkpoint. DEFAULT retains the original FP8 storage.
       const auto resolved = resolve_compute_type(type, ComputeType::FLOAT32, device, index);
       if (update_weight && resolved != ComputeType::FLOAT32) {
+        const auto weight_dtype = compute_type_to_data_type(resolved).first;
         for (const auto& name : _fp8_weights) {
           is_quantizable(name);  // Validate FP8 metadata before replacing it.
           StorageView decoded;
           ops::DequantizeFP8()(get_variable(name), get_variable(name + "_scale_inv"), decoded);
+          // Finish converting this expert before decoding the next one. Keeping
+          // all experts in FP32 until Model::set_compute_type runs can require
+          // several times the checkpoint size in resident memory.
+          ensure_dtype(name, decoded, weight_dtype);
           remove_variable(name);
           Model::register_variable(name, std::move(decoded));
           remove_variable(name + "_scale_inv");

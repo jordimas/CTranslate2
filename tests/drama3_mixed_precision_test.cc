@@ -3,6 +3,7 @@
 #include "ctranslate2/models/drama3.h"
 #include "ctranslate2/models/model_reader.h"
 #include "ctranslate2/layers/common.h"
+#include "ctranslate2/ops/dequantize.h"
 
 namespace {
   void integer(std::string& bytes, uint32_t value, size_t width) {
@@ -167,6 +168,66 @@ TEST(Drama3MixedPrecisionTest, GpuProjectionsMatchCpuWithCachedAndSelectedWeight
           expect_storage_eq(output, StorageView({1, 16}, 1.75f), .08f);
         }
       }
+    }
+  }
+}
+
+namespace {
+  // Observe the model while conversion is in progress, rather than just its
+  // final weights: no previously decoded expert may remain in FP32.
+  class ObservedExpertConversion : public models::Drama3Model {
+  public:
+    using Drama3Model::set_compute_type;
+    std::vector<std::string> experts;
+    size_t scales_registered = 0;
+
+    void register_variable(std::string name, StorageView value) override {
+      if (name.size() >= 6 && name.compare(name.size() - 6, 6, "_scale") == 0) {
+        ++scales_registered;
+        for (const auto& expert : experts) {
+          const auto* weight = get_variable_if_exists(expert);
+          ASSERT_NE(weight, nullptr);
+          EXPECT_NE(weight->dtype(), DataType::FLOAT32) << expert;
+        }
+      }
+      Drama3Model::register_variable(std::move(name), std::move(value));
+    }
+  };
+}
+
+TEST(Drama3MixedPrecisionTest, ConvertsEachExpertBeforeDecodingTheNext) {
+  for (const auto requested : {ComputeType::INT8_FLOAT32, ComputeType::INT16}) {
+    ComputeType resolved;
+    try {
+      resolved = resolve_compute_type(requested, ComputeType::FLOAT32, Device::CPU);
+    } catch (const std::invalid_argument&) {
+      continue;
+    }
+    if (resolved == ComputeType::FLOAT32)
+      continue;
+    SCOPED_TRACE(compute_type_to_str(resolved));
+    ObservedExpertConversion model;
+    model.config = {{"quantization_policy", "experts_fp8_sensitive_float32"},
+                    {"fp8_format", "e4m3fn_block128"}};
+    for (size_t i = 0; i < 3; ++i) {
+      const std::string name = "backbone/layers_0/mlp/experts_" + std::to_string(i)
+        + "/gate_proj/weight";
+      model.experts.push_back(name);
+      model.register_variable(name, StorageView({2, 2}, std::vector<int8_t>{0x38, 0x40, -72, -64}));
+      model.register_variable(name + "_scale_inv", StorageView({1, 1}, float(i + 1)));
+    }
+    model.set_compute_type(requested, Device::CPU, 0);
+    EXPECT_EQ(model.scales_registered, model.experts.size());
+    EXPECT_EQ(model.config.at("quantization_policy"), "standard");
+    EXPECT_FALSE(model.config.contains("fp8_format"));
+    for (size_t i = 0; i < model.experts.size(); ++i) {
+      const auto& name = model.experts[i];
+      EXPECT_EQ(model.get_variable(name).dtype(), compute_type_to_data_type(resolved).first);
+      EXPECT_EQ(model.get_variable_if_exists(name + "_scale_inv"), nullptr);
+      StorageView decoded;
+      ops::Dequantize()(model.get_variable(name), model.get_variable(name + "_scale"), decoded);
+      const float scale = float(i + 1);
+      expect_storage_eq(decoded, StorageView({2, 2}, std::vector<float>{scale, 2 * scale, -scale, -2 * scale}), .05f);
     }
   }
 }

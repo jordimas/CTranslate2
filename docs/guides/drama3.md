@@ -14,17 +14,6 @@ and batching. Transcription is a separate speech-recognition task.
 Voice cloning requires a reference-audio encoder and reference-conditioned
 prompt preparation; the waveform decoder cannot encode reference recordings.
 
-## Installation
-
-Build the native library and Python bindings with the `Drama3` extension using
-the [installation guide](../installation.md). Bindings require pybind11 >=2.12
-for NumPy 2, or >=3.1 for CPython 3.14. Portable release wheels are not yet provided.
-Verify the extension with:
-
-```bash
-python -c 'from ctranslate2.models import Drama3'
-```
-
 ## Model conversion
 
 Conversion requires `ctranslate2`, NumPy, PyTorch (to read the codec checkpoint),

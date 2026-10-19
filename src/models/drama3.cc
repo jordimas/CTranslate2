@@ -74,7 +74,8 @@ namespace ctranslate2 {
                                        bool update_weight) {
       const auto policy = quantization_policy(config);
       if (device != Device::CPU)
-        throw std::invalid_argument("Drama3 currently supports CPU execution only");
+        throw std::invalid_argument(
+            "Drama3Model requires CPU weight storage; use Drama3 with device=\"cuda\" for GPU execution");
       if (policy == "experts_fp8_sensitive_float32") {
         // Resolve before decoding, so unsupported requests fail without expanding
         // the checkpoint. DEFAULT retains the original FP8 storage.
@@ -109,7 +110,8 @@ namespace ctranslate2 {
       if (get_default_float_type(effective_compute_type()) != DataType::FLOAT32)
         throw std::invalid_argument("Drama3 CPU graph requires float32 activations");
       if (device() != Device::CPU)
-        throw std::invalid_argument("Drama3 currently supports CPU execution only");
+        throw std::invalid_argument(
+            "Drama3Model requires CPU weight storage; use Drama3 with device=\"cuda\" for GPU execution");
       if (!config.is_object() || config.value("model_type", std::string()) != "drama3"
           || config.value("ct2_layout_version", 0) != 1 || !config.contains("source_config")
           || !config["source_config"].is_object())
@@ -180,7 +182,8 @@ namespace ctranslate2 {
         if (target == Device::CUDA && requested != ComputeType::DEFAULT)
           resolve_compute_type(requested, ComputeType::FLOAT32, target, device_index);
         set_num_threads(threads);
-        // Set per-instance execution options before publishing the model to layers.
+        // Load base weights on CPU for both execution paths. GPU layers manage
+        // their device weights and expert cache separately.
         auto loaded =
             std::const_pointer_cast<Model>(Model::load(path, Device::CPU, 0,
                                                        target == Device::CPU ? requested

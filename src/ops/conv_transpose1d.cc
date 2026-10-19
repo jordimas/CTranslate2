@@ -60,9 +60,9 @@ namespace ctranslate2 {
       compute(input, weight, &bias, output);
     }
 
-    void ConvTranspose1D::compute(const StorageView& input, const StorageView& weight,
-                                  const StorageView* bias, StorageView& output) const {
-      PROFILE("ConvTranspose1D");
+    Shape ConvTranspose1D::validate_input(const StorageView& input, const StorageView& weight,
+                                          const StorageView* bias,
+                                          const StorageView& output) const {
       for (const auto* tensor : {&input, &weight, static_cast<const StorageView*>(&output), bias}) {
         if (tensor && (tensor->device() != Device::CPU || tensor->dtype() != DataType::FLOAT32))
           throw std::invalid_argument("ConvTranspose1D requires CPU float32 tensors");
@@ -95,12 +95,18 @@ namespace ctranslate2 {
           throw std::invalid_argument("ConvTranspose1D output must not alias inputs");
       }
 
-      output.resize({batch, cout, length});
+      return {batch, cout, length};
+    }
+
+    bool ConvTranspose1D::compute_gemm(const StorageView& input, const StorageView& weight,
+                                       const StorageView* bias, StorageView& output) const {
+      const dim_t batch = input.dim(0), cin = input.dim(1), time = input.dim(2);
+      const dim_t cout_group = weight.dim(1), kernel = weight.dim(2);
+      const dim_t cout = output.dim(1), length = output.dim(2), cin_group = cin / _groups;
       const auto* x = input.data<float>();
       const auto* w = weight.data<float>();
       const auto* b = bias ? bias->data<float>() : nullptr;
       auto* y = output.data<float>();
-      const dim_t cin_group = cin / _groups;
       // W is already [Cin/group, Cout/group * kernel] in each group.
       // Multiplying W^T by X produces the overlapping output contributions;
       // col2im below adds those contributions without reversing the kernel.
@@ -153,8 +159,26 @@ namespace ctranslate2 {
             }
           }
         }
-        return;
+        return true;
       }
+      return false;
+    }
+
+    void ConvTranspose1D::compute(const StorageView& input, const StorageView& weight,
+                                  const StorageView* bias, StorageView& output) const {
+      PROFILE("ConvTranspose1D");
+      const auto shape = validate_input(input, weight, bias, output);
+      const dim_t batch = input.dim(0), cin = input.dim(1), time = input.dim(2);
+      const dim_t cout_group = weight.dim(1), kernel = weight.dim(2);
+      const dim_t cout = shape[1], length = shape[2];
+      output.resize(shape);
+      const auto* x = input.data<float>();
+      const auto* w = weight.data<float>();
+      const auto* b = bias ? bias->data<float>() : nullptr;
+      auto* y = output.data<float>();
+      const dim_t cin_group = cin / _groups;
+      if (compute_gemm(input, weight, bias, output))
+        return;
       // Each worker owns one output channel; all scatter additions are local.
       cpu::parallel_for(0, batch * cout, 1, [&](dim_t begin, dim_t end) {
         for (dim_t row = begin; row < end; ++row) {

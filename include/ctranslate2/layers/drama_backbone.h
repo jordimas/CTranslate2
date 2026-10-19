@@ -40,6 +40,9 @@ namespace ctranslate2 {
                       StorageView& logits) const;
 
     private:
+      void validate_input(const StorageView& embedded, const DramaBackboneState& state,
+                          const StorageView& hidden, const StorageView& logits) const;
+
       bool _resident_gpu = false;
       int _gpu_device_index = 0;
       StorageView _gpu_norm;

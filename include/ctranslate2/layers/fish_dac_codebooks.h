@@ -15,6 +15,8 @@ namespace ctranslate2 {
       void operator()(const StorageView& codes, StorageView& output) const;
 
     private:
+      void validate_codes(const StorageView& codes, const StorageView& output) const;
+
       // References one codebook embedding table and its output projection.
       struct Book {
         const StorageView* embedding;

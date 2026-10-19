@@ -17,6 +17,10 @@ namespace ctranslate2 {
       void operator()(const StorageView& input, StorageView& output) const;
 
     private:
+      void forward_cpu(const StorageView& input, StorageView& output) const;
+
+      void validate_input(const StorageView& input, const StorageView& output) const;
+
       // References the weights and optional bias of a waveform convolution.
       struct Convolution {
         const StorageView* weight;

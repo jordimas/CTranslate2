@@ -100,8 +100,8 @@ namespace ctranslate2 {
       state = std::move(initialized);
     }
 
-    void DramaBackbone::operator()(const StorageView& embedded, DramaBackboneState& state,
-                                   StorageView& hidden, StorageView& logits) const {
+    void DramaBackbone::validate_input(const StorageView& embedded, const DramaBackboneState& state,
+                                       const StorageView& hidden, const StorageView& logits) const {
       for (const auto* tensor : {&embedded, static_cast<const StorageView*>(&hidden),
                                  static_cast<const StorageView*>(&logits)}) {
         if (tensor->device() != Device::CPU || tensor->dtype() != DataType::FLOAT32)
@@ -143,6 +143,11 @@ namespace ctranslate2 {
         if (!std::isfinite(embedded.data<float>()[i]))
           throw std::invalid_argument("DramaBackbone embedded input must be finite");
       }
+    }
+
+    void DramaBackbone::operator()(const StorageView& embedded, DramaBackboneState& state,
+                                   StorageView& hidden, StorageView& logits) const {
+      validate_input(embedded, state, hidden, logits);
       if (!embedded.dim(0)) {
         hidden.resize({0, output_size()});
         logits.resize({0, vocabulary_size()});

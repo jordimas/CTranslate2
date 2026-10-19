@@ -5,6 +5,30 @@
 namespace ctranslate2 {
   namespace python {
 
+    namespace {
+
+      py::dict generation_result_to_dict(const models::Drama3Result& result) {
+        py::array_t<float> audio(result.audio.size());
+        std::copy_n(result.audio.data<float>(), result.audio.size(), audio.mutable_data());
+        py::array_t<int32_t> codes(std::vector<py::ssize_t>{result.codes.dim(0), 10});
+        std::copy_n(result.codes.data<int32_t>(), result.codes.size(), codes.mutable_data());
+        py::dict output;
+        output["audio"] = std::move(audio);
+        output["codes"] = std::move(codes);
+        output["sample_rate"] = result.sample_rate;
+        output["finish_reason"] = result.finish_reason;
+        py::dict timings;
+        timings["prefill_seconds"] = result.timings.prefill_seconds;
+        timings["backbone_decode_seconds"] = result.timings.backbone_decode_seconds;
+        timings["tower_decode_seconds"] = result.timings.tower_decode_seconds;
+        timings["codec_seconds"] = result.timings.codec_seconds;
+        timings["total_native_seconds"] = result.timings.total_native_seconds;
+        output["timings"] = std::move(timings);
+        return output;
+      }
+
+    }
+
     void register_drama3(py::module& m) {
       py::class_<models::Drama3>(
           m, "Drama3", "Experimental offline text-to-speech synthesis and waveform decoding.")
@@ -38,24 +62,7 @@ namespace ctranslate2 {
                   result = model.generate(input, max_frames, prefill_chunk_size, temperature, top_k,
                                           top_p, seed, greedy);
                 }
-                py::array_t<float> audio(result.audio.size());
-                std::copy_n(result.audio.data<float>(), result.audio.size(), audio.mutable_data());
-                py::array_t<int32_t> codes(std::vector<py::ssize_t>{result.codes.dim(0), 10});
-                std::copy_n(result.codes.data<int32_t>(), result.codes.size(),
-                            codes.mutable_data());
-                py::dict output;
-                output["audio"] = std::move(audio);
-                output["codes"] = std::move(codes);
-                output["sample_rate"] = result.sample_rate;
-                output["finish_reason"] = result.finish_reason;
-                py::dict timings;
-                timings["prefill_seconds"] = result.timings.prefill_seconds;
-                timings["backbone_decode_seconds"] = result.timings.backbone_decode_seconds;
-                timings["tower_decode_seconds"] = result.timings.tower_decode_seconds;
-                timings["codec_seconds"] = result.timings.codec_seconds;
-                timings["total_native_seconds"] = result.timings.total_native_seconds;
-                output["timings"] = std::move(timings);
-                return output;
+                return generation_result_to_dict(result);
               },
               py::arg("prompt_rows"), py::arg("max_frames") = 512,
               py::arg("prefill_chunk_size") = 16, py::arg("temperature") = .8f,

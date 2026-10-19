@@ -17,6 +17,13 @@ namespace ctranslate2 {
   namespace models {
     namespace {
 
+      constexpr dim_t max_drama3_sequence_length = 8192;
+      using Clock = std::chrono::steady_clock;
+
+      double seconds_since(const Clock::time_point& start) {
+        return std::chrono::duration<double>(Clock::now() - start).count();
+      }
+
       std::string quantization_policy(const nlohmann::json& config) {
         const auto policy = config.value("quantization_policy", std::string());
         if (policy != "experts_fp8_sensitive_float32" && policy != "standard")
@@ -74,8 +81,8 @@ namespace ctranslate2 {
                                        bool update_weight) {
       const auto policy = quantization_policy(config);
       if (device != Device::CPU)
-        throw std::invalid_argument(
-            "Drama3Model requires CPU weight storage; use Drama3 with device=\"cuda\" for GPU execution");
+        throw std::invalid_argument("Drama3Model requires CPU weight storage; use Drama3 with "
+                                    "device=\"cuda\" for GPU execution");
       if (policy == "experts_fp8_sensitive_float32") {
         // Resolve before decoding, so unsupported requests fail without expanding
         // the checkpoint. DEFAULT retains the original FP8 storage.
@@ -110,8 +117,8 @@ namespace ctranslate2 {
       if (get_default_float_type(effective_compute_type()) != DataType::FLOAT32)
         throw std::invalid_argument("Drama3 CPU graph requires float32 activations");
       if (device() != Device::CPU)
-        throw std::invalid_argument(
-            "Drama3Model requires CPU weight storage; use Drama3 with device=\"cuda\" for GPU execution");
+        throw std::invalid_argument("Drama3Model requires CPU weight storage; use Drama3 with "
+                                    "device=\"cuda\" for GPU execution");
       if (!config.is_object() || config.value("model_type", std::string()) != "drama3"
           || config.value("ct2_layout_version", 0) != 1 || !config.contains("source_config")
           || !config["source_config"].is_object())
@@ -168,13 +175,19 @@ namespace ctranslate2 {
       Impl(const std::string& path, size_t count, const std::string& compute,
            const std::string& device, int device_index)
         : threads(count) {
-        if (!count)
+        if (!threads)
           throw std::invalid_argument("Drama3 requires positive intra_threads");
         const auto target = str_to_device(device);
         if (device_index < 0 || device_index >= get_device_count(target))
           throw std::invalid_argument("Invalid Drama3 device index: "
                                       + std::to_string(device_index));
         const ScopedDeviceSetter device_setter(target, device_index);
+        load_model(path, compute, target, device_index);
+        initialize_layers();
+      }
+
+      void load_model(const std::string& path, const std::string& compute, Device target,
+                      int device_index) {
         const auto requested = str_to_compute_type(compute);
         const auto cache_budget = drama3_gpu_expert_cache_budget();
         if (cache_budget && target != Device::CUDA)
@@ -211,6 +224,11 @@ namespace ctranslate2 {
             throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB is too small");
         }
         model = std::move(loaded);
+      }
+
+      void initialize_layers() {
+        const auto& source = model->config.at("source_config");
+        const auto& text = source.at("text_config");
         const auto& audio = source.at("audio_decoder_config");
         layers::DramaBackboneConfig bc;
         bc.norm_epsilon = text.at("rms_norm_eps").get<float>();
@@ -268,6 +286,98 @@ namespace ctranslate2 {
         tower->embed_backbone(frames, text, result);
         return result;
       }
+
+      struct GenerationState {
+        layers::DramaBackboneState backbone_state;
+        layers::DramaTowerState tower_state;
+        StorageView hidden;
+        StorageView logits;
+      };
+
+      void validate_generation(const StorageView& prompt, dim_t max_frames,
+                               dim_t prefill_chunk_size, float temperature, dim_t top_k,
+                               float top_p) const {
+        if (prompt.device() != Device::CPU || prompt.dtype() != DataType::INT32
+            || prompt.rank() != 2 || prompt.dim(1) != 11 || prompt.dim(0) <= 0
+            || prompt.dim(0) > max_drama3_sequence_length || max_frames <= 0
+            || max_frames > max_drama3_sequence_length || prefill_chunk_size <= 0
+            || max_frames > max_context - prompt.dim(0) || !std::isfinite(temperature)
+            || temperature <= 0 || top_k <= 0 || !std::isfinite(top_p) || top_p <= 0 || top_p > 1)
+          throw std::invalid_argument("Invalid Drama3 prompt, frame budget or prefill chunk size");
+        for (dim_t t = 0; t < prompt.dim(0); ++t)
+          if (prompt.data<int32_t>()[t * 11] < 0 || prompt.data<int32_t>()[t * 11] >= vocabulary)
+            throw std::invalid_argument("Drama3 prompt token outside vocabulary");
+      }
+
+      void prefill(const StorageView& prompt, dim_t chunk_size, GenerationState& state) const {
+        for (dim_t start = 0; start < prompt.dim(0); start += chunk_size) {
+          const dim_t count = std::min(chunk_size, prompt.dim(0) - start);
+          auto frames = rows<int32_t>(prompt, start, count);
+          auto embedded = embed(frames);
+          (*backbone)(embedded, state.backbone_state, state.hidden, state.logits);
+          const dim_t paired = std::min(count, prompt.dim(0) - 1 - start);
+          if (paired > 0)
+            tower->prefill(rows<float>(state.hidden, 0, paired),
+                           rows<int32_t>(prompt, start, paired),
+                           rows<int32_t>(prompt, start + 1, paired), state.tower_state);
+        }
+        state.hidden = rows<float>(state.hidden, state.hidden.dim(0) - 1, 1);
+        state.logits = rows<float>(state.logits, state.logits.dim(0) - 1, 1);
+      }
+
+      void generate_codes(const StorageView& prompt, dim_t max_frames,
+                          const layers::DramaSamplingOptions& sampling, bool greedy,
+                          GenerationState& state, Drama3Result& result) const {
+        auto previous = rows<int32_t>(prompt, prompt.dim(0) - 1, 1);
+        std::vector<int32_t> codes;
+        std::vector<int32_t> history;
+        for (dim_t t = 0; t < prompt.dim(0); ++t)
+          history.push_back(prompt.data<int32_t>()[t * 11]);
+        std::mt19937 rng(static_cast<uint32_t>(sampling.seed));
+        result.finish_reason = "length";
+        for (dim_t step = 0; step < max_frames; ++step) {
+          StorageView next(DataType::INT32);
+          const auto tower_start = Clock::now();
+          if (greedy)
+            tower->decode_greedy(state.logits, state.hidden, previous, state.tower_state, next);
+          else
+            tower->decode_sample(state.logits, state.hidden, previous, state.tower_state, history,
+                                 sampling, rng, next);
+          result.timings.tower_decode_seconds += seconds_since(tower_start);
+          if (next.data<int32_t>()[0] == eos) {
+            result.finish_reason = "eos";
+            break;
+          }
+          codes.insert(codes.end(), next.data<int32_t>() + 1, next.data<int32_t>() + 11);
+          history.push_back(next.data<int32_t>()[0]);
+          if (step + 1 < max_frames) {
+            const auto backbone_start = Clock::now();
+            auto embedded = embed(next);
+            (*backbone)(embedded, state.backbone_state, state.hidden, state.logits);
+            result.timings.backbone_decode_seconds += seconds_since(backbone_start);
+          }
+          previous = std::move(next);
+        }
+        result.codes = StorageView({dim_t(codes.size() / 10), 10}, codes);
+      }
+
+      void decode_audio(Drama3Result& result) const {
+        const dim_t frames = result.codes.dim(0);
+        if (frames > 0) {
+          const auto codec_start = Clock::now();
+          StorageView codec_codes({1, 10, frames}, DataType::INT32);
+          for (dim_t t = 0; t < frames; ++t)
+            // Official DAC clamps residual lookup indices to its 1024-entry books.
+            // Preserve raw tower codes for feedback and in the returned diagnostic.
+            for (dim_t b = 0; b < 10; ++b)
+              codec_codes.data<int32_t>()[b * frames + t] =
+                  std::min(result.codes.data<int32_t>()[t * 10 + b], b == 0 ? 4095 : 1023);
+          (*codec)(codec_codes, result.audio);
+          result.audio.reshape({result.audio.size()});
+          result.timings.codec_seconds = seconds_since(codec_start);
+        } else
+          result.audio = StorageView({0}, DataType::FLOAT32);
+      }
     };
 
     Drama3::Drama3(const std::string& path, size_t threads, const std::string& compute,
@@ -281,95 +391,28 @@ namespace ctranslate2 {
                                   dim_t prefill_chunk_size, float temperature, dim_t top_k,
                                   float top_p, uint64_t seed, bool greedy) {
       std::lock_guard<std::mutex> lock(_impl->mutex);
-      using Clock = std::chrono::steady_clock;
       const auto total_start = Clock::now();
-      const auto seconds_since = [](const Clock::time_point& start) {
-        return std::chrono::duration<double>(Clock::now() - start).count();
-      };
-      Drama3Result result;
       set_num_threads(_impl->threads);
-      if (prompt.device() != Device::CPU || prompt.dtype() != DataType::INT32 || prompt.rank() != 2
-          || prompt.dim(1) != 11 || prompt.dim(0) <= 0 || prompt.dim(0) > 8192 || max_frames <= 0
-          || max_frames > 8192 || prefill_chunk_size <= 0
-          || max_frames > _impl->max_context - prompt.dim(0) || !std::isfinite(temperature)
-          || temperature <= 0 || top_k <= 0 || !std::isfinite(top_p) || top_p <= 0 || top_p > 1)
-        throw std::invalid_argument("Invalid Drama3 prompt, frame budget or prefill chunk size");
-      for (dim_t t = 0; t < prompt.dim(0); ++t)
-        if (prompt.data<int32_t>()[t * 11] < 0
-            || prompt.data<int32_t>()[t * 11] >= _impl->vocabulary)
-          throw std::invalid_argument("Drama3 prompt token outside vocabulary");
-      layers::DramaBackboneState backbone_state;
-      layers::DramaTowerState tower_state;
+      _impl->validate_generation(prompt, max_frames, prefill_chunk_size, temperature, top_k, top_p);
+
+      Impl::GenerationState state;
       const dim_t capacity = prompt.dim(0) + max_frames;
-      _impl->backbone->initialize_state(backbone_state, capacity);
-      _impl->tower->initialize_state(tower_state, capacity);
-      StorageView hidden, logits;
+      _impl->backbone->initialize_state(state.backbone_state, capacity);
+      _impl->tower->initialize_state(state.tower_state, capacity);
+
+      Drama3Result result;
       const auto prefill_start = Clock::now();
-      for (dim_t start = 0; start < prompt.dim(0); start += prefill_chunk_size) {
-        const dim_t count = std::min(prefill_chunk_size, prompt.dim(0) - start);
-        auto frames = rows<int32_t>(prompt, start, count);
-        auto embedded = _impl->embed(frames);
-        (*_impl->backbone)(embedded, backbone_state, hidden, logits);
-        const dim_t paired = std::min(count, prompt.dim(0) - 1 - start);
-        if (paired > 0)
-          _impl->tower->prefill(rows<float>(hidden, 0, paired),
-                                rows<int32_t>(prompt, start, paired),
-                                rows<int32_t>(prompt, start + 1, paired), tower_state);
-      }
-      hidden = rows<float>(hidden, hidden.dim(0) - 1, 1);
-      logits = rows<float>(logits, logits.dim(0) - 1, 1);
+      _impl->prefill(prompt, prefill_chunk_size, state);
       result.timings.prefill_seconds = seconds_since(prefill_start);
-      auto previous = rows<int32_t>(prompt, prompt.dim(0) - 1, 1);
-      std::vector<int32_t> codes;
-      std::vector<int32_t> history;
-      for (dim_t t = 0; t < prompt.dim(0); ++t)
-        history.push_back(prompt.data<int32_t>()[t * 11]);
+
       layers::DramaSamplingOptions sampling;
       sampling.temperature = temperature;
       sampling.top_k = top_k;
       sampling.top_p = top_p;
       sampling.seed = seed;
-      std::mt19937 rng(static_cast<uint32_t>(seed));
-      result.finish_reason = "length";
-      for (dim_t step = 0; step < max_frames; ++step) {
-        StorageView next(DataType::INT32);
-        const auto tower_start = Clock::now();
-        if (greedy)
-          _impl->tower->decode_greedy(logits, hidden, previous, tower_state, next);
-        else
-          _impl->tower->decode_sample(logits, hidden, previous, tower_state, history, sampling, rng,
-                                      next);
-        result.timings.tower_decode_seconds += seconds_since(tower_start);
-        if (next.data<int32_t>()[0] == _impl->eos) {
-          result.finish_reason = "eos";
-          break;
-        }
-        codes.insert(codes.end(), next.data<int32_t>() + 1, next.data<int32_t>() + 11);
-        history.push_back(next.data<int32_t>()[0]);
-        if (step + 1 < max_frames) {
-          const auto backbone_start = Clock::now();
-          auto embedded = _impl->embed(next);
-          (*_impl->backbone)(embedded, backbone_state, hidden, logits);
-          result.timings.backbone_decode_seconds += seconds_since(backbone_start);
-        }
-        previous = std::move(next);
-      }
-      const dim_t frames = codes.size() / 10;
-      result.codes = StorageView({frames, 10}, codes);
-      if (frames > 0) {
-        const auto codec_start = Clock::now();
-        StorageView codec_codes({1, 10, frames}, DataType::INT32);
-        for (dim_t t = 0; t < frames; ++t)
-          // Official DAC clamps residual lookup indices to its 1024-entry books.
-          // Preserve raw tower codes for feedback and in the returned diagnostic.
-          for (dim_t b = 0; b < 10; ++b)
-            codec_codes.data<int32_t>()[b * frames + t] =
-                std::min(codes[t * 10 + b], b == 0 ? 4095 : 1023);
-        (*_impl->codec)(codec_codes, result.audio);
-        result.audio.reshape({result.audio.size()});
-        result.timings.codec_seconds = seconds_since(codec_start);
-      } else
-        result.audio = StorageView({0}, DataType::FLOAT32);
+      _impl->generate_codes(prompt, max_frames, sampling, greedy, state, result);
+      _impl->decode_audio(result);
+
       result.timings.total_native_seconds = seconds_since(total_start);
       return result;
     }

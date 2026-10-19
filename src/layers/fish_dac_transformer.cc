@@ -85,7 +85,8 @@ namespace ctranslate2 {
       }
     }
 
-    void FishDACTransformer::operator()(const StorageView& input, StorageView& output) const {
+    void FishDACTransformer::validate_input(const StorageView& input,
+                                            const StorageView& output) const {
       if (input.device() != Device::CPU || input.dtype() != DataType::FLOAT32
           || output.device() != Device::CPU || output.dtype() != DataType::FLOAT32
           || input.rank() != 3 || input.dim(0) != 1 || input.dim(1) != _channels
@@ -95,76 +96,95 @@ namespace ctranslate2 {
         if (overlaps(*parameter, output))
           throw std::invalid_argument("FishDAC transformer output aliases weights");
       require_finite(input);
-      const dim_t time = input.dim(2), head_dim = _channels / _config.heads;
+      const dim_t time = input.dim(2);
       if (time > std::numeric_limits<dim_t>::max() / _channels / 3 / sizeof(float))
         throw std::invalid_argument("FishDAC transformer dimensions overflow");
+    }
+
+    void FishDACTransformer::apply_rotary(StorageView& qkv) const {
+      const dim_t time = qkv.dim(0), head_dim = _channels / _config.heads;
+      // Q, K and V occupy consecutive C-sized sections of every output row.
+      for (dim_t t = 0; t < time; ++t) {
+        for (dim_t part = 0; part < 2; ++part) {
+          for (dim_t h = 0; h < _config.heads; ++h) {
+            auto* values = qkv.data<float>() + t * 3 * _channels + part * _channels + h * head_dim;
+            for (dim_t d = 0; d < head_dim; d += 2) {
+              const double angle =
+                  double(t) / std::pow(double(_config.rope_theta), double(d) / head_dim);
+              const float cosine = std::cos(angle), sine = std::sin(angle);
+              const float x = values[d], y = values[d + 1];
+              values[d] = x * cosine - y * sine;
+              values[d + 1] = x * sine + y * cosine;
+            }
+          }
+        }
+      }
+    }
+
+    void FishDACTransformer::apply_attention(const Block& block, StorageView& hidden) const {
+      const dim_t time = hidden.dim(0), head_dim = _channels / _config.heads;
+      StorageView normalized, qkv;
+      ops::RMSNorm(_config.epsilon, false)(*block.attention_norm, hidden, normalized);
+      (*block.qkv)(normalized, qkv);
+      apply_rotary(qkv);
+      StorageView context({time, _channels}, 0.f);
+      std::vector<double> scores(std::min(time, _config.window));
+      const double scale = 1. / std::sqrt(double(head_dim));
+      for (dim_t t = 0; t < time; ++t) {
+        const dim_t begin = std::max<dim_t>(0, t - _config.window + 1);
+        for (dim_t h = 0; h < _config.heads; ++h) {
+          double maximum = -std::numeric_limits<double>::infinity();
+          for (dim_t s = begin; s <= t; ++s) {
+            double dot = 0;
+            for (dim_t d = 0; d < head_dim; ++d)
+              dot += double(qkv.data<float>()[t * 3 * _channels + h * head_dim + d])
+                     * qkv.data<float>()[s * 3 * _channels + _channels + h * head_dim + d];
+            scores[s - begin] = dot * scale;
+            maximum = std::max(maximum, scores[s - begin]);
+          }
+          double denominator = 0;
+          for (dim_t s = begin; s <= t; ++s)
+            denominator += (scores[s - begin] = std::exp(scores[s - begin] - maximum));
+          for (dim_t d = 0; d < head_dim; ++d) {
+            double value = 0;
+            for (dim_t s = begin; s <= t; ++s)
+              value += scores[s - begin] / denominator
+                       * qkv.data<float>()[s * 3 * _channels + 2 * _channels + h * head_dim + d];
+            context.data<float>()[t * _channels + h * head_dim + d] = value;
+          }
+        }
+      }
+      StorageView projected;
+      (*block.out)(context, projected);
+      for (dim_t i = 0; i < hidden.size(); ++i)
+        hidden.data<float>()[i] +=
+            projected.data<float>()[i] * block.attention_scale->data<float>()[i % _channels];
+    }
+
+    void FishDACTransformer::apply_feed_forward(const Block& block, StorageView& hidden) const {
+      StorageView normalized;
+      ops::RMSNorm(_config.epsilon, false)(*block.ffn_norm, hidden, normalized);
+      StorageView gate, up, activated, down;
+      (*block.gate)(normalized, gate);
+      (*block.up)(normalized, up);
+      ops::Swish()(gate, activated);
+      ops::Mul()(activated, up, activated);
+      (*block.down)(activated, down);
+      for (dim_t i = 0; i < hidden.size(); ++i)
+        hidden.data<float>()[i] +=
+            down.data<float>()[i] * block.ffn_scale->data<float>()[i % _channels];
+    }
+
+    void FishDACTransformer::operator()(const StorageView& input, StorageView& output) const {
+      validate_input(input, output);
+      const dim_t time = input.dim(2);
       StorageView hidden({time, _channels}, DataType::FLOAT32);
       for (dim_t t = 0; t < time; ++t)
         for (dim_t c = 0; c < _channels; ++c)
           hidden.data<float>()[t * _channels + c] = input.data<float>()[c * time + t];
       for (const auto& block : _blocks) {
-        StorageView normalized, qkv;
-        ops::RMSNorm(_config.epsilon, false)(*block.attention_norm, hidden, normalized);
-        (*block.qkv)(normalized, qkv);
-        // Q, K and V occupy consecutive C-sized sections of every output row.
-        for (dim_t t = 0; t < time; ++t) {
-          for (dim_t part = 0; part < 2; ++part) {
-            for (dim_t h = 0; h < _config.heads; ++h) {
-              auto* values =
-                  qkv.data<float>() + t * 3 * _channels + part * _channels + h * head_dim;
-              for (dim_t d = 0; d < head_dim; d += 2) {
-                const double angle =
-                    double(t) / std::pow(double(_config.rope_theta), double(d) / head_dim);
-                const float cosine = std::cos(angle), sine = std::sin(angle);
-                const float x = values[d], y = values[d + 1];
-                values[d] = x * cosine - y * sine;
-                values[d + 1] = x * sine + y * cosine;
-              }
-            }
-          }
-        }
-        StorageView context({time, _channels}, 0.f);
-        std::vector<double> scores(std::min(time, _config.window));
-        const double scale = 1. / std::sqrt(double(head_dim));
-        for (dim_t t = 0; t < time; ++t) {
-          const dim_t begin = std::max<dim_t>(0, t - _config.window + 1);
-          for (dim_t h = 0; h < _config.heads; ++h) {
-            double maximum = -std::numeric_limits<double>::infinity();
-            for (dim_t s = begin; s <= t; ++s) {
-              double dot = 0;
-              for (dim_t d = 0; d < head_dim; ++d)
-                dot += double(qkv.data<float>()[t * 3 * _channels + h * head_dim + d])
-                       * qkv.data<float>()[s * 3 * _channels + _channels + h * head_dim + d];
-              scores[s - begin] = dot * scale;
-              maximum = std::max(maximum, scores[s - begin]);
-            }
-            double denominator = 0;
-            for (dim_t s = begin; s <= t; ++s)
-              denominator += (scores[s - begin] = std::exp(scores[s - begin] - maximum));
-            for (dim_t d = 0; d < head_dim; ++d) {
-              double value = 0;
-              for (dim_t s = begin; s <= t; ++s)
-                value += scores[s - begin] / denominator
-                         * qkv.data<float>()[s * 3 * _channels + 2 * _channels + h * head_dim + d];
-              context.data<float>()[t * _channels + h * head_dim + d] = value;
-            }
-          }
-        }
-        StorageView projected;
-        (*block.out)(context, projected);
-        for (dim_t i = 0; i < hidden.size(); ++i)
-          hidden.data<float>()[i] +=
-              projected.data<float>()[i] * block.attention_scale->data<float>()[i % _channels];
-        ops::RMSNorm(_config.epsilon, false)(*block.ffn_norm, hidden, normalized);
-        StorageView gate, up, activated, down;
-        (*block.gate)(normalized, gate);
-        (*block.up)(normalized, up);
-        ops::Swish()(gate, activated);
-        ops::Mul()(activated, up, activated);
-        (*block.down)(activated, down);
-        for (dim_t i = 0; i < hidden.size(); ++i)
-          hidden.data<float>()[i] +=
-              down.data<float>()[i] * block.ffn_scale->data<float>()[i % _channels];
+        apply_attention(block, hidden);
+        apply_feed_forward(block, hidden);
       }
       StorageView normalized;
       ops::RMSNorm(_config.epsilon, false)(*_norm, hidden, normalized);

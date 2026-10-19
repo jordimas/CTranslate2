@@ -20,6 +20,12 @@ namespace ctranslate2 {
                       StorageView& output) const;
 
     private:
+      bool compute_gemm(const StorageView& input, const StorageView& weight,
+                        const StorageView* bias, StorageView& output) const;
+
+      Shape validate_input(const StorageView& input, const StorageView& weight,
+                           const StorageView* bias, const StorageView& output) const;
+
       void compute(const StorageView& input, const StorageView& weight, const StorageView* bias,
                    StorageView& output) const;
 

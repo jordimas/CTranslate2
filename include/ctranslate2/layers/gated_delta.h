@@ -24,6 +24,12 @@ namespace ctranslate2 {
                       StorageView& output) const;
 
     private:
+      void prepare_recurrent_inputs(const StorageView& mixed, StorageView& query, StorageView& key,
+                                    StorageView& value, StorageView& a, StorageView& beta) const;
+
+      void validate_input(const StorageView& input, const StorageView& state,
+                          const StorageView& history, const StorageView& output) const;
+
       void forward_gpu(const StorageView&, StorageView&, StorageView&, StorageView&) const;
       bool _resident_gpu = false;
       StorageView _gpu_conv, _gpu_conv_bias, _gpu_a_log, _gpu_dt_bias, _gpu_norm;

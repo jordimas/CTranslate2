@@ -21,6 +21,12 @@ namespace ctranslate2 {
       void operator()(const StorageView& query, const StorageView& key, const StorageView& value,
                       const StorageView& log_decay, const StorageView& beta, StorageView& state,
                       StorageView& output) const;
+
+    private:
+      void validate_input(const StorageView& query, const StorageView& key,
+                          const StorageView& value, const StorageView& log_decay,
+                          const StorageView& beta, const StorageView& state,
+                          const StorageView& output) const;
     };
 
   }

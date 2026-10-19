@@ -24,11 +24,10 @@ namespace ctranslate2 {
 
     }
 
-    void GatedDeltaNet::operator()(const StorageView& query, const StorageView& key,
-                                   const StorageView& value, const StorageView& log_decay,
-                                   const StorageView& beta, StorageView& state,
-                                   StorageView& output) const {
-      PROFILE("GatedDeltaNet");
+    void GatedDeltaNet::validate_input(const StorageView& query, const StorageView& key,
+                                       const StorageView& value, const StorageView& log_decay,
+                                       const StorageView& beta, const StorageView& state,
+                                       const StorageView& output) const {
       const StorageView* inputs[] = {&query, &key, &value, &log_decay, &beta};
       for (const auto* tensor :
            {&query, &key, &value, &log_decay, &beta, static_cast<const StorageView*>(&state),
@@ -60,7 +59,17 @@ namespace ctranslate2 {
         if (&output == input || overlaps(*input, state) || overlaps(*input, output))
           throw std::invalid_argument("GatedDeltaNet inputs must not alias state or output");
       }
+    }
 
+    void GatedDeltaNet::operator()(const StorageView& query, const StorageView& key,
+                                   const StorageView& value, const StorageView& log_decay,
+                                   const StorageView& beta, StorageView& state,
+                                   StorageView& output) const {
+      PROFILE("GatedDeltaNet");
+      validate_input(query, key, value, log_decay, beta, state, output);
+      const dim_t batch = query.dim(0), steps = query.dim(1);
+      const dim_t key_heads = query.dim(2), key_dim = query.dim(3);
+      const dim_t heads = value.dim(2), value_dim = value.dim(3);
       output.resize({batch, steps, heads, value_dim});
       const auto* q = query.data<float>();
       const auto* k = key.data<float>();

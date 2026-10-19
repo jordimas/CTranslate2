@@ -66,6 +66,14 @@ namespace ctranslate2 {
                          StorageView& next_frame) const;
 
     private:
+      void decode_residual_codes(const StorageView& hidden, const StorageView& previous_frame,
+                                 StorageView& frame, DramaTowerState& state,
+                                 const DramaSamplingOptions* options, std::mt19937* rng) const;
+
+      int32_t select_main_token(const StorageView& logits,
+                                const std::vector<int32_t>* history_main_tokens,
+                                const DramaSamplingOptions* options, std::mt19937* rng) const;
+
       // Implements one gated-attention and feed-forward block in the audio tower.
       struct TowerLayer;
       void validate_frames(const StorageView& frames, dim_t rows) const;

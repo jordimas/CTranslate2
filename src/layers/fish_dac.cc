@@ -157,7 +157,8 @@ namespace ctranslate2 {
 #endif
     }
 
-    void FishDACWaveformDecoder::operator()(const StorageView& input, StorageView& output) const {
+    void FishDACWaveformDecoder::validate_input(const StorageView& input,
+                                                const StorageView& output) const {
       if (input.device() != Device::CPU || input.dtype() != DataType::FLOAT32
           || output.device() != Device::CPU || output.dtype() != DataType::FLOAT32
           || input.rank() != 3 || input.dim(0) != 1 || input.dim(1) != _initial.weight->dim(1)
@@ -169,10 +170,9 @@ namespace ctranslate2 {
       for (dim_t i = 0; i < input.size(); ++i)
         if (!std::isfinite(input.data<float>()[i]))
           throw std::invalid_argument("FishDAC input must be finite");
-      if (_gpu_device_index >= 0) {
-        forward_gpu(input, output);
-        return;
-      }
+    }
+
+    void FishDACWaveformDecoder::forward_cpu(const StorageView& input, StorageView& output) const {
       StorageView current;
       causal(input, _initial, 1, current);
       for (const auto& block : _blocks) {
@@ -209,6 +209,15 @@ namespace ctranslate2 {
         result.data<float>()[i] = std::tanh(value);
       }
       output = std::move(result);
+    }
+
+    void FishDACWaveformDecoder::operator()(const StorageView& input, StorageView& output) const {
+      validate_input(input, output);
+      if (_gpu_device_index >= 0) {
+        forward_gpu(input, output);
+        return;
+      }
+      forward_cpu(input, output);
     }
 
   }

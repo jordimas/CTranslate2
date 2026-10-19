@@ -26,10 +26,9 @@ namespace ctranslate2 {
       : _apply_silu(apply_silu) {
     }
 
-    void CausalDepthwiseConv1D::operator()(const StorageView& input, const StorageView& weight,
-                                           const StorageView* bias, StorageView& history,
-                                           StorageView& output) const {
-      PROFILE("CausalDepthwiseConv1D");
+    void CausalDepthwiseConv1D::validate_input(const StorageView& input, const StorageView& weight,
+                                               const StorageView* bias, const StorageView& history,
+                                               const StorageView& output) const {
       const StorageView* tensors[] = {&input, &weight, bias, &history, &output};
       for (const auto* tensor : tensors) {
         if (tensor && (tensor->device() != Device::CPU || tensor->dtype() != DataType::FLOAT32))
@@ -38,7 +37,6 @@ namespace ctranslate2 {
       if (input.rank() != 3 || input.dim(0) <= 0 || input.dim(1) < 0 || input.dim(2) <= 0)
         throw std::invalid_argument("CausalDepthwiseConv1D input must be [batch,time,channels]");
       const dim_t batch = input.dim(0);
-      const dim_t steps = input.dim(1);
       const dim_t channels = input.dim(2);
       if (weight.rank() != 2 || weight.dim(0) != channels || weight.dim(1) < 1)
         throw std::invalid_argument("CausalDepthwiseConv1D weights must be [channels,kernel>=1]");
@@ -74,6 +72,15 @@ namespace ctranslate2 {
           }
         }
       }
+    }
+
+    void CausalDepthwiseConv1D::operator()(const StorageView& input, const StorageView& weight,
+                                           const StorageView* bias, StorageView& history,
+                                           StorageView& output) const {
+      PROFILE("CausalDepthwiseConv1D");
+      validate_input(input, weight, bias, history, output);
+      const dim_t batch = input.dim(0), steps = input.dim(1), channels = input.dim(2);
+      const dim_t kernel = weight.dim(1), past = kernel - 1;
       output.resize_as(input);
       if (steps == 0)
         return;

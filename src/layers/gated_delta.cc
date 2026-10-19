@@ -206,12 +206,9 @@ namespace ctranslate2 {
 #endif
     }
 
-    void GatedDeltaNet::operator()(const StorageView& input, StorageView& state,
-                                   StorageView& history, StorageView& output) const {
-      if (_resident_gpu && input.device() == Device::CUDA) {
-        forward_gpu(input, state, history, output);
-        return;
-      }
+    void GatedDeltaNet::validate_input(const StorageView& input, const StorageView& state,
+                                       const StorageView& history,
+                                       const StorageView& output) const {
       for (const auto* tensor :
            {&input, static_cast<const StorageView*>(&state),
             static_cast<const StorageView*>(&history), static_cast<const StorageView*>(&output)})
@@ -237,27 +234,12 @@ namespace ctranslate2 {
       require_finite(input);
       require_finite(state);
       require_finite(history);
-      const auto steps = input.dim(0);
-      if (!steps) {
-        output.resize({0, _hidden});
-        return;
-      }
-      // Commit caller caches only after all projections and numerical checks
-      // succeed. These small cache copies also preserve external-view storage.
-      StorageView next_state(state), next_history(history);
-      StorageView projected, mixed, z, a, beta;
-      _qkv(input, projected);
-      projected.reshape({1, steps, _conv_channels});
-      ops::CausalDepthwiseConv1D()(projected, _conv_weight, _conv_bias, next_history, mixed);
-      _z(input, z);
-      _a(input, a);
-      _b(input, beta);
-      require_finite(z);
-      require_finite(a);
-      require_finite(beta);
-      StorageView query({1, steps, _key_heads, _key_dim});
-      StorageView key(query.shape());
-      StorageView value({1, steps, _value_heads, _value_dim});
+    }
+
+    void GatedDeltaNet::prepare_recurrent_inputs(const StorageView& mixed, StorageView& query,
+                                                 StorageView& key, StorageView& value,
+                                                 StorageView& a, StorageView& beta) const {
+      const auto steps = mixed.dim(1);
       for (dim_t t = 0; t < steps; ++t) {
         const auto* row = mixed.data<float>() + t * _conv_channels;
         std::copy(row, row + _key_width, query.data<float>() + t * _key_width);
@@ -288,6 +270,37 @@ namespace ctranslate2 {
       require_finite(key);
       require_finite(value);
       require_finite(a);
+    }
+
+    void GatedDeltaNet::operator()(const StorageView& input, StorageView& state,
+                                   StorageView& history, StorageView& output) const {
+      if (_resident_gpu && input.device() == Device::CUDA) {
+        forward_gpu(input, state, history, output);
+        return;
+      }
+      validate_input(input, state, history, output);
+      const auto steps = input.dim(0);
+      if (!steps) {
+        output.resize({0, _hidden});
+        return;
+      }
+      // Commit caller caches only after all projections and numerical checks
+      // succeed. These small cache copies also preserve external-view storage.
+      StorageView next_state(state), next_history(history);
+      StorageView projected, mixed, z, a, beta;
+      _qkv(input, projected);
+      projected.reshape({1, steps, _conv_channels});
+      ops::CausalDepthwiseConv1D()(projected, _conv_weight, _conv_bias, next_history, mixed);
+      _z(input, z);
+      _a(input, a);
+      _b(input, beta);
+      require_finite(z);
+      require_finite(a);
+      require_finite(beta);
+      StorageView query({1, steps, _key_heads, _key_dim});
+      StorageView key(query.shape());
+      StorageView value({1, steps, _value_heads, _value_dim});
+      prepare_recurrent_inputs(mixed, query, key, value, a, beta);
       StorageView core;
       ops::GatedDeltaNet()(query, key, value, a, beta, next_state, core);
       ops::RMSNorm{_rms_epsilon}(_norm_weight, core, core);

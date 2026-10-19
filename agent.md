@@ -15,9 +15,9 @@ consumer projects; it calls `build_amd.sh` for the native build.
 
 # Code changes
 
-Always use as little code as possible to solve the task correctly. Prefer
-simple changes and reuse existing code; avoid unnecessary abstractions,
-dependencies, and unrelated changes.
+Prefer small, succinct code that is direct and easy to understand. Use as little
+code as needed to solve the task correctly. Prefer simple changes and reuse
+existing code; avoid unnecessary abstractions, dependencies, and unrelated changes.
 
 # Code style
 
@@ -54,3 +54,7 @@ references. Apply the same conventions to C++, CUDA, headers, bindings, and test
   output against existing code.
 - Keep formatting edits within the task's scope. When changing existing files,
   avoid reformatting unrelated code. Formatting-only edits must preserve behavior.
+- Keep public methods focused on coordinating the main steps. Extract validation
+  and distinct processing stages into small, clearly named private methods when
+  this improves readability. Keep per-call state local, preserve behavior, and
+  avoid helpers that merely wrap a single obvious operation.

@@ -20,6 +20,10 @@ namespace ctranslate2 {
                       StorageView& history, StorageView& output) const;
 
     private:
+      void validate_input(const StorageView& input, const StorageView& weight,
+                          const StorageView* bias, const StorageView& history,
+                          const StorageView& output) const;
+
       bool _apply_silu;
     };
 

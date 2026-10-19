@@ -40,6 +40,11 @@ namespace ctranslate2 {
       void operator()(const StorageView& input, DramaBlockState& state, StorageView& output) const;
 
     private:
+      void validate_input(const StorageView& input, const DramaBlockState& state,
+                          const StorageView& output) const;
+
+      void forward_gpu(const StorageView& input, DramaBlockState& state, StorageView& output) const;
+
       bool _resident_gpu = false;
       int _gpu_device_index = 0;
       StorageView _gpu_input_norm, _gpu_post_norm;

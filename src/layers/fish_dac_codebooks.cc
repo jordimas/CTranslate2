@@ -38,7 +38,8 @@ namespace ctranslate2 {
       }
     }
 
-    void FishDACCodebooks::operator()(const StorageView& codes, StorageView& output) const {
+    void FishDACCodebooks::validate_codes(const StorageView& codes,
+                                          const StorageView& output) const {
       if (codes.device() != Device::CPU || codes.dtype() != DataType::INT32
           || output.device() != Device::CPU || output.dtype() != DataType::FLOAT32
           || codes.rank() != 3 || codes.dim(0) != 1
@@ -68,6 +69,11 @@ namespace ctranslate2 {
             throw std::invalid_argument("FishDAC code outside codebook vocabulary");
         }
       }
+    }
+
+    void FishDACCodebooks::operator()(const StorageView& codes, StorageView& output) const {
+      validate_codes(codes, output);
+      const dim_t frames = codes.dim(2);
       StorageView result({1, _channels, frames}, 0.f);
       for (size_t b = 0; b < _books.size(); ++b) {
         const auto& book = _books[b];

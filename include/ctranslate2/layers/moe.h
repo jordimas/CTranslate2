@@ -27,6 +27,10 @@ namespace ctranslate2 {
       }
 
     private:
+      void forward_individual_gpu(const StorageView& input, StorageView& output) const;
+
+      void validate_input(const StorageView& input, const StorageView& output) const;
+
       // Applies a gated feed-forward network for one routed or shared expert.
       struct Expert {
         Expert(const models::Model& model, const std::string& scope);

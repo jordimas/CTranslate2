@@ -96,6 +96,36 @@ namespace ctranslate2 {
       }
     }
 
+    void FishDACLatentUpsampler::forward_block(const Block& block, const StorageView& input,
+                                               StorageView& output) const {
+      StorageView upsampled;
+      ops::ConvTranspose1D(2)(input, *block.transpose_weight, *block.transpose_bias, upsampled);
+      const auto time = upsampled.dim(2);
+      const auto channels = block.channels;
+      StorageView padded({1, channels, time + 6}, 0.f);
+      for (dim_t c = 0; c < channels; ++c)
+        std::copy(upsampled.data<float>() + c * time, upsampled.data<float>() + (c + 1) * time,
+                  padded.data<float>() + c * (time + 6) + 6);
+      StorageView depthwise;
+      ops::Conv1D(1, 0, 1, channels)(padded, *block.depthwise_weight, *block.depthwise_bias,
+                                     depthwise);
+      StorageView rows({time, channels});
+      for (dim_t t = 0; t < time; ++t)
+        for (dim_t c = 0; c < channels; ++c)
+          rows.data<float>()[t * channels + c] = depthwise.data<float>()[c * time + t];
+      StorageView normalized, wide, activated, projected;
+      ops::LayerNorm(-1, 1e-6f)(*block.norm_bias, *block.norm_weight, rows, normalized);
+      block.pw1(normalized, wide);
+      ops::get_activation_op(ops::ActivationType::GELU)(wide, activated);
+      block.pw2(activated, projected);
+      for (dim_t c = 0; c < channels; ++c)
+        for (dim_t t = 0; t < time; ++t)
+          upsampled.data<float>()[c * time + t] +=
+              block.gamma->data<float>()[c] * projected.data<float>()[t * channels + c];
+      require_finite(upsampled);
+      output = std::move(upsampled);
+    }
+
     void FishDACLatentUpsampler::operator()(const StorageView& input, StorageView& output) const {
       if (input.device() != Device::CPU || output.device() != Device::CPU
           || input.dtype() != DataType::FLOAT32 || output.dtype() != DataType::FLOAT32
@@ -120,35 +150,8 @@ namespace ctranslate2 {
         return;
       }
       StorageView current(input);
-      for (const auto& block : _blocks) {
-        StorageView upsampled;
-        ops::ConvTranspose1D(2)(current, *block->transpose_weight, *block->transpose_bias,
-                                upsampled);
-        const auto time = upsampled.dim(2);
-        const auto channels = block->channels;
-        StorageView padded({1, channels, time + 6}, 0.f);
-        for (dim_t c = 0; c < channels; ++c)
-          std::copy(upsampled.data<float>() + c * time, upsampled.data<float>() + (c + 1) * time,
-                    padded.data<float>() + c * (time + 6) + 6);
-        StorageView depthwise;
-        ops::Conv1D(1, 0, 1, channels)(padded, *block->depthwise_weight, *block->depthwise_bias,
-                                       depthwise);
-        StorageView rows({time, channels});
-        for (dim_t t = 0; t < time; ++t)
-          for (dim_t c = 0; c < channels; ++c)
-            rows.data<float>()[t * channels + c] = depthwise.data<float>()[c * time + t];
-        StorageView normalized, wide, activated, projected;
-        ops::LayerNorm(-1, 1e-6f)(*block->norm_bias, *block->norm_weight, rows, normalized);
-        block->pw1(normalized, wide);
-        ops::get_activation_op(ops::ActivationType::GELU)(wide, activated);
-        block->pw2(activated, projected);
-        for (dim_t c = 0; c < channels; ++c)
-          for (dim_t t = 0; t < time; ++t)
-            upsampled.data<float>()[c * time + t] +=
-                block->gamma->data<float>()[c] * projected.data<float>()[t * channels + c];
-        require_finite(upsampled);
-        current = std::move(upsampled);
-      }
+      for (const auto& block : _blocks)
+        forward_block(*block, current, current);
       output.copy_from(current);
     }
 

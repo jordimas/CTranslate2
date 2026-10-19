@@ -37,6 +37,14 @@ namespace ctranslate2 {
         std::unique_ptr<Dense> qkv, out, gate, down, up;
       };
 
+      void apply_rotary(StorageView& qkv) const;
+
+      void apply_feed_forward(const Block& block, StorageView& hidden) const;
+
+      void apply_attention(const Block& block, StorageView& hidden) const;
+
+      void validate_input(const StorageView& input, const StorageView& output) const;
+
       FishDACTransformerConfig _config;
       dim_t _channels;
       const StorageView* _norm;

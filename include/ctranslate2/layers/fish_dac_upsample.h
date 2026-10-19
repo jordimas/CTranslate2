@@ -30,6 +30,8 @@ namespace ctranslate2 {
         dim_t channels;
       };
 
+      void forward_block(const Block& block, const StorageView& input, StorageView& output) const;
+
       dim_t _input_channels = 0;
       std::vector<std::unique_ptr<Block>> _blocks;
       std::vector<const StorageView*> _parameters;

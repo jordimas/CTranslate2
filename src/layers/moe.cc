@@ -280,6 +280,37 @@ namespace ctranslate2 {
 #endif
     }
 
+    void SparseMoE::forward_individual_gpu(const StorageView& input, StorageView& output) const {
+#ifdef CT2_WITH_CUDA
+      // Keep expert activations and reduction on-device for every compute type.
+      // Routing stays on the existing CPU top-k path. Shared gating and
+      // weighted accumulation stay on-device without a per-row host wait.
+      StorageView logits, indices(DataType::INT32), probabilities;
+      _router(input, logits);
+      _topk(logits, indices, probabilities);
+      primitives<Device::CUDA>::fill(output.data<float>(), 0.f, output.size());
+      StorageView expert_output(DataType::FLOAT32, Device::CUDA);
+      StorageView shared_gate(DataType::FLOAT32, Device::CUDA);
+      _shared_gate(input, shared_gate);
+      for (dim_t r = 0; r < input.dim(0); ++r) {
+        if (_cache_capacity)
+          cache_experts(indices.data<int32_t>() + r * _k);
+        StorageView row({1, _input_size}, const_cast<float*>(input.data<float>()) + r * _input_size,
+                        Device::CUDA);
+        StorageView result({1, _input_size}, output.data<float>() + r * _input_size, Device::CUDA);
+        for (dim_t i = 0; i < _k; ++i) {
+          (*_experts[indices.data<int32_t>()[r * _k + i]])(row, expert_output);
+          ops::moe_accumulate_gpu(expert_output, probabilities.data<float>()[r * _k + i], nullptr,
+                                  result);
+        }
+        _shared(row, expert_output);
+        ops::moe_accumulate_gpu(expert_output, 1.f, shared_gate.data<float>() + r, result);
+      }
+#else
+      throw std::runtime_error("Resident MoE requires GPU support");
+#endif
+    }
+
     void SparseMoE::forward_resident_gpu(const StorageView& input, StorageView& output) const {
 #ifdef CT2_WITH_CUDA
       if (input.dtype() != DataType::FLOAT32 || input.rank() != 2 || input.dim(1) != _input_size
@@ -298,31 +329,7 @@ namespace ctranslate2 {
         return;
       }
       if (!_grouped_gpu) {
-        // Keep expert activations and reduction on-device for every compute type.
-        // Routing stays on the existing CPU top-k path. Shared gating and
-        // weighted accumulation stay on-device without a per-row host wait.
-        StorageView logits, indices(DataType::INT32), probabilities;
-        _router(input, logits);
-        _topk(logits, indices, probabilities);
-        primitives<Device::CUDA>::fill(output.data<float>(), 0.f, output.size());
-        StorageView expert_output(DataType::FLOAT32, Device::CUDA);
-        StorageView shared_gate(DataType::FLOAT32, Device::CUDA);
-        _shared_gate(input, shared_gate);
-        for (dim_t r = 0; r < input.dim(0); ++r) {
-          if (_cache_capacity)
-            cache_experts(indices.data<int32_t>() + r * _k);
-          StorageView row({1, _input_size},
-                          const_cast<float*>(input.data<float>()) + r * _input_size, Device::CUDA);
-          StorageView result({1, _input_size}, output.data<float>() + r * _input_size,
-                             Device::CUDA);
-          for (dim_t i = 0; i < _k; ++i) {
-            (*_experts[indices.data<int32_t>()[r * _k + i]])(row, expert_output);
-            ops::moe_accumulate_gpu(expert_output, probabilities.data<float>()[r * _k + i], nullptr,
-                                    result);
-          }
-          _shared(row, expert_output);
-          ops::moe_accumulate_gpu(expert_output, 1.f, shared_gate.data<float>() + r, result);
-        }
+        forward_individual_gpu(input, output);
         return;
       }
       if (_gpu_experts.empty()) {
@@ -376,11 +383,7 @@ namespace ctranslate2 {
       return _input_size;
     }
 
-    void SparseMoE::operator()(const StorageView& input, StorageView& output) const {
-      if (_resident_gpu && input.device() == Device::CUDA) {
-        forward_resident_gpu(input, output);
-        return;
-      }
+    void SparseMoE::validate_input(const StorageView& input, const StorageView& output) const {
       if (input.device() != Device::CPU || output.device() != Device::CPU
           || input.dtype() != DataType::FLOAT32 || output.dtype() != DataType::FLOAT32
           || input.rank() != 2 || input.dim(1) != _input_size)
@@ -395,6 +398,14 @@ namespace ctranslate2 {
         if (!std::isfinite(input.data<float>()[i]))
           throw std::invalid_argument("SparseMoE input must be finite");
       }
+    }
+
+    void SparseMoE::operator()(const StorageView& input, StorageView& output) const {
+      if (_resident_gpu && input.device() == Device::CUDA) {
+        forward_resident_gpu(input, output);
+        return;
+      }
+      validate_input(input, output);
       const dim_t rows = input.dim(0);
       if (rows == 0) {
         output.resize_as(input);

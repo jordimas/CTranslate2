@@ -169,6 +169,31 @@ namespace ctranslate2 {
         }
       }
 
+      void forward_gpu(const StorageView& joined, GatedSelfAttentionCache& cache,
+                       StorageView& output) const {
+        const ScopedDeviceSetter setter(Device::CUDA, gpu_device_index);
+        auto gpu_joined = joined.to(Device::CUDA);
+        StorageView gm(DataType::FLOAT32, Device::CUDA), gn(DataType::FLOAT32, Device::CUDA),
+            ga(DataType::FLOAT32, Device::CUDA);
+        eh_proj(gpu_joined, gm);
+        ops::RMSNorm(epsilon, true)(gpu_attention_norm, gm, gn);
+        attention(gn, cache, ga);
+        ops::Add()(gm, ga, gm);
+        ops::RMSNorm(epsilon, true)(gpu_ffn_norm, gm, gn);
+        StorageView gates(DataType::FLOAT32, Device::CUDA), ups(DataType::FLOAT32, Device::CUDA);
+        StorageView activated(DataType::FLOAT32, Device::CUDA),
+            projected(DataType::FLOAT32, Device::CUDA);
+        gate(gn, gates);
+        up(gn, ups);
+        ops::get_activation_op(ops::ActivationType::Swish)(gates, activated);
+        ops::Mul()(activated, ups, activated);
+        down(activated, projected);
+        ops::Add()(gm, projected, gm);
+        ops::RMSNorm(epsilon, true)(gpu_final_norm, gm, gn);
+        output.copy_from(gn);
+        synchronize_stream(Device::CUDA);
+      }
+
       void operator()(const StorageView& hidden, const StorageView& next_frames, dim_t code_column,
                       int32_t semantic_begin, int32_t semantic_end, const StorageView* shared_input,
                       GatedSelfAttentionCache& cache, StorageView& output) const {
@@ -198,27 +223,7 @@ namespace ctranslate2 {
           return;
         }
         if (resident_gpu) {
-          const ScopedDeviceSetter setter(Device::CUDA, gpu_device_index);
-          auto gpu_joined = joined.to(Device::CUDA);
-          StorageView gm(DataType::FLOAT32, Device::CUDA), gn(DataType::FLOAT32, Device::CUDA),
-              ga(DataType::FLOAT32, Device::CUDA);
-          eh_proj(gpu_joined, gm);
-          ops::RMSNorm(epsilon, true)(gpu_attention_norm, gm, gn);
-          attention(gn, cache, ga);
-          ops::Add()(gm, ga, gm);
-          ops::RMSNorm(epsilon, true)(gpu_ffn_norm, gm, gn);
-          StorageView gates(DataType::FLOAT32, Device::CUDA), ups(DataType::FLOAT32, Device::CUDA);
-          StorageView activated(DataType::FLOAT32, Device::CUDA),
-              projected(DataType::FLOAT32, Device::CUDA);
-          gate(gn, gates);
-          up(gn, ups);
-          ops::get_activation_op(ops::ActivationType::Swish)(gates, activated);
-          ops::Mul()(activated, ups, activated);
-          down(activated, projected);
-          ops::Add()(gm, projected, gm);
-          ops::RMSNorm(epsilon, true)(gpu_final_norm, gm, gn);
-          output.copy_from(gn);
-          synchronize_stream(Device::CUDA);
+          forward_gpu(joined, cache, output);
           return;
         }
         eh_proj(joined, mixed);
@@ -470,25 +475,10 @@ namespace ctranslate2 {
                   &rng);
     }
 
-    void DramaTower::decode_impl(const StorageView& logits, const StorageView& hidden,
-                                 const StorageView& previous_frame, DramaTowerState& state,
-                                 StorageView& next_frame,
-                                 const std::vector<int32_t>* history_main_tokens,
-                                 const DramaSamplingOptions* options, std::mt19937* rng) const {
-      validate_hidden(hidden);
-      validate_frames(previous_frame, 1);
-      validate_state(state, 1);
-      validate_state_aliases(state, {&logits, &hidden, &previous_frame, &next_frame, &_embeddings});
-      require_cpu_float(logits);
-      if (hidden.dim(0) != 1 || logits.rank() != 2 || logits.dim(0) != 1
-          || logits.dim(1) <= std::max(_config.semantic_end, _config.eos_id)
-          || next_frame.device() != Device::CPU || next_frame.dtype() != DataType::INT32)
-        throw std::invalid_argument(
-            "DramaTower greedy decode expects one hidden/logit row and int32 frame output");
-      for (const auto* input : {&logits, &hidden, &previous_frame, &_embeddings}) {
-        if (input == &next_frame || overlaps(*input, next_frame))
-          throw std::invalid_argument("DramaTower frame output must not alias inputs/weights");
-      }
+    int32_t DramaTower::select_main_token(const StorageView& logits,
+                                          const std::vector<int32_t>* history_main_tokens,
+                                          const DramaSamplingOptions* options,
+                                          std::mt19937* rng) const {
       int32_t main = _config.eos_id;
       float best = logits.data<float>()[main];
       for (int64_t candidate = _config.semantic_begin; candidate <= _config.semantic_end;
@@ -525,10 +515,14 @@ namespace ctranslate2 {
                    != history_main_tokens->end())
           main = replacement;
       }
-      StorageView frame({1, _config.num_codebooks + 1}, int32_t(0));
-      frame.data<int32_t>()[0] = main;
-      frame.data<int32_t>()[1] = static_cast<int32_t>(std::max<int64_t>(
-          0, std::min<int64_t>(_config.vocab_size - 1, int64_t(main) - _config.semantic_begin)));
+      return main;
+    }
+
+    void DramaTower::decode_residual_codes(const StorageView& hidden,
+                                           const StorageView& previous_frame, StorageView& frame,
+                                           DramaTowerState& state,
+                                           const DramaSamplingOptions* options,
+                                           std::mt19937* rng) const {
       StorageView current;
       run_shared(hidden, previous_frame, frame, state, current);
       for (size_t i = 0; i < _residual.size(); ++i) {
@@ -553,6 +547,33 @@ namespace ctranslate2 {
         frame.data<int32_t>()[i + 2] = chosen;
         current = std::move(next);
       }
+    }
+
+    void DramaTower::decode_impl(const StorageView& logits, const StorageView& hidden,
+                                 const StorageView& previous_frame, DramaTowerState& state,
+                                 StorageView& next_frame,
+                                 const std::vector<int32_t>* history_main_tokens,
+                                 const DramaSamplingOptions* options, std::mt19937* rng) const {
+      validate_hidden(hidden);
+      validate_frames(previous_frame, 1);
+      validate_state(state, 1);
+      validate_state_aliases(state, {&logits, &hidden, &previous_frame, &next_frame, &_embeddings});
+      require_cpu_float(logits);
+      if (hidden.dim(0) != 1 || logits.rank() != 2 || logits.dim(0) != 1
+          || logits.dim(1) <= std::max(_config.semantic_end, _config.eos_id)
+          || next_frame.device() != Device::CPU || next_frame.dtype() != DataType::INT32)
+        throw std::invalid_argument(
+            "DramaTower greedy decode expects one hidden/logit row and int32 frame output");
+      for (const auto* input : {&logits, &hidden, &previous_frame, &_embeddings}) {
+        if (input == &next_frame || overlaps(*input, next_frame))
+          throw std::invalid_argument("DramaTower frame output must not alias inputs/weights");
+      }
+      const auto main = select_main_token(logits, history_main_tokens, options, rng);
+      StorageView frame({1, _config.num_codebooks + 1}, int32_t(0));
+      frame.data<int32_t>()[0] = main;
+      frame.data<int32_t>()[1] = static_cast<int32_t>(std::max<int64_t>(
+          0, std::min<int64_t>(_config.vocab_size - 1, int64_t(main) - _config.semantic_begin)));
+      decode_residual_codes(hidden, previous_frame, frame, state, options, rng);
       ++state.length;
       next_frame = std::move(frame);
     }

@@ -279,7 +279,7 @@ TEST(SparseMoETest, ConstructorGuards) {
   EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 4)), std::invalid_argument);
   EXPECT_THROW((layers::SparseMoE(model, "moe", 2, 1)), std::invalid_argument);
   model.replace("moe/experts_0/up_proj/weight", StorageView({2, 1}, 1.f));
-  EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1, execution)), std::invalid_argument);
+  EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
 }
 
 TEST(SparseMoETest, InputAndAliasingGuards) {

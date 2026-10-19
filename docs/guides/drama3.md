@@ -16,10 +16,7 @@ prompt preparation; the waveform decoder cannot encode reference recordings.
 
 ## Model conversion
 
-Conversion requires `ctranslate2`, NumPy, PyTorch (to read the codec checkpoint),
-and the complete official checkpoint: indexed safetensors shards, `codec.pth`,
-configuration, tokenizer, template, and licensing files. Use a local checkpoint
-and a new output directory:
+Convert the official Drama 3 checkpoint with the Transformers converter:
 
 ```bash
 ct2-transformers-converter \

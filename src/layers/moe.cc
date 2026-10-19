@@ -4,7 +4,6 @@
 #include <cstring>
 
 #include "env.h"
-#include "drama_gpu.h"
 #include "ctranslate2/ops/grouped_moe.h"
 #include <cstdint>
 #include <stdexcept>
@@ -24,13 +23,12 @@ namespace ctranslate2 {
 
     }
 
-    SparseMoE::Expert::Expert(const models::Model& model, const std::string& scope)
-      : gate(model, scope + "/gate_proj")
-      , up(model, scope + "/up_proj")
-      , down(model, scope + "/down_proj")
-      , gpu_device_index(model.config.contains("drama3_gpu_compute_type")
-                             ? model.config.at("drama3_gpu_device_index").get<int>()
-                             : -1) {
+    SparseMoE::Expert::Expert(const models::Model& model, const std::string& scope,
+                              const DramaExecutionOptions& options)
+      : gate(model, scope + "/gate_proj", options)
+      , up(model, scope + "/up_proj", options)
+      , down(model, scope + "/down_proj", options)
+      , gpu_device_index(options.device == Device::CUDA ? options.device_index : -1) {
     }
 
     void SparseMoE::Expert::operator()(const StorageView& input, StorageView& output) const {
@@ -68,10 +66,10 @@ namespace ctranslate2 {
     }
 
     SparseMoE::SparseMoE(const models::Model& model, const std::string& scope, dim_t num_experts,
-                         dim_t k)
-      : _router(model, scope + "/router")
-      , _shared_gate(model, scope + "/shared_expert_gate")
-      , _shared(model, scope + "/shared_expert")
+                         dim_t k, const DramaExecutionOptions& options)
+      : _router(model, scope + "/router", options)
+      , _shared_gate(model, scope + "/shared_expert_gate", options)
+      , _shared(model, scope + "/shared_expert", options)
       , _topk(k)
       , _input_size(0)
       , _k(k) {
@@ -80,14 +78,11 @@ namespace ctranslate2 {
         throw std::invalid_argument(
             "SparseMoE requires CPU float32 activations and 0 < k <= num_experts");
 
-      const auto cache_bytes =
-          model.config.contains("drama3_gpu_expert_cache_bytes")
-              ? model.config.at("drama3_gpu_expert_cache_bytes").get<uint64_t>()
-              : 0;
-      _resident_gpu = drama_gpu_resident(model);
+      const auto cache_bytes = options.expert_cache_bytes;
+      _resident_gpu = options.resident_gpu();
       _grouped_gpu = _shared.gpu_device_index >= 0
-                     && _shared.gate._gpu_compute_type == ComputeType::INT8_FLOAT32
-                     && (read_bool_from_env("CT2_DRAMA_GPU_GROUPED_MOE", false) || _resident_gpu
+                     && options.compute_type == ComputeType::INT8_FLOAT32
+                     && (options.grouped_moe || _resident_gpu
                          || cache_bytes);
       // Requires unpacked /weight variables; the model must disable packing.
       // Dense still handles quantized matrices and their scale metadata.
@@ -139,7 +134,7 @@ namespace ctranslate2 {
         const auto name = scope + "/experts_" + std::to_string(e);
         validate_expert(name);
         supports_grouped(name);
-        _experts.emplace_back(std::make_unique<Expert>(model, name));
+        _experts.emplace_back(std::make_unique<Expert>(model, name, options));
       }
       if (cache_bytes) {
         if (_shared.gpu_device_index < 0)
@@ -149,13 +144,7 @@ namespace ctranslate2 {
           size_t bytes = 0;
           const auto& expert = cached_expert(id);
           for (const auto* dense : {&expert.gate, &expert.up, &expert.down}) {
-            const auto type = compute_type_to_data_type(dense->_gpu_compute_type).first;
-            if (type == DataType::INT8)
-              bytes += dense->_weight.size() + dense->_weight.dim(0) * sizeof(float);
-            else if (type == DataType::FLOAT32 && dense->_fp8_scale_inv)
-              bytes += dense->_weight.size() + dense->_fp8_scale_inv->size() * sizeof(float);
-            else
-              bytes += dense->_weight.size() * (type == DataType::FLOAT32 ? 4 : 2);
+            bytes += dense->estimated_device_weight_bytes();
           }
           _cache_expert_bytes = std::max(_cache_expert_bytes, bytes);
         }
@@ -176,8 +165,7 @@ namespace ctranslate2 {
       for (const auto id : _cache_lru) {
         const auto& expert = cached_expert(id);
         for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
-          bytes += dense->_gpu_weight.reserved_memory() + dense->_gpu_scale.reserved_memory()
-                   + dense->_gpu_scale_inv.reserved_memory();
+          bytes += dense->device_weight_bytes();
       }
       return bytes;
     }
@@ -205,22 +193,18 @@ namespace ctranslate2 {
             throw std::runtime_error("Drama3 expert cache has no evictable entry");
           const auto& expert = cached_expert(*victim);
           for (const auto* dense : {&expert.gate, &expert.up, &expert.down}) {
-            dense->_gpu_weight.release();
-            dense->_gpu_scale.release();
-            dense->_gpu_scale_inv.release();
+            dense->release_device_weights();
           }
           _cache_lru.erase(victim);
         }
         const auto& expert = cached_expert(id);
         try {
           for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
-            dense->prepare_gpu_weight(dense->_weight, dense->_qscale);
+            dense->device_weights();
         } catch (...) {
           synchronize_stream(Device::CUDA);
           for (const auto* dense : {&expert.gate, &expert.up, &expert.down}) {
-            dense->_gpu_weight.release();
-            dense->_gpu_scale.release();
-            dense->_gpu_scale_inv.release();
+            dense->release_device_weights();
           }
           throw;
         }
@@ -256,11 +240,11 @@ namespace ctranslate2 {
         for (dim_t e = 0; e <= _k; ++e) {
           const auto& expert = e == _k ? _shared : *_experts[indices.data<int32_t>()[r * _k + e]];
           for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
-            dense->prepare_gpu_weight(dense->_weight, dense->_qscale);
+            dense->device_weights();
           pointers.push_back(
-              {expert.gate._gpu_weight.data<int8_t>(), expert.up._gpu_weight.data<int8_t>(),
-               expert.down._gpu_weight.data<int8_t>(), expert.gate._gpu_scale.data<float>(),
-               expert.up._gpu_scale.data<float>(), expert.down._gpu_scale.data<float>()});
+              {expert.gate.device_weights().weight.data<int8_t>(), expert.up.device_weights().weight.data<int8_t>(),
+               expert.down.device_weights().weight.data<int8_t>(), expert.gate.device_weights().scale.data<float>(),
+               expert.up.device_weights().scale.data<float>(), expert.down.device_weights().scale.data<float>()});
         }
         StorageView host_descriptors({dim_t(pointers.size() * sizeof(ops::MoeExpertWeights))},
                                      DataType::INT8);
@@ -338,11 +322,11 @@ namespace ctranslate2 {
         for (size_t e = 0; e <= _experts.size(); ++e) {
           const auto& expert = e == _experts.size() ? _shared : *_experts[e];
           for (const auto* dense : {&expert.gate, &expert.up, &expert.down})
-            dense->prepare_gpu_weight(dense->_weight, dense->_qscale);
+            dense->device_weights();
           pointers.push_back(
-              {expert.gate._gpu_weight.data<int8_t>(), expert.up._gpu_weight.data<int8_t>(),
-               expert.down._gpu_weight.data<int8_t>(), expert.gate._gpu_scale.data<float>(),
-               expert.up._gpu_scale.data<float>(), expert.down._gpu_scale.data<float>()});
+              {expert.gate.device_weights().weight.data<int8_t>(), expert.up.device_weights().weight.data<int8_t>(),
+               expert.down.device_weights().weight.data<int8_t>(), expert.gate.device_weights().scale.data<float>(),
+               expert.up.device_weights().scale.data<float>(), expert.down.device_weights().scale.data<float>()});
         }
         StorageView host({dim_t(pointers.size() * sizeof(ops::MoeExpertWeights))}, DataType::INT8);
         std::memcpy(host.buffer(), pointers.data(), host.size());

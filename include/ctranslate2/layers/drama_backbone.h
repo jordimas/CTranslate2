@@ -31,7 +31,7 @@ namespace ctranslate2 {
     class DramaBackbone : public Layer {
     public:
       DramaBackbone(const models::Model& model, const std::string& scope,
-                    DramaBackboneConfig config);
+                    DramaBackboneConfig config, const DramaExecutionOptions& options = {});
       DataType output_type() const override;
       dim_t output_size() const override;
       dim_t vocabulary_size() const;
@@ -48,7 +48,7 @@ namespace ctranslate2 {
       StorageView _gpu_norm;
       DramaBackboneConfig _config;
       const StorageView& _norm;
-      Dense _lm_head;
+      DramaProjection _lm_head;
       dim_t _vocabulary_size;
       std::vector<std::unique_ptr<DramaBlock>> _layers;
       std::vector<const StorageView*> _head_parameters;

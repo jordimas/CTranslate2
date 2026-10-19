@@ -123,8 +123,7 @@ TEST(Drama3ModelTest, GpuExpertCacheValidatesBudgetAndDeviceBeforeLoading) {
   ScopedMemoryBudget cache("8", "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
   EXPECT_EQ(drama3_gpu_expert_cache_budget(), 8000000000ULL);
   auto reader = fixture();
-  EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::INT8),
-               std::invalid_argument);
+  EXPECT_NO_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32));
 }
 
 #if defined(__linux__)
@@ -184,7 +183,7 @@ namespace {
 TEST(Drama3ModelTest, GpuCachePreservesStandardInt8Storage) {
   MappedDramaFixture files;
   ScopedMemoryBudget cache("8", "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
-  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::DEFAULT);
+  auto model = models::Drama3Model::load_checkpoint(files.directory, ComputeType::DEFAULT, true);
   EXPECT_EQ(model->effective_compute_type(), ComputeType::INT8_FLOAT32);
   const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
   EXPECT_EQ(weight.dtype(), DataType::INT8);
@@ -204,7 +203,7 @@ TEST(Drama3ModelTest, GpuCacheLoadsFloatingPointCheckpointsWithoutQuantizing) {
       auto input = reader.get_required_file(filename, true);
       std::ofstream(files.directory + "/" + filename, std::ios::binary) << input->rdbuf();
     }
-    auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::DEFAULT);
+    auto model = models::Drama3Model::load_checkpoint(files.directory, ComputeType::DEFAULT, true);
     EXPECT_EQ(model->effective_compute_type(), ComputeType::FLOAT32);
     expect_storage_eq(model->get_variable("backbone/projection/weight"),
                       StorageView({2, 2}, std::vector<float>{1, -2, 3, -4}));
@@ -245,12 +244,12 @@ TEST(Drama3ModelTest, CpuExpertsUseAllocatedStorage) {
 TEST(Drama3ModelTest, MappedExpertsAllowRuntimeConversionAndRejectTruncatedPayloads) {
   ScopedMemoryBudget cache("8");
   MappedDramaFixture files;
-  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
+  auto model = models::Drama3Model::load_checkpoint(files.directory, ComputeType::FLOAT32, true);
   EXPECT_EQ(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").dtype(),
             DataType::FLOAT32);
   EXPECT_TRUE(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").owns_data());
   std::ofstream(files.directory + "/model.bin", std::ios::binary | std::ios::trunc) << "short";
-  EXPECT_THROW(models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8),
+  EXPECT_THROW(models::Drama3Model::load_checkpoint(files.directory, ComputeType::INT8, true),
                std::exception);
 }
 
@@ -272,7 +271,7 @@ TEST(Drama3ModelTest, SourceFp8CpuExpertsUseAllocatedStorage) {
 TEST(Drama3ModelTest, GpuCacheMapsSourceFp8Experts) {
   MappedDramaFixture files(true);
   ScopedMemoryBudget cache("8");
-  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
+  auto model = models::Drama3Model::load_checkpoint(files.directory, ComputeType::FLOAT32, true);
   const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
   EXPECT_FALSE(weight.owns_data());
   expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
@@ -281,8 +280,8 @@ TEST(Drama3ModelTest, GpuCacheMapsSourceFp8Experts) {
 TEST(Drama3ModelTest, RemovedProcessBudgetFailsExplicitly) {
   ScopedMemoryBudget budget("12", "CT2_DRAMA3_MAX_MEMORY_GB");
   auto reader = fixture();
-  EXPECT_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32),
-               std::invalid_argument);
+  EXPECT_THROW(models::Drama3("missing", 1, "float32"), std::invalid_argument);
+  EXPECT_NO_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32));
 }
 
 #endif

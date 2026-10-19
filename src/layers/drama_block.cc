@@ -1,6 +1,5 @@
 #include "ctranslate2/layers/drama_block.h"
 #include "ctranslate2/ops/rms_norm.h"
-#include "drama_gpu.h"
 
 #include <cmath>
 #include <cstdint>
@@ -22,11 +21,11 @@ namespace ctranslate2 {
     }
 
     DramaBlock::DramaBlock(const models::Model& model, const std::string& scope,
-                           DramaBlockConfig config)
+                           DramaBlockConfig config, const DramaExecutionOptions& options)
       : _config(config)
       , _input_norm(model.get_variable(scope + "/input_layernorm/weight"))
       , _post_norm(model.get_variable(scope + "/post_attention_layernorm/weight"))
-      , _moe(model, scope + "/mlp", config.num_experts, config.top_k) {
+      , _moe(model, scope + "/mlp", config.num_experts, config.top_k, options) {
       if (!std::isfinite(config.norm_epsilon) || config.norm_epsilon <= 0)
         throw std::invalid_argument("DramaBlock requires positive finite RMS epsilon");
       for (const auto* norm : {&_input_norm, &_post_norm}) {
@@ -41,18 +40,18 @@ namespace ctranslate2 {
       if (config.kind == DramaMixerKind::LinearAttention)
         _linear = std::make_unique<GatedDeltaNet>(model, scope + "/linear_attn", config.key_heads,
                                                   config.value_heads, config.key_dim,
-                                                  config.value_dim, config.norm_epsilon);
+                                                  config.value_dim, config.norm_epsilon, options);
       else if (config.kind == DramaMixerKind::FullAttention)
         _attention =
-            std::make_unique<GatedSelfAttention>(model, scope + "/self_attn", config.attention);
+            std::make_unique<GatedSelfAttention>(model, scope + "/self_attn", config.attention, options);
       else
         throw std::invalid_argument("DramaBlock mixer kind is invalid");
       if ((_linear && _linear->output_size() != output_size())
           || (_attention && _attention->output_size() != output_size()))
         throw std::invalid_argument("DramaBlock mixer and MoE hidden dimensions must match");
-      _resident_gpu = drama_gpu_resident(model);
+      _resident_gpu = options.resident_gpu();
       if (_resident_gpu) {
-        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+        _gpu_device_index = options.device_index;
         const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
         _gpu_input_norm = _input_norm.to(Device::CUDA);
         _gpu_post_norm = _post_norm.to(Device::CUDA);

@@ -33,7 +33,7 @@ namespace ctranslate2 {
     // mixer execution, discard/reset that state before retrying the sequence.
     class DramaBlock : public Layer {
     public:
-      DramaBlock(const models::Model& model, const std::string& scope, DramaBlockConfig config);
+      DramaBlock(const models::Model& model, const std::string& scope, DramaBlockConfig config, const DramaExecutionOptions& options = {});
       DataType output_type() const override;
       dim_t output_size() const override;
       void initialize_state(DramaBlockState& state, dim_t max_tokens = 0) const;

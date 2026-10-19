@@ -1,4 +1,3 @@
-#include "drama_gpu.h"
 #include "ctranslate2/layers/drama_tower.h"
 #include "ctranslate2/ops/rms_norm.h"
 
@@ -108,7 +107,7 @@ namespace ctranslate2 {
       const StorageView& attention_norm;
       const StorageView& ffn_norm;
       const StorageView& final_norm;
-      Dense eh_proj, gate, up, down;
+      DramaProjection eh_proj, gate, up, down;
       GatedSelfAttention attention;
       bool resident_gpu;
       int gpu_device_index;
@@ -117,7 +116,7 @@ namespace ctranslate2 {
       dim_t dim;
 
       TowerLayer(const models::Model& model, const std::string& scope, const DramaTowerConfig& cfg,
-                 bool shared)
+                 bool shared, const DramaExecutionOptions& options)
         : embedding(model.get_variable(
               scope + (shared ? "/semantic_embedding/weight" : "/codebook_embedding/weight")))
         , embedding_lookup(model, scope + (shared ? "/semantic_embedding" : "/codebook_embedding"))
@@ -126,13 +125,13 @@ namespace ctranslate2 {
         , attention_norm(model.get_variable(scope + "/transformer_layer/attention_norm/weight"))
         , ffn_norm(model.get_variable(scope + "/transformer_layer/ffn_norm/weight"))
         , final_norm(model.get_variable(scope + "/final_layernorm/weight"))
-        , eh_proj(model, scope + "/eh_proj")
-        , gate(model, scope + "/transformer_layer/feed_forward/gate_proj")
-        , up(model, scope + "/transformer_layer/feed_forward/up_proj")
-        , down(model, scope + "/transformer_layer/feed_forward/down_proj")
-        , attention(model, scope + "/transformer_layer/attention", cfg.attention)
-        , resident_gpu(drama_gpu_resident(model))
-        , gpu_device_index(resident_gpu ? model.config.at("drama3_gpu_device_index").get<int>() : 0)
+        , eh_proj(model, scope + "/eh_proj", options)
+        , gate(model, scope + "/transformer_layer/feed_forward/gate_proj", options)
+        , up(model, scope + "/transformer_layer/feed_forward/up_proj", options)
+        , down(model, scope + "/transformer_layer/feed_forward/down_proj", options)
+        , attention(model, scope + "/transformer_layer/attention", cfg.attention, options)
+        , resident_gpu(options.resident_gpu())
+        , gpu_device_index(resident_gpu ? options.device_index : 0)
         , epsilon(cfg.attention.norm_epsilon)
         , dim(attention.output_size()) {
         if (embedding.shape() != Shape{cfg.vocab_size, dim})
@@ -244,7 +243,7 @@ namespace ctranslate2 {
     };
 
     DramaTower::DramaTower(const models::Model& model, const std::string& scope,
-                           DramaTowerConfig config)
+                           DramaTowerConfig config, const DramaExecutionOptions& options)
       : _config(config)
       , _embeddings(model.get_variable(scope + "/codebook_embeddings/weight"))
       , _embedding_lookup(model, scope + "/codebook_embeddings") {
@@ -261,14 +260,14 @@ namespace ctranslate2 {
       validate_embedding(model, scope + "/codebook_embeddings", _embeddings);
       for (dim_t i = 0; i < cfg.shared_layers; ++i) {
         auto layer = std::make_unique<TowerLayer>(
-            model, scope + "/shared_layers_" + std::to_string(i), cfg, true);
+            model, scope + "/shared_layers_" + std::to_string(i), cfg, true, options);
         if (layer->dim != output_size())
           throw std::invalid_argument("DramaTower shared hidden dimension is incompatible");
         _shared.emplace_back(std::move(layer));
       }
       for (dim_t i = 0; i < cfg.num_codebooks - 1; ++i) {
         auto layer = std::make_unique<TowerLayer>(
-            model, scope + "/residual_layers_" + std::to_string(i), cfg, false);
+            model, scope + "/residual_layers_" + std::to_string(i), cfg, false, options);
         if (layer->dim != output_size())
           throw std::invalid_argument("DramaTower residual hidden dimension is incompatible");
         _residual.emplace_back(std::move(layer));
@@ -277,11 +276,11 @@ namespace ctranslate2 {
         if (weight.shape() != Shape{cfg.vocab_size, output_size()}
             || model.get_variable_if_exists(head_scope + "/weight_packed"))
           throw std::invalid_argument("DramaTower requires compatible unpacked head matrices");
-        _heads.emplace_back(std::make_unique<Dense>(model, head_scope));
+        _heads.emplace_back(std::make_unique<DramaProjection>(model, head_scope, options));
       }
-      _resident_gpu = drama_gpu_resident(model);
+      _resident_gpu = options.resident_gpu();
       if (_resident_gpu)
-        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+        _gpu_device_index = options.device_index;
     }
 
     DramaTower::~DramaTower() = default;

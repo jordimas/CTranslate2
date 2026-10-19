@@ -13,11 +13,12 @@ namespace ctranslate2 {
     // weights. Output CPU float32 [1,1,2048*T] at 44100 Hz; no delay trimming.
     class FishDACDecoder {
     public:
-      explicit FishDACDecoder(const models::Model& model, const std::string& scope = "codec")
+      explicit FishDACDecoder(const models::Model& model, const std::string& scope = "codec",
+                              const DramaExecutionOptions& options = {})
         : _books(model, scope + "/quantizer")
         , _transformer(model, scope + "/quantizer/post_module")
         , _upsample(model, scope + "/quantizer/upsample")
-        , _waveform(model, scope + "/decoder") {
+        , _waveform(model, scope + "/decoder", {8, 8, 4, 2}, options) {
       }
 
       void operator()(const StorageView& codes, StorageView& waveform) const {

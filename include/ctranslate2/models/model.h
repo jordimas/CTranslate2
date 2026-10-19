@@ -172,16 +172,19 @@ namespace ctranslate2 {
 
       virtual std::unique_ptr<Model> clone() const = 0;
 
-      virtual void set_compute_type(ComputeType type, Device device, int device_index,
-                                    bool update_weight = true);
+      // Customize checkpoint storage without changing the binary reader's validation.
+      virtual StorageView load_variable(ModelReader& reader, const std::string& name,
+                                        Shape shape, DataType dtype, dim_t num_bytes,
+                                        std::istream& stream);
 
+      // Normalize model-specific encodings before generic precision conversion.
+      virtual void prepare_weights(ComputeType& type, Device device, int device_index,
+                                   bool update_weight) {}
 
-      // Convert one variable and register its quantization scale, if needed.
-      void ensure_dtype(const std::string& name,
-                        StorageView& variable,
-                        const DataType target_dtype);
-
+      void set_compute_type(ComputeType type, Device device, int device_index,
+                            bool update_weight = true);
     private:
+      void ensure_dtype(const std::string& name, StorageView& variable, DataType target_dtype);
       void process_linear_weights();
       ComputeType infer_compute_type() const;
 
@@ -193,8 +196,6 @@ namespace ctranslate2 {
       ComputeType _requested_compute_type = ComputeType::DEFAULT;
       ComputeType _effective_compute_type = ComputeType::DEFAULT;
       dim_t _preferred_size_multiple = 1;
-      // Owns file-backed expert storage for the Drama3 GPU expert cache.
-      std::shared_ptr<void> _mapped_weight_file;
       std::unordered_map<std::string, std::shared_ptr<StorageView>> _variable_index;
       bool _use_flash_attention = false;
       bool _tensor_parallel = false;

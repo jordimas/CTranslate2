@@ -71,6 +71,8 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
 
   class GpuFixture : public models::Model {
   public:
+    layers::DramaExecutionOptions execution;
+
     GpuFixture(ComputeType type, int index) {
       auto add = [&](const std::string& scope) {
         StorageView weight({16, 16}, DataType::FLOAT32);
@@ -86,8 +88,9 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
           add(scope + projection);
       }
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
-      config["drama3_gpu_compute_type"] = compute_type_to_str(type);
-      config["drama3_gpu_device_index"] = index;
+      execution.device = Device::CUDA;
+      execution.compute_type = type;
+      execution.device_index = index;
     }
 
     std::unique_ptr<models::Model> clone() const override {
@@ -107,18 +110,20 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
       }
       SCOPED_TRACE(compute_type_to_str(type));
       GpuFixture model(type, index);
-      layers::SparseMoE layer(model, "moe", 16, 2);
+      layers::SparseMoE layer(model, "moe", 16, 2, model.execution);
       std::unique_ptr<layers::SparseMoE> cached;
       const auto weight_type = compute_type_to_data_type(type).first;
       const size_t cache_bytes = weight_type == DataType::INT8
                                      ? 2880
                                      : 3 * 3 * 256 * (weight_type == DataType::FLOAT32 ? 4 : 2);
-      model.config["drama3_gpu_expert_cache_bytes"] = cache_bytes;
-      cached = std::make_unique<layers::SparseMoE>(model, "moe", 16, 2);
-      layers::Dense router(model, "moe/router"), shared_gate(model, "moe/shared_expert_gate");
+      model.execution.expert_cache_bytes = cache_bytes;
+      cached = std::make_unique<layers::SparseMoE>(model, "moe", 16, 2, model.execution);
+      layers::DramaProjection router(model, "moe/router", model.execution),
+          shared_gate(model, "moe/shared_expert_gate", model.execution);
       auto expert_reference = [&](const std::string& scope, const StorageView& row) {
-        layers::Dense gate(model, scope + "/gate_proj"), up(model, scope + "/up_proj"),
-            down(model, scope + "/down_proj");
+        layers::DramaProjection gate(model, scope + "/gate_proj", model.execution),
+            up(model, scope + "/up_proj", model.execution),
+            down(model, scope + "/down_proj", model.execution);
         StorageView gated, values, activated, output;
         gate(row, gated);
         up(row, values);
@@ -177,13 +182,15 @@ TEST(SparseMoETest, BoundedGpuCacheEvictsAndReloadsWithoutChangingResults) {
     const ScopedDeviceSetter setter(Device::CUDA, device);
     TinyMoEModel model;
     model.install_explicit_int8_weights();
-    model.config["drama3_gpu_compute_type"] = "int8_float32";
-    model.config["drama3_gpu_device_index"] = device;
-    layers::SparseMoE baseline(model, "moe", 3, 1);
+    layers::DramaExecutionOptions execution;
+    execution.device = Device::CUDA;
+    execution.compute_type = ComputeType::INT8_FLOAT32;
+    execution.device_index = device;
+    layers::SparseMoE baseline(model, "moe", 3, 1, execution);
     // One 1x1 INT8 matrix and one float scale per projection. Two slots
     // fit the shared expert and exactly one routed expert, forcing eviction.
-    model.config["drama3_gpu_expert_cache_bytes"] = 30;
-    layers::SparseMoE cached(model, "moe", 3, 1);
+    execution.expert_cache_bytes = 30;
+    layers::SparseMoE cached(model, "moe", 3, 1, execution);
     size_t expected_misses = 0;
     for (float value : {1.f, 1.f, -1.f, -1.f, 2.f}) {
       SCOPED_TRACE(value);
@@ -212,12 +219,12 @@ TEST(SparseMoETest, BoundedGpuCacheEvictsAndReloadsWithoutChangingResults) {
     EXPECT_LE(cached.gpu_expert_cache_bytes(), 30);
     EXPECT_EQ(baseline.gpu_expert_cache_bytes(), 0);
     EXPECT_EQ(baseline.gpu_expert_cache_misses(), 0);
-    model.config["drama3_gpu_expert_cache_bytes"] = 29;
-    EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
-    model.config["drama3_gpu_expert_cache_bytes"] = 30;
-    model.config["drama3_gpu_compute_type"] = "float32";
-    model.config["drama3_gpu_expert_cache_bytes"] = 23;
-    EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
+    execution.expert_cache_bytes = 29;
+    EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1, execution)), std::invalid_argument);
+    execution.expert_cache_bytes = 30;
+    execution.compute_type = ComputeType::FLOAT32;
+    execution.expert_cache_bytes = 23;
+    EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1, execution)), std::invalid_argument);
   }
 }
 
@@ -272,7 +279,7 @@ TEST(SparseMoETest, ConstructorGuards) {
   EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 4)), std::invalid_argument);
   EXPECT_THROW((layers::SparseMoE(model, "moe", 2, 1)), std::invalid_argument);
   model.replace("moe/experts_0/up_proj/weight", StorageView({2, 1}, 1.f));
-  EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1)), std::invalid_argument);
+  EXPECT_THROW((layers::SparseMoE(model, "moe", 3, 1, execution)), std::invalid_argument);
 }
 
 TEST(SparseMoETest, InputAndAliasingGuards) {

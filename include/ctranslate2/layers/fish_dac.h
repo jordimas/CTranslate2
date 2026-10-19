@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "drama_projection.h"
 #include <unordered_map>
 
 namespace ctranslate2 {
@@ -13,7 +13,8 @@ namespace ctranslate2 {
     class FishDACWaveformDecoder {
     public:
       FishDACWaveformDecoder(const models::Model& model, const std::string& scope,
-                             std::vector<dim_t> strides = {8, 8, 4, 2});
+                             std::vector<dim_t> strides = {8, 8, 4, 2},
+                             const DramaExecutionOptions& options = {});
       void operator()(const StorageView& input, StorageView& output) const;
 
     private:

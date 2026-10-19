@@ -218,6 +218,8 @@ TEST(DramaBackboneTest, ResidentGpuMatchesHybridProjectionReference) {
 
   class Fixture : public models::Model {
   public:
+    layers::DramaExecutionOptions execution;
+
     Fixture(bool resident, int device_index, dim_t key_dim, ComputeType type) {
       auto matrix = [&](const std::string& name, dim_t rows, dim_t cols) {
         StorageView weight({rows, cols});
@@ -264,9 +266,10 @@ TEST(DramaBackboneTest, ResidentGpuMatchesHybridProjectionReference) {
       register_variable("backbone/norm/weight", StorageView({32}, .1f));
       matrix("backbone/lm_head", 32, 32);
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
-      config["drama3_gpu_compute_type"] = compute_type_to_str(type);
-      config["drama3_gpu_device_index"] = device_index;
-      config["drama3_gpu_resident_backbone"] = resident;
+      execution.device = Device::CUDA;
+      execution.compute_type = type;
+      execution.device_index = device_index;
+      execution.resident_backbone = resident;
     }
 
     std::unique_ptr<models::Model> clone() const override {
@@ -300,8 +303,8 @@ TEST(DramaBackboneTest, ResidentGpuMatchesHybridProjectionReference) {
           attention.kind = layers::DramaMixerKind::FullAttention;
           attention.attention = {2, 1, 16, 16, 10000.f, 1e-5f, interleaved, true};
           layers::DramaBackboneConfig cfg{{linear, attention}, 1e-5f, 64, {1, 3, 7, 15}};
-          layers::DramaBackbone reference(reference_model, "backbone", cfg),
-              resident(resident_model, "backbone", cfg);
+          layers::DramaBackbone reference(reference_model, "backbone", cfg, reference_model.execution),
+              resident(resident_model, "backbone", cfg, resident_model.execution);
           layers::DramaBackboneState rs, gs;
           reference.initialize_state(rs);
           resident.initialize_state(gs);

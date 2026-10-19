@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "drama_projection.h"
 #include "ctranslate2/ops/moe_topk.h"
 #include <list>
 
@@ -16,7 +16,7 @@ namespace ctranslate2 {
     // No residual connection or normalization is applied.
     class SparseMoE : public Layer {
     public:
-      SparseMoE(const models::Model& model, const std::string& scope, dim_t num_experts, dim_t k);
+      SparseMoE(const models::Model& model, const std::string& scope, dim_t num_experts, dim_t k, const DramaExecutionOptions& options = {});
       DataType output_type() const override;
       dim_t output_size() const override;
       void operator()(const StorageView& input, StorageView& output) const;
@@ -33,11 +33,12 @@ namespace ctranslate2 {
 
       // Applies a gated feed-forward network for one routed or shared expert.
       struct Expert {
-        Expert(const models::Model& model, const std::string& scope);
+        Expert(const models::Model& model, const std::string& scope,
+               const DramaExecutionOptions& options);
         void operator()(const StorageView& input, StorageView& output) const;
-        Dense gate;
-        Dense up;
-        Dense down;
+        DramaProjection gate;
+        DramaProjection up;
+        DramaProjection down;
         int gpu_device_index;
       };
 
@@ -52,8 +53,8 @@ namespace ctranslate2 {
       mutable StorageView _gpu_experts;
       bool _resident_gpu = false;
       bool _grouped_gpu = false;
-      Dense _router;
-      Dense _shared_gate;
+      DramaProjection _router;
+      DramaProjection _shared_gate;
       Expert _shared;
       std::vector<std::unique_ptr<Expert>> _experts;
       ops::MoeTopK _topk;

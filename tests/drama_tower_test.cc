@@ -397,6 +397,8 @@ TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
 
   class Fixture : public models::Model {
   public:
+    layers::DramaExecutionOptions execution;
+
     Fixture(bool resident, ComputeType type) {
       auto matrix = [&](const std::string& name, dim_t rows, dim_t cols) {
         StorageView w({rows, cols});
@@ -431,9 +433,10 @@ TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
           matrix("heads_" + std::to_string(layer), 16, 16);
       }
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
-      config["drama3_gpu_compute_type"] = compute_type_to_str(type);
-      config["drama3_gpu_device_index"] = 0;
-      config["drama3_gpu_resident_backbone"] = resident;
+      execution.device = Device::CUDA;
+      execution.compute_type = type;
+      execution.device_index = 0;
+      execution.resident_backbone = resident;
     }
 
     std::unique_ptr<models::Model> clone() const override {
@@ -455,7 +458,8 @@ TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
     auto cfg = config();
     cfg.vocab_size = 16;
     cfg.attention = {1, 1, 16, 16, 100.f, 1e-5f, true, true};
-    layers::DramaTower reference(rm, "tower", cfg), resident(gm, "tower", cfg);
+    layers::DramaTower reference(rm, "tower", cfg, rm.execution),
+        resident(gm, "tower", cfg, gm.execution);
     layers::DramaTowerState rs, gs;
     reference.initialize_state(rs, 8);
     resident.initialize_state(gs, 8);

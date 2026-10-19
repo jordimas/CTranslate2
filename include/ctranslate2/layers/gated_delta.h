@@ -1,18 +1,18 @@
 #pragma once
 
-#include "common.h"
+#include "drama_projection.h"
 
 namespace ctranslate2 {
   namespace layers {
 
     // Mixes token information through recurrent linear attention and output gating.
-    // Batch-one CPU float32 GatedDeltaNet. Dense handles supported quantized
+    // Batch-one CPU float32 GatedDeltaNet. DramaProjection handles supported quantized
     // projection weights; raw /weight variables and model lifetime are required.
     // State/history belong to the caller; no layer-internal sequence cache.
     class GatedDeltaNet : public Layer {
     public:
       GatedDeltaNet(const models::Model& model, const std::string& scope, dim_t key_heads,
-                    dim_t value_heads, dim_t key_dim, dim_t value_dim, float rms_epsilon);
+                    dim_t value_heads, dim_t key_dim, dim_t value_dim, float rms_epsilon, const DramaExecutionOptions& options = {});
       DataType output_type() const override;
       dim_t output_size() const override;
 
@@ -33,7 +33,7 @@ namespace ctranslate2 {
       void forward_gpu(const StorageView&, StorageView&, StorageView&, StorageView&) const;
       bool _resident_gpu = false;
       StorageView _gpu_conv, _gpu_conv_bias, _gpu_a_log, _gpu_dt_bias, _gpu_norm;
-      Dense _qkv, _z, _a, _b, _out;
+      DramaProjection _qkv, _z, _a, _b, _out;
       const StorageView& _a_log;
       const StorageView& _dt_bias;
       const StorageView& _norm_weight;

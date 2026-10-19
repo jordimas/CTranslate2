@@ -135,6 +135,7 @@ set(SOURCES
   src/layers/attention.cc
   src/layers/flash_attention.cc
   src/layers/common.cc
+  src/layers/drama_projection.cc
   src/layers/moe.cc
   src/layers/gated_delta.cc
   src/layers/drama_block.cc
@@ -152,6 +153,7 @@ set(SOURCES
   src/logging.cc
   src/models/language_model.cc
   src/models/model.cc
+  src/models/drama3_checkpoint.cc
   src/models/drama3.cc
   src/models/drama3_memory.cc
   src/models/model_factory.cc

@@ -1,7 +1,6 @@
 #include "ctranslate2/layers/gated_delta.h"
 #include "ctranslate2/ops/rms_norm.h"
 #include "ctranslate2/ops/drama_gpu.h"
-#include "drama_gpu.h"
 
 #include <algorithm>
 #include <cmath>
@@ -60,12 +59,12 @@ namespace ctranslate2 {
 
     GatedDeltaNet::GatedDeltaNet(const models::Model& model, const std::string& scope,
                                  dim_t key_heads, dim_t value_heads, dim_t key_dim, dim_t value_dim,
-                                 float rms_epsilon)
-      : _qkv(model, scope + "/in_proj_qkv")
-      , _z(model, scope + "/in_proj_z")
-      , _a(model, scope + "/in_proj_a")
-      , _b(model, scope + "/in_proj_b")
-      , _out(model, scope + "/out_proj")
+                                 float rms_epsilon, const DramaExecutionOptions& options)
+      : _qkv(model, scope + "/in_proj_qkv", options)
+      , _z(model, scope + "/in_proj_z", options)
+      , _a(model, scope + "/in_proj_a", options)
+      , _b(model, scope + "/in_proj_b", options)
+      , _out(model, scope + "/out_proj", options)
       , _a_log(model.get_variable(scope + "/A_log"))
       , _dt_bias(model.get_variable(scope + "/dt_bias"))
       , _norm_weight(model.get_variable(scope + "/norm/weight"))
@@ -129,10 +128,10 @@ namespace ctranslate2 {
           || (_conv_bias && _conv_bias->shape() != Shape{_conv_channels}))
         throw std::invalid_argument(
             "GatedDeltaNet gate/norm/conv bias dimensions are incompatible");
-      _resident_gpu = drama_gpu_resident(model);
+      _resident_gpu = options.resident_gpu();
       if (_resident_gpu) {
         const ScopedDeviceSetter setter(Device::CUDA,
-                                        model.config.at("drama3_gpu_device_index").get<int>());
+                                        options.device_index);
         _gpu_conv = _conv_weight.to(Device::CUDA);
         if (_conv_bias)
           _gpu_conv_bias = _conv_bias->to(Device::CUDA);

@@ -15,14 +15,7 @@
 
 #include "cpu/backend.h"
 #include "env.h"
-#include "drama3_memory.h"
 
-#if defined(__linux__)
-#  include <fcntl.h>
-#  include <sys/mman.h>
-#  include <sys/stat.h>
-#  include <unistd.h>
-#endif
 
 namespace ctranslate2 {
   namespace models {
@@ -186,10 +179,18 @@ namespace ctranslate2 {
       _device_index = index;
     }
 
+    StorageView Model::load_variable(ModelReader&, const std::string&, Shape shape,
+                                     DataType dtype, dim_t num_bytes, std::istream& stream) {
+      StorageView variable(std::move(shape), dtype);
+      consume<char>(stream, num_bytes, static_cast<char*>(variable.buffer()));
+      return variable;
+    }
+
     void Model::set_compute_type(ComputeType type, Device device, int device_index, bool update_weight) {
       if (_device != Device::CPU)
         throw std::runtime_error("set_compute_type expects the variables to be on CPU");
 
+      prepare_weights(type, device, device_index, update_weight);
       _saved_compute_type = infer_compute_type();
       _requested_compute_type = type;
       _effective_compute_type = resolve_compute_type(_requested_compute_type,
@@ -425,19 +426,6 @@ namespace ctranslate2 {
           register_variable(name + "_compensation", std::move(compensation));
         }
 
-#if defined(__linux__)
-        if (_mapped_weight_file && !weight.owns_data()) {
-          // Initialization scans expert matrices for compensation. Release the
-          // clean mapped pages after each matrix instead of faulting in all
-          // experts at once. They will be paged back in when selected.
-          const size_t page = static_cast<size_t>(sysconf(_SC_PAGESIZE));
-          const auto address = reinterpret_cast<uintptr_t>(weight.buffer());
-          const auto start = address - address % page;
-          const size_t length = address - start + weight.size() * weight.item_size();
-          madvise(reinterpret_cast<void*>(start), length, MADV_DONTNEED);
-        }
-#endif
-
         // If requested, linear weights can be packed for the Gemm call.
         // Only 2D weights are supported; Conv weights are 3D and use a different code path.
         if (pack_weights && is_packable(name) && weight.rank() == 2) {
@@ -641,52 +629,6 @@ namespace ctranslate2 {
           model->config = nlohmann::json::parse(*config_file_ptr);
       }
 
-      size_t mapped_size = 0;
-      const bool drama3 =
-          model->config.is_object() && model->config.value("model_type", std::string()) == "drama3";
-      if (drama3) {
-        const auto legacy_budget = read_string_from_env("CT2_DRAMA3_MAX_MEMORY_GB");
-        if (!legacy_budget.empty() && legacy_budget != "0")
-          throw std::invalid_argument("CT2_DRAMA3_MAX_MEMORY_GB is no longer supported. "
-                                      "Drama3 uses allocation controls, "
-                                      "without a total RAM ceiling.");
-      }
-      const bool gpu_expert_cache = drama3 && drama3_gpu_expert_cache_budget();
-      if (gpu_expert_cache && device == Device::CPU && compute_type == ComputeType::DEFAULT)
-        compute_type = model->config.value("quantization_policy", std::string()) == "standard"
-                               && model->config.value("matrix_dtype", std::string()) == "int8"
-                           ? ComputeType::INT8_FLOAT32
-                           : ComputeType::FLOAT32;
-      const bool local_mapping = device == Device::CPU && !tensor_parallel
-                                 && dynamic_cast<ModelFileReader*>(&model_reader);
-      if (gpu_expert_cache) {
-        if (!local_mapping)
-          throw std::invalid_argument("Drama3 mapped weights require a local checkpoint, "
-                                      "CPU loading, and no tensor parallelism");
-#if defined(__linux__)
-        const std::string filename = model_reader.get_model_id() + "/" + binary_file;
-        const int fd = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
-        if (fd < 0)
-          throw std::runtime_error("Unable to open Drama3 mapped weights");
-        struct stat info;
-        if (fstat(fd, &info) != 0 || info.st_size <= 0) {
-          close(fd);
-          throw std::runtime_error("Unable to stat Drama3 mapped weights");
-        }
-        mapped_size = static_cast<size_t>(info.st_size);
-        void* mapping = mmap(nullptr, mapped_size, PROT_READ, MAP_PRIVATE, fd, 0);
-        close(fd);
-        if (mapping == MAP_FAILED)
-          throw std::runtime_error("Unable to map Drama3 weights");
-        model->_mapped_weight_file = std::shared_ptr<void>(mapping, [mapped_size](void* p) {
-          munmap(p, mapped_size);
-        });
-#else
-        throw std::invalid_argument(
-            "Drama3 GPU expert-cache mapping is currently supported on Linux only");
-#endif
-      }
-
       // Load the variables.
       const auto num_variables = consume<uint32_t>(model_file);
 
@@ -748,27 +690,8 @@ namespace ctranslate2 {
             || static_cast<size_t>(num_bytes) > static_cast<size_t>(model_end - payload_position))
           throw std::runtime_error("Variable '" + name + "' has an invalid payload size");
 
-        StorageView variable(dtype);
-        const bool map_expert = model->_mapped_weight_file && dtype == DataType::INT8 && rank == 2
-                                && starts_with(name, "backbone/layers_")
-                                && name.find("/mlp/experts_") != std::string::npos
-                                && name.size() >= 7
-                                && name.compare(name.size() - 7, 7, "/weight") == 0;
-        if (map_expert) {
-          const auto offset = static_cast<size_t>(static_cast<std::streamoff>(payload_position));
-          if (offset > mapped_size || static_cast<size_t>(num_bytes) > mapped_size - offset)
-            throw std::runtime_error("Variable '" + name + "' exceeds the mapped file");
-          // Only byte tensors are mapped: binary payloads are not necessarily
-          // aligned for float32 access. Scales and other weights stay aligned.
-          auto* data = static_cast<int8_t*>(model->_mapped_weight_file.get()) + offset;
-          variable = StorageView(std::move(shape), data, Device::CPU);
-          model_file.seekg(num_bytes, std::ios::cur);
-          if (!model_file)
-            throw std::runtime_error("Unable to seek past mapped Drama3 expert weights");
-        } else {
-          variable.resize(std::move(shape));
-          consume<char>(model_file, num_bytes, static_cast<char*>(variable.buffer()));
-        }
+        StorageView variable = model->load_variable(model_reader, name, std::move(shape),
+                                                     dtype, num_bytes, model_file);
         if (tensor_parallel) {
           int outer_dim = 0;
           int inner_dim = 1;

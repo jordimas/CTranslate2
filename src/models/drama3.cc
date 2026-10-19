@@ -7,6 +7,9 @@
 #include "ctranslate2/utils.h"
 #include "ctranslate2/ops/dequantize_fp8.h"
 #include "drama3_memory.h"
+#include "drama3_checkpoint.h"
+#include "env.h"
+#include "ctranslate2/ops/quantize.h"
 
 #include <algorithm>
 #include <chrono>
@@ -31,6 +34,28 @@ namespace ctranslate2 {
         return policy;
       }
 
+    }
+
+    std::shared_ptr<const Model> Drama3Model::load_checkpoint(const std::string& path,
+                                                             ComputeType compute_type,
+                                                             bool map_experts) {
+      if (!map_experts)
+        return Model::load(path, Device::CPU, 0, compute_type);
+      Drama3CheckpointReader reader(path);
+      return Model::load(reader, Device::CPU, 0, compute_type);
+    }
+
+    StorageView Drama3Model::load_variable(ModelReader& reader, const std::string& name,
+                                          Shape shape, DataType dtype, dim_t num_bytes,
+                                          std::istream& stream) {
+      if (const auto* checkpoint = dynamic_cast<const Drama3CheckpointReader*>(&reader))
+        _checkpoint_storage = checkpoint->storage;
+      if (_checkpoint_storage && dtype == DataType::INT8 && shape.size() == 2
+          && name.compare(0, 16, "backbone/layers_") == 0
+          && name.find("/mlp/experts_") != std::string::npos
+          && name.size() >= 7 && name.compare(name.size() - 7, 7, "/weight") == 0)
+        return _checkpoint_storage->view(std::move(shape), stream, num_bytes);
+      return Model::load_variable(reader, name, std::move(shape), dtype, num_bytes, stream);
     }
 
     bool Drama3Model::is_quantizable(const std::string& name) const {
@@ -74,11 +99,23 @@ namespace ctranslate2 {
       if (name.size() >= suffix.size()
           && name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0)
         _fp8_weights.push_back(name.substr(0, name.size() - 10));
+      if (_checkpoint_storage && name.size() > 13
+          && name.compare(name.size() - 13, 13, "_compensation") == 0) {
+        const auto* weight = get_variable_if_exists(name.substr(0, name.size() - 13));
+        if (weight)
+          _checkpoint_storage->release_pages(*weight);
+      }
       Model::register_variable(std::move(name), std::move(variable));
     }
 
-    void Drama3Model::set_compute_type(ComputeType type, Device device, int index,
+    void Drama3Model::prepare_weights(ComputeType& type, Device device, int index,
                                        bool update_weight) {
+      if (_checkpoint_storage && (device != Device::CPU || tensor_parallel()))
+        throw std::invalid_argument("Drama3 mapped weights require CPU loading without tensor parallelism");
+      if (_checkpoint_storage && type == ComputeType::DEFAULT)
+        type = config.value("quantization_policy", std::string()) == "standard"
+                       && config.value("matrix_dtype", std::string()) == "int8"
+                   ? ComputeType::INT8_FLOAT32 : ComputeType::FLOAT32;
       const auto policy = quantization_policy(config);
       if (device != Device::CPU)
         throw std::invalid_argument("Drama3Model requires CPU weight storage; use Drama3 with "
@@ -96,7 +133,15 @@ namespace ctranslate2 {
             // Finish converting this expert before decoding the next one. Keeping
             // all experts in FP32 until Model::set_compute_type runs can require
             // several times the checkpoint size in resident memory.
-            ensure_dtype(name, decoded, weight_dtype);
+            if (is_float_type(weight_dtype)) {
+              decoded = decoded.to(weight_dtype);
+            } else {
+              StorageView quantized(weight_dtype), scale;
+              ops::Quantize(ops::Quantize::ScaleType::PER_LAYER, false,
+                            round_before_cast_in_quantization())(decoded, quantized, scale);
+              register_variable(name + "_scale", std::move(scale));
+              decoded = std::move(quantized);
+            }
             remove_variable(name);
             Model::register_variable(name, std::move(decoded));
             remove_variable(name + "_scale_inv");
@@ -109,7 +154,6 @@ namespace ctranslate2 {
         throw std::invalid_argument(
             "Drama3 standard quantization cannot contain FP8 inverse scales");
       }
-      Model::set_compute_type(type, device, index, update_weight);
     }
 
     void Drama3Model::initialize(ModelReader&) {
@@ -160,8 +204,13 @@ namespace ctranslate2 {
 
     }
 
-    struct Drama3::Impl {
-      std::shared_ptr<const Model> model;
+    struct Drama3::Impl : ModelReplica {
+      struct Setup {
+        std::shared_ptr<const Model> checkpoint;
+        layers::DramaExecutionOptions options;
+      };
+
+      const layers::DramaExecutionOptions options;
       std::unique_ptr<layers::Embeddings> embeddings;
       std::unique_ptr<layers::DramaBackbone> backbone;
       std::unique_ptr<layers::DramaTower> tower;
@@ -174,60 +223,65 @@ namespace ctranslate2 {
 
       Impl(const std::string& path, size_t count, const std::string& compute,
            const std::string& device, int device_index)
-        : threads(count) {
-        if (!threads)
-          throw std::invalid_argument("Drama3 requires positive intra_threads");
-        const auto target = str_to_device(device);
-        if (device_index < 0 || device_index >= get_device_count(target))
-          throw std::invalid_argument("Invalid Drama3 device index: "
-                                      + std::to_string(device_index));
-        const ScopedDeviceSetter device_setter(target, device_index);
-        load_model(path, compute, target, device_index);
+        : Impl(prepare(path, count, compute, device, device_index), count)
+      {
+      }
+
+      Impl(Setup setup, size_t count)
+        : ModelReplica(setup.checkpoint)
+        , options(setup.options)
+        , threads(count)
+      {
+        const ScopedDeviceSetter setter(options.device, options.device_index);
         initialize_layers();
       }
 
-      void load_model(const std::string& path, const std::string& compute, Device target,
-                      int device_index) {
-        const auto requested = str_to_compute_type(compute);
-        const auto cache_budget = drama3_gpu_expert_cache_budget();
-        if (cache_budget && target != Device::CUDA)
+      static Setup prepare(const std::string& path, size_t count, const std::string& compute,
+                           const std::string& device, int device_index) {
+        if (!count)
+          throw std::invalid_argument("Drama3 requires positive intra_threads");
+        const auto legacy_budget = read_string_from_env("CT2_DRAMA3_MAX_MEMORY_GB");
+        if (!legacy_budget.empty() && legacy_budget != "0")
+          throw std::invalid_argument("CT2_DRAMA3_MAX_MEMORY_GB is no longer supported. "
+                                      "Drama3 uses allocation controls, without a total RAM ceiling.");
+        Setup setup;
+        auto& options = setup.options;
+        options.device = str_to_device(device);
+        options.device_index = device_index;
+        options.resident_backbone = read_bool_from_env("CT2_DRAMA_GPU_RESIDENT_BACKBONE", true);
+        options.waveform = read_bool_from_env("CT2_DRAMA_GPU_WAVEFORM", true);
+        options.grouped_moe = read_bool_from_env("CT2_DRAMA_GPU_GROUPED_MOE", false);
+        const auto budget = drama3_gpu_expert_cache_budget();
+        if (budget && options.device != Device::CUDA)
           throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB requires GPU execution");
-        if (target == Device::CUDA && requested != ComputeType::DEFAULT)
-          resolve_compute_type(requested, ComputeType::FLOAT32, target, device_index);
-        set_num_threads(threads);
-        // Load base weights on CPU for both execution paths. GPU layers manage
-        // their device weights and expert cache separately.
-        auto loaded =
-            std::const_pointer_cast<Model>(Model::load(path, Device::CPU, 0,
-                                                       target == Device::CPU ? requested
-                                                       : cache_budget ? ComputeType::DEFAULT
-                                                                      : ComputeType::FLOAT32));
-        loaded->config.erase("drama3_gpu_compute_type");
-        loaded->config.erase("drama3_gpu_device_index");
-        loaded->config.erase("drama3_gpu_expert_cache_bytes");
-        if (target == Device::CUDA) {
-          const auto resolved =
-              resolve_compute_type(requested, loaded->saved_compute_type(), target, device_index);
-          loaded->config["drama3_gpu_compute_type"] = compute_type_to_str(resolved);
-          loaded->config["drama3_gpu_device_index"] = device_index;
-        }
-        if (!dynamic_cast<const Drama3Model*>(loaded.get()))
+        if (device_index < 0 || device_index >= get_device_count(options.device))
+          throw std::invalid_argument("Invalid Drama3 device index: " + std::to_string(device_index));
+        const ScopedDeviceSetter setter(options.device, device_index);
+        const auto requested = str_to_compute_type(compute);
+        if (options.device == Device::CUDA && requested != ComputeType::DEFAULT)
+          resolve_compute_type(requested, ComputeType::FLOAT32, options.device, device_index);
+        set_num_threads(count);
+        setup.checkpoint = Drama3Model::load_checkpoint(path,
+            options.device == Device::CPU ? requested
+            : budget ? ComputeType::DEFAULT : ComputeType::FLOAT32, budget != 0);
+        if (!dynamic_cast<const Drama3Model*>(setup.checkpoint.get()))
           throw std::invalid_argument("Expected a converted Drama3Spec model");
-        const auto& source = loaded->config.at("source_config");
-        const auto& text = source.at("text_config");
-        if (cache_budget) {
-          const auto layers = text.at("num_hidden_layers").get<int64_t>();
-          if (layers <= 0)
-            throw std::invalid_argument("Drama3 expert cache requires a positive layer count");
-          loaded->config["drama3_gpu_expert_cache_bytes"] = cache_budget / layers;
-          if (cache_budget / layers == 0)
-            throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB is too small");
+        options.compute_type = options.device == Device::CPU
+            ? setup.checkpoint->effective_compute_type()
+            : resolve_compute_type(requested, setup.checkpoint->saved_compute_type(),
+                                   options.device, device_index);
+        if (budget) {
+          const auto count = setup.checkpoint->config.at("source_config").at("text_config")
+                                 .at("num_hidden_layers").get<int64_t>();
+          if (count <= 0 || budget / count == 0)
+            throw std::invalid_argument("Drama3 expert cache requires a positive layer count and budget per layer");
+          options.expert_cache_bytes = budget / count;
         }
-        model = std::move(loaded);
+        return setup;
       }
 
       void initialize_layers() {
-        const auto& source = model->config.at("source_config");
+        const auto& source = model()->config.at("source_config");
         const auto& text = source.at("text_config");
         const auto& audio = source.at("audio_decoder_config");
         layers::DramaBackboneConfig bc;
@@ -271,10 +325,10 @@ namespace ctranslate2 {
         bc.lm_candidates.push_back(tc.eos_id);
         for (int32_t id = tc.semantic_begin; id <= tc.semantic_end; ++id)
           bc.lm_candidates.push_back(id);
-        embeddings = std::make_unique<layers::Embeddings>(*model, "backbone/embeddings");
-        backbone = std::make_unique<layers::DramaBackbone>(*model, "backbone", std::move(bc));
-        tower = std::make_unique<layers::DramaTower>(*model, "tower", tc);
-        codec = std::make_unique<layers::FishDACDecoder>(*model);
+        embeddings = std::make_unique<layers::Embeddings>(*model(), "backbone/embeddings");
+        backbone = std::make_unique<layers::DramaBackbone>(*model(), "backbone", std::move(bc), options);
+        tower = std::make_unique<layers::DramaTower>(*model(), "tower", tc, options);
+        codec = std::make_unique<layers::FishDACDecoder>(*model(), "codec", options);
       }
 
       StorageView embed(const StorageView& frames) const {
@@ -392,6 +446,7 @@ namespace ctranslate2 {
                                   float top_p, uint64_t seed, bool greedy) {
       std::lock_guard<std::mutex> lock(_impl->mutex);
       const auto total_start = Clock::now();
+      const ScopedDeviceSetter setter(_impl->options.device, _impl->options.device_index);
       set_num_threads(_impl->threads);
       _impl->validate_generation(prompt, max_frames, prefill_chunk_size, temperature, top_k, top_p);
 

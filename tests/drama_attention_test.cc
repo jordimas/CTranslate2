@@ -239,11 +239,11 @@ TEST(DramaAttentionTest, ResidentGpuRotaryCacheCanSwitchDevices) {
   if (!get_device_count(Device::CUDA))
     GTEST_SKIP() << "No CUDA/HIP device";
   TinyAttentionModel model(.1f, .2f);
-  model.config["drama3_gpu_compute_type"] = "int8_float32";
-  model.config["drama3_gpu_device_index"] = 0;
-  model.config["drama3_gpu_resident_backbone"] = true;
+  layers::DramaExecutionOptions execution;
+  execution.device = Device::CUDA;
+  execution.compute_type = ComputeType::INT8_FLOAT32;
   const ScopedDeviceSetter setter(Device::CUDA, 0);
-  layers::GatedSelfAttention layer(model, "attn", config());
+  layers::GatedSelfAttention layer(model, "attn", config(), execution);
   auto cpu_cache = cache(8);
   auto input = inputs();
   StorageView reference;

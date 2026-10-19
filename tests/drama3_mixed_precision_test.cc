@@ -2,7 +2,7 @@
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
 #include "ctranslate2/models/model_reader.h"
-#include "ctranslate2/layers/common.h"
+#include "ctranslate2/layers/drama_projection.h"
 #include "ctranslate2/ops/dequantize.h"
 
 namespace {
@@ -102,7 +102,7 @@ TEST(Drama3MixedPrecisionTest, SourceFp8SurvivesLoadingAndUsesFloat32Dense) {
       EXPECT_EQ(model->get_variable_if_exists(scope + "/weight" + suffix), nullptr);
     EXPECT_EQ(model->get_variable("backbone/layers_0/mlp/router/weight").dtype(),
               DataType::FLOAT32);
-    layers::Dense dense(*model, scope);
+    layers::DramaProjection dense(*model, scope);
     StorageView input({1, 2}, std::vector<float>{2, 4}), residual({1, 2}, std::vector<float>{1, 2}),
         output;
     dense(input, output, &residual);
@@ -143,7 +143,7 @@ TEST(Drama3MixedPrecisionTest, StandardComputeTypesUseBackendResolutionAndDense)
       const auto model = models::Model::load(reader, Device::CPU, 0, requested);
       EXPECT_EQ(model->effective_compute_type(), expected);
       const std::string scope = "backbone/layers_0/mlp/experts_0/gate_proj";
-      layers::Dense dense(*model, scope);
+      layers::DramaProjection dense(*model, scope);
       // Mixed signs avoid the u8*s8 pairwise saturation of pre-VNNI oneDNN
       // kernels. This test checks compute-type resolution, not that limitation.
       StorageView input({1, 2}, std::vector<float>{2, -4}), output;
@@ -197,12 +197,14 @@ TEST(Drama3MixedPrecisionTest, GpuProjectionsMatchCpuWithCachedAndSelectedWeight
                                             {"source_config", nlohmann::json::object()},
                                             {"quantization_policy",
                                              fp8 ? "experts_fp8_sensitive_float32" : "standard"},
-                                            {"fp8_format", "e4m3fn_block128"},
-                                            {"drama3_gpu_compute_type", compute_type_to_str(type)},
-                                            {"drama3_gpu_device_index", index}}
+                                            {"fp8_format", "e4m3fn_block128"}}
                                  .dump());
         auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32);
-        layers::Dense dense(*model, scope);
+        layers::DramaExecutionOptions execution;
+        execution.device = Device::CUDA;
+        execution.device_index = index;
+        execution.compute_type = type;
+        layers::DramaProjection dense(*model, scope, execution);
         for (dim_t rows : {1, 4, 1}) { // Repeat after cache creation with another batch shape.
           StorageView input({rows, 16}, .25f), residual({rows, 16}, .5f), output;
           dense(input, output, &residual);

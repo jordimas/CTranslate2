@@ -1,5 +1,4 @@
 #include "ctranslate2/ops/drama_gpu.h"
-#include "drama_gpu.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/split.h"
 #include "ctranslate2/ops/rms_norm.h"
@@ -869,12 +868,12 @@ namespace ctranslate2 {
     }
 
     GatedSelfAttention::GatedSelfAttention(const models::Model& model, const std::string& scope,
-                                           GatedSelfAttentionConfig config)
+                                           GatedSelfAttentionConfig config, const DramaExecutionOptions& options)
       : _config(config)
-      , _query(model, scope + "/q_proj")
-      , _key(model, scope + "/k_proj")
-      , _value(model, scope + "/v_proj")
-      , _output(model, scope + "/o_proj")
+      , _query(model, scope + "/q_proj", options)
+      , _key(model, scope + "/k_proj", options)
+      , _value(model, scope + "/v_proj", options)
+      , _output(model, scope + "/o_proj", options)
       , _query_norm(model.get_variable(scope + "/q_norm/weight"))
       , _key_norm(model.get_variable(scope + "/k_norm/weight"))
       , _hidden_size(_output.output_size())
@@ -920,9 +919,9 @@ namespace ctranslate2 {
         }
         _parameters.push_back(norm);
       }
-      if (drama_gpu_resident(model)) {
+      if (options.resident_gpu()) {
         const ScopedDeviceSetter setter(Device::CUDA,
-                                        model.config.at("drama3_gpu_device_index").get<int>());
+                                        options.device_index);
         _gpu_query_norm = _query_norm.to(Device::CUDA);
         _gpu_key_norm = _key_norm.to(Device::CUDA);
       }

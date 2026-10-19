@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ctranslate2/layers/attention_layer.h"
+#include "ctranslate2/layers/drama_projection.h"
 #include "ctranslate2/padder.h"
 #include "ctranslate2/layers/transformer.h"
 
@@ -46,7 +47,7 @@ namespace ctranslate2 {
     class GatedSelfAttention : public Layer {
     public:
       GatedSelfAttention(const models::Model& model, const std::string& scope,
-                         GatedSelfAttentionConfig config);
+                         GatedSelfAttentionConfig config, const DramaExecutionOptions& options = {});
       DataType output_type() const override;
       dim_t output_size() const override;
       void operator()(const StorageView& input, GatedSelfAttentionCache& cache,
@@ -56,10 +57,10 @@ namespace ctranslate2 {
       void forward_gpu(const StorageView&, GatedSelfAttentionCache&, StorageView&) const;
       StorageView _gpu_query_norm, _gpu_key_norm;
       GatedSelfAttentionConfig _config;
-      Dense _query;
-      Dense _key;
-      Dense _value;
-      Dense _output;
+      DramaProjection _query;
+      DramaProjection _key;
+      DramaProjection _value;
+      DramaProjection _output;
       const StorageView& _query_norm;
       const StorageView& _key_norm;
       dim_t _hidden_size;

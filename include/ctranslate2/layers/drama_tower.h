@@ -41,12 +41,12 @@ namespace ctranslate2 {
     // Predicts audio codebook tokens from backbone outputs and preceding audio frames.
     // Native batch-one CPU float32 tower with INT32 frames [T,1+num_codebooks].
     // Frame columns are [main token,code0,...]. Weights/model must outlive layer;
-    // converted projection matrices remain unpacked (Dense supports INT8).
+    // converted projection matrices remain unpacked (DramaProjection supports INT8).
     // Greedy decoding is a diagnostic, without repetition-aware resampling.
     // Reset/discard state on an exception after layer execution has started.
     class DramaTower : public Layer {
     public:
-      DramaTower(const models::Model& model, const std::string& scope, DramaTowerConfig config);
+      DramaTower(const models::Model& model, const std::string& scope, DramaTowerConfig config, const DramaExecutionOptions& options = {});
       ~DramaTower() override;
       DataType output_type() const override;
       dim_t output_size() const override;
@@ -97,7 +97,7 @@ namespace ctranslate2 {
       Embeddings _embedding_lookup;
       std::vector<std::unique_ptr<TowerLayer>> _shared;
       std::vector<std::unique_ptr<TowerLayer>> _residual;
-      std::vector<std::unique_ptr<Dense>> _heads;
+      std::vector<std::unique_ptr<DramaProjection>> _heads;
     };
 
   }

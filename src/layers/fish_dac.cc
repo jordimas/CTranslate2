@@ -26,7 +26,7 @@ namespace ctranslate2 {
 
     FishDACWaveformDecoder::FishDACWaveformDecoder(const models::Model& model,
                                                    const std::string& scope,
-                                                   std::vector<dim_t> strides) {
+                                                   std::vector<dim_t> strides, const DramaExecutionOptions& options) {
       if (model.device() != Device::CPU || strides.empty())
         throw std::invalid_argument("FishDAC waveform decoder requires CPU and nonempty strides");
       auto parameter = [&](std::string name) {
@@ -88,10 +88,8 @@ namespace ctranslate2 {
       if (_initial.weight->dim(2) != 7 || _final.weight->dim(2) != 7 || _final.weight->dim(0) != 1)
         throw std::invalid_argument(
             "FishDAC boundary convolutions require kernel7 and mono output");
-      if (model.config.contains("drama3_gpu_compute_type")
-          && model.config.value("drama3_gpu_waveform",
-                                read_bool_from_env("CT2_DRAMA_GPU_WAVEFORM", true))) {
-        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+      if (options.device == Device::CUDA && options.waveform) {
+        _gpu_device_index = options.device_index;
         const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
         for (const auto* parameter : _parameters)
           _gpu_parameters.emplace(parameter, parameter->to(Device::CUDA));

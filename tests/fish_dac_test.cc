@@ -195,10 +195,10 @@ TEST(FishDACTest, GpuWaveformMatchesCpuAndIndependentScalarReference) {
   for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
     const ScopedDeviceSetter setter(Device::CUDA, index);
     TinyFishDACModel cpu_model, gpu_model;
-    gpu_model.config["drama3_gpu_compute_type"] = "int8_float32";
-    gpu_model.config["drama3_gpu_device_index"] = index;
-    gpu_model.config["drama3_gpu_waveform"] = true;
-    layers::FishDACWaveformDecoder cpu(cpu_model, scope, {2}), gpu(gpu_model, scope, {2});
+    layers::DramaExecutionOptions execution;
+    execution.device = Device::CUDA;
+    execution.device_index = index;
+    layers::FishDACWaveformDecoder cpu(cpu_model, scope, {2}), gpu(gpu_model, scope, {2}, execution);
     for (dim_t time : {1, 7, 37}) {
       StorageView input({1, 1, time});
       for (dim_t i = 0; i < time; ++i)

@@ -1,6 +1,5 @@
 #include "ctranslate2/layers/drama_backbone.h"
 #include "ctranslate2/ops/rms_norm.h"
-#include "drama_gpu.h"
 
 #include <cmath>
 #include <cstdint>
@@ -23,10 +22,10 @@ namespace ctranslate2 {
     }
 
     DramaBackbone::DramaBackbone(const models::Model& model, const std::string& scope,
-                                 DramaBackboneConfig config)
+                                 DramaBackboneConfig config, const DramaExecutionOptions& options)
       : _config(std::move(config))
       , _norm(model.get_variable(scope + "/norm/weight"))
-      , _lm_head(model, scope + "/lm_head")
+      , _lm_head(model, scope + "/lm_head", options)
       , _vocabulary_size(_lm_head.output_size()) {
       if (_config.layers.empty() || _config.max_context <= 0 || !std::isfinite(_config.norm_epsilon)
           || _config.norm_epsilon <= 0 || model.device() != Device::CPU
@@ -52,7 +51,7 @@ namespace ctranslate2 {
       }
       for (size_t i = 0; i < _config.layers.size(); ++i) {
         auto layer = std::make_unique<DramaBlock>(model, scope + "/layers_" + std::to_string(i),
-                                                  _config.layers[i]);
+                                                  _config.layers[i], options);
         if (layer->output_size() != output_size())
           throw std::invalid_argument("DramaBackbone layers must have the same hidden dimension");
         _layers.emplace_back(std::move(layer));
@@ -67,9 +66,9 @@ namespace ctranslate2 {
         const StorageView ids({dim_t(_config.lm_candidates.size())}, _config.lm_candidates);
         _lm_head.select_weights(&ids);
       }
-      _resident_gpu = drama_gpu_resident(model);
+      _resident_gpu = options.resident_gpu();
       if (_resident_gpu) {
-        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
+        _gpu_device_index = options.device_index;
         const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
         _gpu_norm = _norm.to(Device::CUDA);
       }

@@ -11,7 +11,15 @@ namespace ctranslate2 {
 
     // Loads Drama3 checkpoint weights and enforces their inference precision policy.
     // Resident CPU checkpoint; inference layers refer to unpacked expert weights.
+    class Drama3CheckpointStorage;
+
     class Drama3Model : public Model {
+    public:
+      // Select mapped expert storage explicitly; generic Model::load stays independent.
+      static std::shared_ptr<const Model> load_checkpoint(const std::string& path,
+                                                         ComputeType compute_type,
+                                                         bool map_experts);
+
     protected:
       bool is_quantizable(const std::string& name) const override;
       bool is_linear_weight(const std::string& name) const override;
@@ -25,13 +33,16 @@ namespace ctranslate2 {
       }
 
       void register_variable(std::string name, StorageView variable) override;
-      void set_compute_type(ComputeType type, Device device, int device_index,
-                            bool update_weight = true) override;
+      void prepare_weights(ComputeType& type, Device device, int device_index,
+                           bool update_weight) override;
+      StorageView load_variable(ModelReader& reader, const std::string& name, Shape shape,
+                                DataType dtype, dim_t num_bytes, std::istream& stream) override;
       void initialize(ModelReader&) override;
       std::unique_ptr<Model> clone() const override;
 
     private:
       std::vector<std::string> _fp8_weights;
+      std::shared_ptr<Drama3CheckpointStorage> _checkpoint_storage;
     };
 
     // Reports time spent in the native speech generation stages.

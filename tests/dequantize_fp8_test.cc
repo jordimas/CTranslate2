@@ -10,14 +10,17 @@ TEST(DequantizeFP8Test, EveryFiniteEncodingAndSignedBytes) {
   auto* bytes = reinterpret_cast<uint8_t*>(input.data<int8_t>());
   dim_t column = 0;
   for (unsigned code = 0; code < 256; ++code)
-    if ((code & 127) != 127) bytes[column++] = code;
+    if ((code & 127) != 127)
+      bytes[column++] = code;
   ops::DequantizeFP8()(input, scale, output);
   column = 0;
   for (unsigned code = 0; code < 256; ++code) {
-    if ((code & 127) == 127) continue;
+    if ((code & 127) == 127)
+      continue;
     const unsigned exponent = (code & 127) / 8, mantissa = code % 8;
-    const double magnitude = exponent == 0 ? double(mantissa) / 512
-      : (1. + double(mantissa) / 8) * std::pow(2., int(exponent) - 7);
+    const double magnitude = exponent == 0
+                                 ? double(mantissa) / 512
+                                 : (1. + double(mantissa) / 8) * std::pow(2., int(exponent) - 7);
     const float expected = float((code & 128 ? -magnitude : magnitude) * 2);
     EXPECT_EQ(output.data<float>()[column], expected);
     EXPECT_EQ(std::signbit(output.data<float>()[column]), std::signbit(expected));
@@ -26,7 +29,7 @@ TEST(DequantizeFP8Test, EveryFiniteEncodingAndSignedBytes) {
 }
 
 TEST(DequantizeFP8Test, EdgeBlocksAndFloat32ScaleMultiplication) {
-  StorageView input({129, 130}, int8_t(0x38));  // E4M3FN 1.0.
+  StorageView input({129, 130}, int8_t(0x38)); // E4M3FN 1.0.
   StorageView scale({2, 2}, std::vector<float>{.1f, .3f, 1.7f, 9.1f}), output;
   ops::DequantizeFP8()(input, scale, output);
   EXPECT_EQ(output.shape(), input.shape());
@@ -47,7 +50,7 @@ TEST(DequantizeFP8Test, RejectsInvalidScalesAndEncodings) {
     std::memcpy(input.data<int8_t>(), &bad, 1);
     EXPECT_THROW(ops::DequantizeFP8()(input, scale, output), std::invalid_argument);
   }
-  input.data<int8_t>()[0] = 0x7e;  // Largest finite FP8 times finite F32 can overflow.
+  input.data<int8_t>()[0] = 0x7e; // Largest finite FP8 times finite F32 can overflow.
   scale.data<float>()[0] = std::numeric_limits<float>::max();
   EXPECT_THROW(ops::DequantizeFP8()(input, scale, output), std::invalid_argument);
 }
@@ -72,10 +75,12 @@ TEST(DequantizeFP8Test, RejectsMalformedShapesTypesAndAliasing) {
 }
 
 TEST(DequantizeFP8Test, GpuMatchesCpuAndRejectsInvalidValues) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
   for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
     const ScopedDeviceSetter setter(Device::CUDA, index);
-    StorageView input({129, 130}, DataType::INT8), scale({2, 2}, std::vector<float>{.1f, .3f, 1.7f, 9.1f});
+    StorageView input({129, 130}, DataType::INT8),
+        scale({2, 2}, std::vector<float>{.1f, .3f, 1.7f, 9.1f});
     for (dim_t i = 0; i < input.size(); ++i) {
       const uint8_t code = i % 256;
       input.data<int8_t>()[i] = int8_t((code & 127) == 127 ? 0 : code);

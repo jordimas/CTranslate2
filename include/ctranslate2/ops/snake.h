@@ -13,9 +13,7 @@ namespace ctranslate2 {
     // Output must not alias either input, including its retained allocation.
     class Snake : public Op {
     public:
-      void operator()(const StorageView& x,
-                      const StorageView& alpha,
-                      StorageView& y) const;
+      void operator()(const StorageView& x, const StorageView& alpha, StorageView& y) const;
     };
 
   }

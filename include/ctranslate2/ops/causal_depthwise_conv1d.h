@@ -16,11 +16,8 @@ namespace ctranslate2 {
     public:
       explicit CausalDepthwiseConv1D(bool apply_silu = true);
 
-      void operator()(const StorageView& input,
-                      const StorageView& weight,
-                      const StorageView* bias,
-                      StorageView& history,
-                      StorageView& output) const;
+      void operator()(const StorageView& input, const StorageView& weight, const StorageView* bias,
+                      StorageView& history, StorageView& output) const;
 
     private:
       bool _apply_silu;

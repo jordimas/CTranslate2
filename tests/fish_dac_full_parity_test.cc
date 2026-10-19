@@ -9,26 +9,34 @@
 #include "ctranslate2/utils.h"
 
 namespace {
+
   class FullCodecParityFixture : public models::Model {
   protected:
-    bool is_quantizable(const std::string&) const override { return false; }
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_quantizable(const std::string&) const override {
+      return false;
+    }
+
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<FullCodecParityFixture>(*this);
     }
   };
 
-  template <typename T>
-  std::vector<T> read_raw(const std::string& path, size_t count) {
+  template <typename T> std::vector<T> read_raw(const std::string& path, size_t count) {
     std::ifstream file(path, std::ios::binary);
-    if (!file) throw std::runtime_error("Cannot read full codec fixture: " + path);
+    if (!file)
+      throw std::runtime_error("Cannot read full codec fixture: " + path);
     std::vector<T> result(count);
-    file.read(reinterpret_cast<char*>(result.data()), count*sizeof(T));
-    if (file.gcount() != static_cast<std::streamsize>(count*sizeof(T))
+    file.read(reinterpret_cast<char*>(result.data()), count * sizeof(T));
+    if (file.gcount() != static_cast<std::streamsize>(count * sizeof(T))
         || file.peek() != std::char_traits<char>::eof())
       throw std::runtime_error("Wrong raw full codec fixture size: " + path);
     return result;
   }
+
 }
 
 TEST(FishDACFullParityTest, OfficialCompleteDecoderMatchesIndependentTorchFunctionalOracle) {
@@ -62,12 +70,15 @@ TEST(FishDACFullParityTest, OfficialCompleteDecoderMatchesIndependentTorchFuncti
     SCOPED_TRACE("codec frames=" + std::to_string(frames));
     ASSERT_GT(frames, 0);
     ASSERT_EQ(fixture.at("input_shape").get<std::vector<dim_t>>(), (Shape{1, 10, frames}));
-    ASSERT_EQ(fixture.at("output_shape").get<std::vector<dim_t>>(), (Shape{1, 1, frames*2048}));
-    StorageView codes({1, 10, frames}, read_raw<int32_t>(directory + "/" + fixture.at("codes").get<std::string>(), 10*frames));
-    const auto expected = read_raw<float>(directory + "/" + fixture.at("expected").get<std::string>(), 2048*frames);
+    ASSERT_EQ(fixture.at("output_shape").get<std::vector<dim_t>>(), (Shape{1, 1, frames * 2048}));
+    StorageView codes(
+        {1, 10, frames},
+        read_raw<int32_t>(directory + "/" + fixture.at("codes").get<std::string>(), 10 * frames));
+    const auto expected =
+        read_raw<float>(directory + "/" + fixture.at("expected").get<std::string>(), 2048 * frames);
     StorageView actual;
     decoder(codes, actual);
-    ASSERT_EQ(actual.shape(), (Shape{1, 1, frames*2048}));
+    ASSERT_EQ(actual.shape(), (Shape{1, 1, frames * 2048}));
     double squared_error = 0;
     float maximum_error = 0;
     for (dim_t i = 0; i < actual.size(); ++i) {
@@ -75,10 +86,11 @@ TEST(FishDACFullParityTest, OfficialCompleteDecoderMatchesIndependentTorchFuncti
       ASSERT_TRUE(std::isfinite(actual.data<float>()[i]));
       const auto error = std::abs(actual.data<float>()[i] - expected[i]);
       maximum_error = std::max(maximum_error, error);
-      squared_error += double(error)*error;
+      squared_error += double(error) * error;
     }
-    const double rmse = std::sqrt(squared_error/actual.size());
-    RecordProperty("frames_" + std::to_string(frames) + "_max_absolute_error", std::to_string(maximum_error));
+    const double rmse = std::sqrt(squared_error / actual.size());
+    RecordProperty("frames_" + std::to_string(frames) + "_max_absolute_error",
+                   std::to_string(maximum_error));
     RecordProperty("frames_" + std::to_string(frames) + "_rmse", std::to_string(rmse));
     EXPECT_LT(maximum_error, 1e-3f);
     EXPECT_LT(rmse, 2e-4);

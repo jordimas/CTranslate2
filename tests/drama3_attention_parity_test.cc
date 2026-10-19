@@ -6,14 +6,22 @@
 #include "ctranslate2/models/model_factory.h"
 
 namespace {
+
   class AttentionParityFixture : public models::Model {
   protected:
-    bool is_quantizable(const std::string&) const override { return false; }
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_quantizable(const std::string&) const override {
+      return false;
+    }
+
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<AttentionParityFixture>(*this);
     }
   };
+
 }
 
 TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndependentOracle) {
@@ -27,9 +35,16 @@ TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndepende
     ASSERT_TRUE(stream.good());
     const auto manifest = nlohmann::json::parse(stream);
     const auto model = models::Model::load(directory, Device::CPU, 0, ComputeType::FLOAT32);
-    const dim_t hidden = manifest.at("hidden"), kv_heads = manifest.at("kv_heads"), dim = manifest.at("head_dim");
-    layers::GatedSelfAttentionConfig cfg{manifest.at("heads"), kv_heads, dim, manifest.at("rotary_dim"),
-                                     manifest.at("rope_base"), manifest.at("norm_epsilon"), manifest.at("interleaved"), true};
+    const dim_t hidden = manifest.at("hidden"), kv_heads = manifest.at("kv_heads"),
+                dim = manifest.at("head_dim");
+    layers::GatedSelfAttentionConfig cfg{manifest.at("heads"),
+                                         kv_heads,
+                                         dim,
+                                         manifest.at("rotary_dim"),
+                                         manifest.at("rope_base"),
+                                         manifest.at("norm_epsilon"),
+                                         manifest.at("interleaved"),
+                                         true};
     layers::GatedSelfAttention layer(*model, "attn", cfg);
     for (const auto& fixture : manifest.at("cases")) {
       const dim_t steps = fixture.at("steps");
@@ -40,15 +55,18 @@ TEST(Drama3AttentionParityTest, ActualBackboneAndFusedTowerWeightsMatchIndepende
       };
       auto input = get("input", {steps, hidden});
       auto make_cache = [&]() {
-        return layers::GatedSelfAttentionCache{StorageView({steps, kv_heads, dim}, DataType::FLOAT32),
-                                            StorageView({steps, kv_heads, dim}, DataType::FLOAT32), 0};
+        return layers::GatedSelfAttentionCache{
+            StorageView({steps, kv_heads, dim}, DataType::FLOAT32),
+            StorageView({steps, kv_heads, dim}, DataType::FLOAT32), 0};
       };
       auto cache = make_cache(), incremental = make_cache();
       StorageView output;
       layer(input, cache, output);
       drama_test::compare(output, get("expected", {steps, hidden}), 2e-4f, 2e-5, label + "_output");
-      drama_test::compare(cache.keys, get("keys", {steps, kv_heads, dim}), 5e-5f, 5e-6, label + "_keys");
-      drama_test::compare(cache.values, get("values", {steps, kv_heads, dim}), 5e-5f, 5e-6, label + "_values");
+      drama_test::compare(cache.keys, get("keys", {steps, kv_heads, dim}), 5e-5f, 5e-6,
+                          label + "_keys");
+      drama_test::compare(cache.values, get("values", {steps, kv_heads, dim}), 5e-5f, 5e-6,
+                          label + "_values");
       for (dim_t t = 0; t < steps; ++t) {
         StorageView row({1, hidden}, input.data<float>() + t * hidden), one;
         layer(row, incremental, one);

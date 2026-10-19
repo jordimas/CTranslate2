@@ -29,8 +29,12 @@ namespace {
       register_variable("attn/k_norm/weight", StorageView({4}, gamma));
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
     }
+
   protected:
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<TinyAttentionModel>(*this);
     }
@@ -81,7 +85,8 @@ namespace {
         }
         for (dim_t d = 0; d < 4; ++d)
           for (dim_t s = 0; s <= t; ++s)
-            output[t * 4 + d] += .5 * (h ? .75 : .25) * (scores[s] / sum) * x.data<float>()[s * 4 + d];
+            output[t * 4 + d] +=
+                .5 * (h ? .75 : .25) * (scores[s] / sum) * x.data<float>()[s * 4 + d];
       }
     }
     return output;
@@ -231,25 +236,29 @@ TEST(GatedSelfAttentionTest, ProjectionOverflowDoesNotCommitCacheOrOutput) {
 }
 
 TEST(DramaAttentionTest, ResidentGpuRotaryCacheCanSwitchDevices) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
-  TinyAttentionModel model(.1f,.2f);
-  model.config["drama3_gpu_compute_type"]="int8_float32";
-  model.config["drama3_gpu_device_index"]=0;
-  model.config["drama3_gpu_resident_backbone"]=true;
-  const ScopedDeviceSetter setter(Device::CUDA,0);
-  layers::GatedSelfAttention layer(model,"attn",config());
-  auto cpu_cache=cache(8);
-  auto input=inputs();
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+  TinyAttentionModel model(.1f, .2f);
+  model.config["drama3_gpu_compute_type"] = "int8_float32";
+  model.config["drama3_gpu_device_index"] = 0;
+  model.config["drama3_gpu_resident_backbone"] = true;
+  const ScopedDeviceSetter setter(Device::CUDA, 0);
+  layers::GatedSelfAttention layer(model, "attn", config());
+  auto cpu_cache = cache(8);
+  auto input = inputs();
   StorageView reference;
-  layer(input,cpu_cache,reference);
-  auto gpu_cache=cache(8);
-  gpu_cache.keys=gpu_cache.keys.to(Device::CUDA);gpu_cache.values=gpu_cache.values.to(Device::CUDA);
-  auto gpu_input=input.to(Device::CUDA);
-  StorageView result(DataType::FLOAT32,Device::CUDA);
-  layer(gpu_input,gpu_cache,result);
-  auto host=result.to(Device::CPU);synchronize_stream(Device::CUDA);
-  expect_storage_eq(host,reference,2e-3f);
-  cpu_cache.length=0;
-  StorageView switched;layer(input,cpu_cache,switched);
-  expect_storage_eq(switched,reference,2e-3f);
+  layer(input, cpu_cache, reference);
+  auto gpu_cache = cache(8);
+  gpu_cache.keys = gpu_cache.keys.to(Device::CUDA);
+  gpu_cache.values = gpu_cache.values.to(Device::CUDA);
+  auto gpu_input = input.to(Device::CUDA);
+  StorageView result(DataType::FLOAT32, Device::CUDA);
+  layer(gpu_input, gpu_cache, result);
+  auto host = result.to(Device::CPU);
+  synchronize_stream(Device::CUDA);
+  expect_storage_eq(host, reference, 2e-3f);
+  cpu_cache.length = 0;
+  StorageView switched;
+  layer(input, cpu_cache, switched);
+  expect_storage_eq(switched, reference, 2e-3f);
 }

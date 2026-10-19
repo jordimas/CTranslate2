@@ -9,7 +9,8 @@
 
 #ifdef CT2_WITH_CUDA
 TEST(MoeTopKGpuTest, ParallelRoutingMatchesCpuAcrossWidthsAndTies) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
   const ScopedDeviceSetter setter(Device::CUDA, 0);
   for (dim_t width : {1, 17, 256, 513}) {
     for (dim_t k : {dim_t(1), std::min(dim_t(8), width), width}) {
@@ -44,7 +45,8 @@ TEST(MoeTopKTest, AnalyticSelectedSoftmax) {
   EXPECT_EQ(weights.shape(), indices.shape());
   for (dim_t i = 0; i < 4; ++i) {
     EXPECT_EQ(indices.data<int32_t>()[i], expected[i]);
-    EXPECT_NEAR(weights.data<float>()[i], i % 2 ? 1 / (1 + std::exp(1.)) : 1 / (1 + std::exp(-1.)), 1e-7);
+    EXPECT_NEAR(weights.data<float>()[i], i % 2 ? 1 / (1 + std::exp(1.)) : 1 / (1 + std::exp(-1.)),
+                1e-7);
   }
 }
 
@@ -63,7 +65,8 @@ TEST(MoeTopKTest, DeterministicTiesAndSingleExpert) {
 
 TEST(MoeTopKTest, LargeFiniteLogits) {
   const float largest = std::numeric_limits<float>::max();
-  StorageView logits({2, 3}, std::vector<float>{largest, largest, -largest, -10000, -10001, -10002});
+  StorageView logits({2, 3},
+                     std::vector<float>{largest, largest, -largest, -10000, -10001, -10002});
   StorageView indices(DataType::INT32), weights;
   ops::MoeTopK(3)(logits, indices, weights);
   EXPECT_EQ(weights.data<float>()[0], .5f);
@@ -137,5 +140,6 @@ TEST(MoeTopKTest, RetainedCapacityAliasing) {
   EXPECT_THROW(ops::MoeTopK(2)(logits, indices, weights), std::invalid_argument);
   StorageView independent_logits({1, 3}, 1.f);
   StorageView overlapping_indices({2}, reinterpret_cast<int32_t*>(weights.data<float>() + 2));
-  EXPECT_THROW(ops::MoeTopK(2)(independent_logits, overlapping_indices, weights), std::invalid_argument);
+  EXPECT_THROW(ops::MoeTopK(2)(independent_logits, overlapping_indices, weights),
+               std::invalid_argument);
 }

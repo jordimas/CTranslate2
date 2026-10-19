@@ -17,8 +17,7 @@ namespace ctranslate2 {
     public:
       explicit MoeTopK(dim_t k);
 
-      void operator()(const StorageView& router_logits,
-                      StorageView& expert_indices,
+      void operator()(const StorageView& router_logits, StorageView& expert_indices,
                       StorageView& routing_weights) const;
 
     private:

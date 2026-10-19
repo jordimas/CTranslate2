@@ -18,12 +18,8 @@ namespace ctranslate2 {
     // output = S^T q / sqrt(key_dim). No input may alias state or output.
     class GatedDeltaNet : public Op {
     public:
-      void operator()(const StorageView& query,
-                      const StorageView& key,
-                      const StorageView& value,
-                      const StorageView& log_decay,
-                      const StorageView& beta,
-                      StorageView& state,
+      void operator()(const StorageView& query, const StorageView& key, const StorageView& value,
+                      const StorageView& log_decay, const StorageView& beta, StorageView& state,
                       StorageView& output) const;
     };
 

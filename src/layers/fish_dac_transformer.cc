@@ -9,19 +9,24 @@
 namespace ctranslate2 {
   namespace layers {
     namespace {
+
       bool overlaps(const StorageView& a, const StorageView& b) {
         const auto an = std::max(a.reserved_memory(), a.size() * a.item_size());
         const auto bn = std::max(b.reserved_memory(), b.size() * b.item_size());
-        if (!an || !bn) return false;
+        if (!an || !bn)
+          return false;
         const auto ap = reinterpret_cast<uintptr_t>(a.buffer());
         const auto bp = reinterpret_cast<uintptr_t>(b.buffer());
-        return ap <= bp ? bp-ap < static_cast<uintptr_t>(an) : ap-bp < static_cast<uintptr_t>(bn);
+        return ap <= bp ? bp - ap < static_cast<uintptr_t>(an)
+                        : ap - bp < static_cast<uintptr_t>(bn);
       }
+
       void require_finite(const StorageView& tensor) {
         for (dim_t i = 0; i < tensor.size(); ++i)
           if (!std::isfinite(tensor.data<float>()[i]))
             throw std::invalid_argument("FishDAC transformer tensors must be finite");
       }
+
     }
 
     FishDACTransformer::FishDACTransformer(const models::Model& model, const std::string& scope,
@@ -44,8 +49,9 @@ namespace ctranslate2 {
         throw std::invalid_argument("FishDAC transformer final norm must be a nonempty vector");
       _channels = _norm->dim(0);
       if (_channels % config.heads || (_channels / config.heads) % 2
-          || _channels > std::numeric_limits<dim_t>::max()/3)
-        throw std::invalid_argument("FishDAC transformer requires an even full-head rotary dimension");
+          || _channels > std::numeric_limits<dim_t>::max() / 3)
+        throw std::invalid_argument(
+            "FishDAC transformer requires an even full-head rotary dimension");
       auto vector = [&](const std::string& name) {
         const auto* value = parameter(name);
         if (value->shape() != Shape{_channels})
@@ -55,7 +61,8 @@ namespace ctranslate2 {
       auto dense = [&](const std::string& name, dim_t rows, dim_t columns) {
         const auto* weight = parameter(name + "/weight");
         if (weight->shape() != Shape{rows, columns} || model.get_variable_if_exists(name + "/bias"))
-          throw std::invalid_argument("FishDAC transformer projection shape/bias mismatch: " + name);
+          throw std::invalid_argument("FishDAC transformer projection shape/bias mismatch: "
+                                      + name);
         return std::make_unique<Dense>(model, name);
       };
       for (dim_t index = 0; index < config.layers; ++index) {
@@ -103,13 +110,15 @@ namespace ctranslate2 {
         for (dim_t t = 0; t < time; ++t) {
           for (dim_t part = 0; part < 2; ++part) {
             for (dim_t h = 0; h < _config.heads; ++h) {
-              auto* values = qkv.data<float>() + t * 3 * _channels + part * _channels + h * head_dim;
+              auto* values =
+                  qkv.data<float>() + t * 3 * _channels + part * _channels + h * head_dim;
               for (dim_t d = 0; d < head_dim; d += 2) {
-                const double angle = double(t) / std::pow(double(_config.rope_theta), double(d) / head_dim);
+                const double angle =
+                    double(t) / std::pow(double(_config.rope_theta), double(d) / head_dim);
                 const float cosine = std::cos(angle), sine = std::sin(angle);
-                const float x = values[d], y = values[d+1];
+                const float x = values[d], y = values[d + 1];
                 values[d] = x * cosine - y * sine;
-                values[d+1] = x * sine + y * cosine;
+                values[d + 1] = x * sine + y * cosine;
               }
             }
           }
@@ -124,27 +133,28 @@ namespace ctranslate2 {
             for (dim_t s = begin; s <= t; ++s) {
               double dot = 0;
               for (dim_t d = 0; d < head_dim; ++d)
-                dot += double(qkv.data<float>()[t*3*_channels+h*head_dim+d])
-                  * qkv.data<float>()[s*3*_channels+_channels+h*head_dim+d];
-              scores[s-begin] = dot * scale;
-              maximum = std::max(maximum, scores[s-begin]);
+                dot += double(qkv.data<float>()[t * 3 * _channels + h * head_dim + d])
+                       * qkv.data<float>()[s * 3 * _channels + _channels + h * head_dim + d];
+              scores[s - begin] = dot * scale;
+              maximum = std::max(maximum, scores[s - begin]);
             }
             double denominator = 0;
             for (dim_t s = begin; s <= t; ++s)
-              denominator += (scores[s-begin] = std::exp(scores[s-begin] - maximum));
+              denominator += (scores[s - begin] = std::exp(scores[s - begin] - maximum));
             for (dim_t d = 0; d < head_dim; ++d) {
               double value = 0;
               for (dim_t s = begin; s <= t; ++s)
-                value += scores[s-begin] / denominator
-                  * qkv.data<float>()[s*3*_channels+2*_channels+h*head_dim+d];
-              context.data<float>()[t*_channels+h*head_dim+d] = value;
+                value += scores[s - begin] / denominator
+                         * qkv.data<float>()[s * 3 * _channels + 2 * _channels + h * head_dim + d];
+              context.data<float>()[t * _channels + h * head_dim + d] = value;
             }
           }
         }
         StorageView projected;
         (*block.out)(context, projected);
         for (dim_t i = 0; i < hidden.size(); ++i)
-          hidden.data<float>()[i] += projected.data<float>()[i] * block.attention_scale->data<float>()[i % _channels];
+          hidden.data<float>()[i] +=
+              projected.data<float>()[i] * block.attention_scale->data<float>()[i % _channels];
         ops::RMSNorm(_config.epsilon, false)(*block.ffn_norm, hidden, normalized);
         StorageView gate, up, activated, down;
         (*block.gate)(normalized, gate);
@@ -153,7 +163,8 @@ namespace ctranslate2 {
         ops::Mul()(activated, up, activated);
         (*block.down)(activated, down);
         for (dim_t i = 0; i < hidden.size(); ++i)
-          hidden.data<float>()[i] += down.data<float>()[i] * block.ffn_scale->data<float>()[i % _channels];
+          hidden.data<float>()[i] +=
+              down.data<float>()[i] * block.ffn_scale->data<float>()[i % _channels];
       }
       StorageView normalized;
       ops::RMSNorm(_config.epsilon, false)(*_norm, hidden, normalized);
@@ -161,8 +172,9 @@ namespace ctranslate2 {
       StorageView result(input.shape(), DataType::FLOAT32);
       for (dim_t t = 0; t < time; ++t)
         for (dim_t c = 0; c < _channels; ++c)
-          result.data<float>()[c*time+t] = normalized.data<float>()[t*_channels+c];
+          result.data<float>()[c * time + t] = normalized.data<float>()[t * _channels + c];
       output = std::move(result);
     }
+
   }
 }

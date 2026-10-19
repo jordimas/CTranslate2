@@ -6,8 +6,7 @@
 namespace drama_test {
 
   // Identical mixer weights used by the block and backbone composition tests.
-  template <typename Put>
-  void add_mixer(Put put, bool attention) {
+  template <typename Put> void add_mixer(Put put, bool attention) {
     if (attention) {
       put("self_attn/q_proj/weight", {4, 2}, {1, 0, 0, 1, .2f, 0, 0, -.3f});
       put("self_attn/k_proj/weight", {2, 2}, {1, 0, 0, 1});
@@ -30,7 +29,8 @@ namespace drama_test {
 
   inline layers::DramaBlockConfig block_config(bool attention, dim_t num_experts = 2) {
     layers::DramaBlockConfig cfg;
-    cfg.kind = attention ? layers::DramaMixerKind::FullAttention : layers::DramaMixerKind::LinearAttention;
+    cfg.kind =
+        attention ? layers::DramaMixerKind::FullAttention : layers::DramaMixerKind::LinearAttention;
     cfg.norm_epsilon = 1e-5f;
     cfg.num_experts = num_experts;
     cfg.top_k = 1;

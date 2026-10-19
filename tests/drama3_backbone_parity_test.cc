@@ -6,14 +6,22 @@
 #include "ctranslate2/models/model_factory.h"
 
 namespace {
+
   class BackboneParityFixture : public models::Model {
   protected:
-    bool is_quantizable(const std::string&) const override { return false; }
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_quantizable(const std::string&) const override {
+      return false;
+    }
+
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<BackboneParityFixture>(*this);
     }
   };
+
 }
 
 TEST(Drama3BackboneParityTest, ActualGdnWeightsMatchIndependentFunctionalOracle) {
@@ -48,7 +56,8 @@ TEST(Drama3BackboneParityTest, ActualGdnWeightsMatchIndependentFunctionalOracle)
     const std::string label = "t" + std::to_string(steps);
     drama_test::compare(output, read("expected", {steps, hidden}), 5e-4f, 5e-5, label + "_output");
     drama_test::compare(state, read("final_state", state_shape), 5e-6f, 5e-7, label + "_state");
-    drama_test::compare(history, read("final_history", history_shape), 5e-5f, 5e-6, label + "_history");
+    drama_test::compare(history, read("final_history", history_shape), 5e-5f, 5e-6,
+                        label + "_history");
     for (dim_t t = 0; t < steps; ++t) {
       StorageView row({1, hidden}, input.data<float>() + t * hidden), one;
       layer(row, step_state, step_history, one);

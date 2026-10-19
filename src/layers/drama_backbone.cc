@@ -28,11 +28,10 @@ namespace ctranslate2 {
       , _norm(model.get_variable(scope + "/norm/weight"))
       , _lm_head(model, scope + "/lm_head")
       , _vocabulary_size(_lm_head.output_size()) {
-      if (_config.layers.empty() || _config.max_context <= 0
-          || !std::isfinite(_config.norm_epsilon) || _config.norm_epsilon <= 0
-          || model.device() != Device::CPU || _lm_head.output_type() != DataType::FLOAT32
-          || _norm.device() != Device::CPU || _norm.dtype() != DataType::FLOAT32
-          || _norm.rank() != 1 || _norm.dim(0) <= 0)
+      if (_config.layers.empty() || _config.max_context <= 0 || !std::isfinite(_config.norm_epsilon)
+          || _config.norm_epsilon <= 0 || model.device() != Device::CPU
+          || _lm_head.output_type() != DataType::FLOAT32 || _norm.device() != Device::CPU
+          || _norm.dtype() != DataType::FLOAT32 || _norm.rank() != 1 || _norm.dim(0) <= 0)
         throw std::invalid_argument("DramaBackbone configuration or final norm is incompatible");
       for (dim_t d = 0; d < _norm.size(); ++d) {
         if (!std::isfinite(_norm.data<float>()[d]))
@@ -43,7 +42,8 @@ namespace ctranslate2 {
           || model.get_variable_if_exists(scope + "/lm_head/weight_packed"))
         throw std::invalid_argument("DramaBackbone requires compatible unpacked lm_head weights");
       _head_parameters = {&_norm, &head};
-      for (const auto* suffix : {"/bias", "/weight_scale", "/weight_compensation", "/weight_zero"}) {
+      for (const auto* suffix :
+           {"/bias", "/weight_scale", "/weight_compensation", "/weight_zero"}) {
         if (const auto* variable = model.get_variable_if_exists(scope + "/lm_head" + suffix)) {
           if (std::string(suffix) == "/bias" && variable->shape() != Shape{vocabulary_size()})
             throw std::invalid_argument("DramaBackbone lm_head bias dimension is incompatible");
@@ -51,7 +51,8 @@ namespace ctranslate2 {
         }
       }
       for (size_t i = 0; i < _config.layers.size(); ++i) {
-        auto layer = std::make_unique<DramaBlock>(model, scope + "/layers_" + std::to_string(i), _config.layers[i]);
+        auto layer = std::make_unique<DramaBlock>(model, scope + "/layers_" + std::to_string(i),
+                                                  _config.layers[i]);
         if (layer->output_size() != output_size())
           throw std::invalid_argument("DramaBackbone layers must have the same hidden dimension");
         _layers.emplace_back(std::move(layer));
@@ -60,7 +61,8 @@ namespace ctranslate2 {
         std::unordered_set<int32_t> seen;
         for (const auto id : _config.lm_candidates) {
           if (id < 0 || id >= _vocabulary_size || !seen.insert(id).second)
-            throw std::invalid_argument("DramaBackbone LM candidates must be unique vocabulary ids");
+            throw std::invalid_argument(
+                "DramaBackbone LM candidates must be unique vocabulary ids");
         }
         const StorageView ids({dim_t(_config.lm_candidates.size())}, _config.lm_candidates);
         _lm_head.select_weights(&ids);
@@ -73,9 +75,17 @@ namespace ctranslate2 {
       }
     }
 
-    DataType DramaBackbone::output_type() const { return DataType::FLOAT32; }
-    dim_t DramaBackbone::output_size() const { return _norm.dim(0); }
-    dim_t DramaBackbone::vocabulary_size() const { return _vocabulary_size; }
+    DataType DramaBackbone::output_type() const {
+      return DataType::FLOAT32;
+    }
+
+    dim_t DramaBackbone::output_size() const {
+      return _norm.dim(0);
+    }
+
+    dim_t DramaBackbone::vocabulary_size() const {
+      return _vocabulary_size;
+    }
 
     void DramaBackbone::initialize_state(DramaBackboneState& state, dim_t max_tokens) const {
       if (max_tokens == 0)
@@ -93,15 +103,16 @@ namespace ctranslate2 {
     void DramaBackbone::operator()(const StorageView& embedded, DramaBackboneState& state,
                                    StorageView& hidden, StorageView& logits) const {
       for (const auto* tensor : {&embedded, static_cast<const StorageView*>(&hidden),
-                                static_cast<const StorageView*>(&logits)}) {
+                                 static_cast<const StorageView*>(&logits)}) {
         if (tensor->device() != Device::CPU || tensor->dtype() != DataType::FLOAT32)
           throw std::invalid_argument("DramaBackbone requires CPU float32 inputs and outputs");
       }
       if (embedded.rank() != 2 || embedded.dim(1) != output_size()
           || state.layers.size() != _layers.size() || state.capacity <= 0
-          || state.capacity > _config.max_context || state.length < 0 || state.length > state.capacity
-          || embedded.dim(0) > state.capacity - state.length)
-        throw std::invalid_argument("DramaBackbone input/state dimensions or context limit are incompatible");
+          || state.capacity > _config.max_context || state.length < 0
+          || state.length > state.capacity || embedded.dim(0) > state.capacity - state.length)
+        throw std::invalid_argument(
+            "DramaBackbone input/state dimensions or context limit are incompatible");
       if (&hidden == &logits || &embedded == &hidden || &embedded == &logits
           || overlaps(embedded, hidden) || overlaps(embedded, logits) || overlaps(hidden, logits))
         throw std::invalid_argument("DramaBackbone inputs and outputs must not alias");
@@ -110,10 +121,13 @@ namespace ctranslate2 {
         if (_config.layers[i].kind == DramaMixerKind::FullAttention
             && (layer.attention.length != state.length || layer.attention.keys.rank() != 3
                 || layer.attention.keys.dim(0) != state.capacity))
-          throw std::invalid_argument("DramaBackbone attention cache position must match sequence position");
-        for (const auto* tensor : {&layer.recurrent, &layer.history, &layer.attention.keys, &layer.attention.values}) {
+          throw std::invalid_argument(
+              "DramaBackbone attention cache position must match sequence position");
+        for (const auto* tensor :
+             {&layer.recurrent, &layer.history, &layer.attention.keys, &layer.attention.values}) {
           if (&embedded == tensor || &hidden == tensor || &logits == tensor
-              || overlaps(embedded, *tensor) || overlaps(hidden, *tensor) || overlaps(logits, *tensor))
+              || overlaps(embedded, *tensor) || overlaps(hidden, *tensor)
+              || overlaps(logits, *tensor))
             throw std::invalid_argument("DramaBackbone cache must not alias inputs/outputs");
           for (const auto* parameter : _head_parameters) {
             if (overlaps(*parameter, *tensor))
@@ -130,9 +144,12 @@ namespace ctranslate2 {
           throw std::invalid_argument("DramaBackbone embedded input must be finite");
       }
       if (!embedded.dim(0)) {
-        hidden.resize({0, output_size()}); logits.resize({0, vocabulary_size()}); return;
+        hidden.resize({0, output_size()});
+        logits.resize({0, vocabulary_size()});
+        return;
       }
-      const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU, _gpu_device_index);
+      const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU,
+                                      _gpu_device_index);
       StorageView current = _resident_gpu ? embedded.to(Device::CUDA) : StorageView(embedded);
       for (size_t i = 0; i < _layers.size(); ++i) {
         StorageView next(DataType::FLOAT32, _resident_gpu ? Device::CUDA : Device::CPU);
@@ -140,7 +157,8 @@ namespace ctranslate2 {
         current = std::move(next);
       }
       StorageView normalized(DataType::FLOAT32, _resident_gpu ? Device::CUDA : Device::CPU);
-      ops::RMSNorm(_config.norm_epsilon, true)(_resident_gpu ? _gpu_norm : _norm, current, normalized);
+      ops::RMSNorm(_config.norm_epsilon, true)(_resident_gpu ? _gpu_norm : _norm, current,
+                                               normalized);
       StorageView projected;
       if (embedded.dim(0) == 0)
         projected.resize({0, vocabulary_size()});
@@ -152,8 +170,8 @@ namespace ctranslate2 {
         projected = StorageView({embedded.dim(0), vocabulary_size()}, 0.f);
         for (dim_t t = 0; t < embedded.dim(0); ++t)
           for (size_t i = 0; i < _config.lm_candidates.size(); ++i)
-            projected.data<float>()[t * vocabulary_size() + _config.lm_candidates[i]]
-              = selected.data<float>()[t * _config.lm_candidates.size() + i];
+            projected.data<float>()[t * vocabulary_size() + _config.lm_candidates[i]] =
+                selected.data<float>()[t * _config.lm_candidates.size() + i];
       }
       if (_resident_gpu) {
         normalized = normalized.to(Device::CPU);
@@ -162,7 +180,8 @@ namespace ctranslate2 {
       for (const auto* tensor : {&normalized, &projected}) {
         for (dim_t i = 0; i < tensor->size(); ++i) {
           if (!std::isfinite(tensor->data<float>()[i]))
-            throw std::runtime_error("DramaBackbone produced non-finite outputs; reset state before retry");
+            throw std::runtime_error(
+                "DramaBackbone produced non-finite outputs; reset state before retry");
         }
       }
       state.length += embedded.dim(0);

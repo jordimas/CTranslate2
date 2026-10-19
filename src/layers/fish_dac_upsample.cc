@@ -14,7 +14,8 @@ namespace ctranslate2 {
 
       bool overlaps(const StorageView& source, const StorageView& output) {
         const auto size = source.size() * source.item_size();
-        const auto capacity = std::max(output.reserved_memory(), output.size() * output.item_size());
+        const auto capacity =
+            std::max(output.reserved_memory(), output.size() * output.item_size());
         if (!source.buffer() || !output.buffer() || !size || !capacity)
           return false;
         const auto a = reinterpret_cast<uintptr_t>(source.buffer());
@@ -33,13 +34,15 @@ namespace ctranslate2 {
     }
 
     FishDACLatentUpsampler::Block::Block(const models::Model& model, const std::string& scope)
-      : pw1(model, scope + "/1/pwconv1"), pw2(model, scope + "/1/pwconv2") {
+      : pw1(model, scope + "/1/pwconv1")
+      , pw2(model, scope + "/1/pwconv2") {
     }
 
-    FishDACLatentUpsampler::FishDACLatentUpsampler(
-        const models::Model& model, const std::string& scope, dim_t block_count) {
+    FishDACLatentUpsampler::FishDACLatentUpsampler(const models::Model& model,
+                                                   const std::string& scope, dim_t block_count) {
       if (model.device() != Device::CPU || block_count <= 0)
-        throw std::invalid_argument("FishDAC latent upsampler requires CPU and positive block count");
+        throw std::invalid_argument(
+            "FishDAC latent upsampler requires CPU and positive block count");
       auto parameter = [&](const std::string& name) {
         const auto& value = model.get_variable(name);
         if (value.device() != Device::CPU || value.dtype() != DataType::FLOAT32)
@@ -52,7 +55,8 @@ namespace ctranslate2 {
       for (dim_t i = 0; i < block_count; ++i) {
         const auto prefix = scope + "/" + std::to_string(i);
         auto block = std::make_unique<Block>(model, prefix);
-        if (block->pw1.output_type() != DataType::FLOAT32 || block->pw2.output_type() != DataType::FLOAT32)
+        if (block->pw1.output_type() != DataType::FLOAT32
+            || block->pw2.output_type() != DataType::FLOAT32)
           throw std::invalid_argument("FishDAC latent Dense output must be float32");
         block->transpose_weight = parameter(prefix + "/0/conv/weight");
         block->transpose_bias = parameter(prefix + "/0/conv/bias");
@@ -84,9 +88,8 @@ namespace ctranslate2 {
         const auto& pw2 = *parameter(cp + "/pwconv2/weight");
         const auto& pb2 = *parameter(cp + "/pwconv2/bias");
         if (model.get_variable_if_exists(cp + "/pwconv1/weight_packed")
-            || model.get_variable_if_exists(cp + "/pwconv2/weight_packed")
-            || pw1.rank() != 2 || pw1.dim(0) <= 0 || pw1.dim(1) != channels
-            || pb1.shape() != Shape{pw1.dim(0)}
+            || model.get_variable_if_exists(cp + "/pwconv2/weight_packed") || pw1.rank() != 2
+            || pw1.dim(0) <= 0 || pw1.dim(1) != channels || pb1.shape() != Shape{pw1.dim(0)}
             || pw2.shape() != Shape{channels, pw1.dim(0)} || pb2.shape() != Shape{channels})
           throw std::invalid_argument("FishDAC latent pointwise Dense dimensions mismatch");
         _blocks.emplace_back(std::move(block));
@@ -119,7 +122,8 @@ namespace ctranslate2 {
       StorageView current(input);
       for (const auto& block : _blocks) {
         StorageView upsampled;
-        ops::ConvTranspose1D(2)(current, *block->transpose_weight, *block->transpose_bias, upsampled);
+        ops::ConvTranspose1D(2)(current, *block->transpose_weight, *block->transpose_bias,
+                                upsampled);
         const auto time = upsampled.dim(2);
         const auto channels = block->channels;
         StorageView padded({1, channels, time + 6}, 0.f);
@@ -127,7 +131,8 @@ namespace ctranslate2 {
           std::copy(upsampled.data<float>() + c * time, upsampled.data<float>() + (c + 1) * time,
                     padded.data<float>() + c * (time + 6) + 6);
         StorageView depthwise;
-        ops::Conv1D(1, 0, 1, channels)(padded, *block->depthwise_weight, *block->depthwise_bias, depthwise);
+        ops::Conv1D(1, 0, 1, channels)(padded, *block->depthwise_weight, *block->depthwise_bias,
+                                       depthwise);
         StorageView rows({time, channels});
         for (dim_t t = 0; t < time; ++t)
           for (dim_t c = 0; c < channels; ++c)
@@ -139,8 +144,8 @@ namespace ctranslate2 {
         block->pw2(activated, projected);
         for (dim_t c = 0; c < channels; ++c)
           for (dim_t t = 0; t < time; ++t)
-            upsampled.data<float>()[c * time + t] += block->gamma->data<float>()[c]
-              * projected.data<float>()[t * channels + c];
+            upsampled.data<float>()[c * time + t] +=
+                block->gamma->data<float>()[c] * projected.data<float>()[t * channels + c];
         require_finite(upsampled);
         current = std::move(upsampled);
       }

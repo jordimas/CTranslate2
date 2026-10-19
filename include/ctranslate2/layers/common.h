@@ -138,9 +138,9 @@ namespace ctranslate2 {
     private:
       friend class SparseMoE;
       void prepare_gpu_weight(const StorageView& weight, const StorageView* scale) const;
-      void forward_gpu(const StorageView& input, const StorageView& weight,
-                       const StorageView* bias, const StorageView* scale,
-                       const StorageView* residual, StorageView& output) const;
+      void forward_gpu(const StorageView& input, const StorageView& weight, const StorageView* bias,
+                       const StorageView* scale, const StorageView* residual,
+                       StorageView& output) const;
       int _gpu_device_index = -1;
       ComputeType _gpu_compute_type = ComputeType::FLOAT32;
       mutable StorageView _gpu_weight, _gpu_scale, _gpu_scale_inv;

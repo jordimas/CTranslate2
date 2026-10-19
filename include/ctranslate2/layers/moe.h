@@ -16,13 +16,15 @@ namespace ctranslate2 {
     // No residual connection or normalization is applied.
     class SparseMoE : public Layer {
     public:
-      SparseMoE(const models::Model& model, const std::string& scope,
-                dim_t num_experts, dim_t k);
+      SparseMoE(const models::Model& model, const std::string& scope, dim_t num_experts, dim_t k);
       DataType output_type() const override;
       dim_t output_size() const override;
       void operator()(const StorageView& input, StorageView& output) const;
       size_t gpu_expert_cache_bytes() const;
-      size_t gpu_expert_cache_misses() const { return _cache_misses; }
+
+      size_t gpu_expert_cache_misses() const {
+        return _cache_misses;
+      }
 
     private:
       // Applies a gated feed-forward network for one routed or shared expert.

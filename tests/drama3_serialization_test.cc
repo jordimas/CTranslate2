@@ -4,14 +4,19 @@
 #include "ctranslate2/models/model_factory.h"
 
 namespace {
+
   // Test-only registration: this is a serialization fixture, not a TTS model.
   class Drama3SerializationFixture : public models::Model {
   protected:
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<Drama3SerializationFixture>(*this);
     }
   };
+
 }
 
 TEST(Drama3SerializationTest, PythonModelSpecNativeReader) {
@@ -19,8 +24,7 @@ TEST(Drama3SerializationTest, PythonModelSpecNativeReader) {
   if (!directory)
     GTEST_SKIP() << "Set CT2_DRAMA3_SERIALIZATION_FIXTURE to a standard serialization fixture";
   models::register_model<Drama3SerializationFixture>("Drama3SerializationFixture");
-  const auto model = models::Model::load(directory, Device::CPU, 0,
-                                         ComputeType::INT8_FLOAT32);
+  const auto model = models::Model::load(directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
   const auto& weight = model->get_variable("projection/weight");
   EXPECT_EQ(weight.dtype(), DataType::INT8);
   ASSERT_EQ(weight.shape(), (Shape{3, 2}));

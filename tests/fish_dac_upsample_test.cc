@@ -51,8 +51,14 @@ namespace {
   protected:
     // Materialized codec weights must bypass Model's generic convolution-name
     // heuristic: pwconv matrices are rank 2 despite containing "conv".
-    bool is_quantizable(const std::string&) const override { return false; }
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_quantizable(const std::string&) const override {
+      return false;
+    }
+
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<LatentModel>(*this);
     }
@@ -75,8 +81,8 @@ namespace {
       for (dim_t oc = 0; oc < 2; ++oc)
         for (dim_t t = 0; t < length; ++t)
           for (dim_t k = 0; k < 2; ++k)
-            upsampled[oc * time + 2 * t + k] += input[ic * length + t]
-              * data("/0/conv/weight")[(ic * 2 + oc) * 2 + k];
+            upsampled[oc * time + 2 * t + k] +=
+                input[ic * length + t] * data("/0/conv/weight")[(ic * 2 + oc) * 2 + k];
     auto result = upsampled;
     for (dim_t t = 0; t < time; ++t) {
       double dw[2];
@@ -89,12 +95,12 @@ namespace {
         }
       }
       const double mean = (dw[0] + dw[1]) / 2;
-      const double variance = ((dw[0] - mean) * (dw[0] - mean)
-                               + (dw[1] - mean) * (dw[1] - mean)) / 2;
+      const double variance =
+          ((dw[0] - mean) * (dw[0] - mean) + (dw[1] - mean) * (dw[1] - mean)) / 2;
       double normalized[2];
       for (dim_t c = 0; c < 2; ++c)
-        normalized[c] = (dw[c] - mean) / std::sqrt(variance + 1e-6)
-          * data("/1/norm/weight")[c] + data("/1/norm/bias")[c];
+        normalized[c] = (dw[c] - mean) / std::sqrt(variance + 1e-6) * data("/1/norm/weight")[c]
+                        + data("/1/norm/bias")[c];
       double gelu[8];
       for (dim_t h = 0; h < 8; ++h) {
         double wide = data("/1/pwconv1/bias")[h];

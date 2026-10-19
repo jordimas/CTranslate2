@@ -6,8 +6,9 @@
 
 namespace ctranslate2 {
   namespace layers {
-    FishDACCodebooks::FishDACCodebooks(const models::Model& model,
-                                     const std::string& scope, dim_t num_books)
+
+    FishDACCodebooks::FishDACCodebooks(const models::Model& model, const std::string& scope,
+                                       dim_t num_books)
       : _channels(0) {
       if (model.device() != Device::CPU || num_books <= 0)
         throw std::invalid_argument("FishDAC codebooks require CPU and positive book count");
@@ -21,15 +22,16 @@ namespace ctranslate2 {
         return &value;
       };
       for (dim_t i = 0; i < num_books; ++i) {
-        const auto prefix = scope + (i == 0 ? "/semantic_quantizer/quantizers/0"
-                                            : "/quantizer/quantizers/" + std::to_string(i-1));
-        Book book{parameter(prefix + "/codebook/weight"),
-                  parameter(prefix + "/out_proj/weight"), parameter(prefix + "/out_proj/bias")};
+        const auto prefix = scope
+                            + (i == 0 ? "/semantic_quantizer/quantizers/0"
+                                      : "/quantizer/quantizers/" + std::to_string(i - 1));
+        Book book{parameter(prefix + "/codebook/weight"), parameter(prefix + "/out_proj/weight"),
+                  parameter(prefix + "/out_proj/bias")};
         const auto& e = *book.embedding;
         const auto& p = *book.projection;
-        if (e.rank() != 2 || e.dim(0) <= 0 || e.dim(1) <= 0 || p.rank() != 3
-            || p.dim(0) <= 0 || p.dim(1) != e.dim(1) || p.dim(2) != 1
-            || book.bias->shape() != Shape{p.dim(0)} || (i && p.dim(0) != _channels))
+        if (e.rank() != 2 || e.dim(0) <= 0 || e.dim(1) <= 0 || p.rank() != 3 || p.dim(0) <= 0
+            || p.dim(1) != e.dim(1) || p.dim(2) != 1 || book.bias->shape() != Shape{p.dim(0)}
+            || (i && p.dim(0) != _channels))
           throw std::invalid_argument("FishDAC codebook/projection shape mismatch");
         _channels = p.dim(0);
         _books.push_back(book);
@@ -46,12 +48,12 @@ namespace ctranslate2 {
       // during computation. Reject overlapping caller storage rather than losing
       // ownership or silently changing a model parameter on assignment.
       const auto out = reinterpret_cast<uintptr_t>(output.buffer());
-      const auto size = static_cast<uintptr_t>(std::max(output.reserved_memory(),
-                                                       output.size()*output.item_size()));
+      const auto size = static_cast<uintptr_t>(
+          std::max(output.reserved_memory(), output.size() * output.item_size()));
       auto overlaps = [&](const StorageView& value) {
         const auto p = reinterpret_cast<uintptr_t>(value.buffer());
-        const auto n = static_cast<uintptr_t>(value.size()*value.item_size());
-        return out && p && size && n && (out <= p ? p-out < size : out-p < n);
+        const auto n = static_cast<uintptr_t>(value.size() * value.item_size());
+        return out && p && size && n && (out <= p ? p - out < size : out - p < n);
       };
       if (&codes == &output || overlaps(codes))
         throw std::invalid_argument("FishDAC code output aliases input");
@@ -61,7 +63,7 @@ namespace ctranslate2 {
         if (overlaps(*book.embedding) || overlaps(*book.projection) || overlaps(*book.bias))
           throw std::invalid_argument("FishDAC code output aliases weights");
         for (dim_t t = 0; t < frames; ++t) {
-          const int32_t code = codes.data<int32_t>()[b*frames+t];
+          const int32_t code = codes.data<int32_t>()[b * frames + t];
           if (code < 0 || code >= book.embedding->dim(0))
             throw std::invalid_argument("FishDAC code outside codebook vocabulary");
         }
@@ -71,12 +73,14 @@ namespace ctranslate2 {
         const auto& book = _books[b];
         const dim_t width = book.embedding->dim(1);
         for (dim_t t = 0; t < frames; ++t) {
-          const auto* embedding = book.embedding->data<float>() + codes.data<int32_t>()[b*frames+t]*width;
+          const auto* embedding =
+              book.embedding->data<float>() + codes.data<int32_t>()[b * frames + t] * width;
           for (dim_t c = 0; c < _channels; ++c) {
             float value = book.bias->data<float>()[c];
-            const auto* weight = book.projection->data<float>() + c*width;
-            for (dim_t k = 0; k < width; ++k) value += weight[k]*embedding[k];
-            result.data<float>()[c*frames+t] += value;
+            const auto* weight = book.projection->data<float>() + c * width;
+            for (dim_t k = 0; k < width; ++k)
+              value += weight[k] * embedding[k];
+            result.data<float>()[c * frames + t] += value;
           }
         }
       }
@@ -85,5 +89,6 @@ namespace ctranslate2 {
           throw std::runtime_error("FishDAC reconstruction produced nonfinite values");
       output = std::move(result);
     }
+
   }
 }

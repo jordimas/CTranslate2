@@ -14,15 +14,13 @@ namespace ctranslate2 {
   namespace ops {
     namespace {
 
-      bool overlaps(const StorageView& a, dim_t a_bytes,
-                    const StorageView& b, dim_t b_bytes) {
+      bool overlaps(const StorageView& a, dim_t a_bytes, const StorageView& b, dim_t b_bytes) {
         if (a_bytes == 0 || b_bytes == 0 || !a.buffer() || !b.buffer())
           return false;
         const auto a_ptr = reinterpret_cast<uintptr_t>(a.buffer());
         const auto b_ptr = reinterpret_cast<uintptr_t>(b.buffer());
-        return a_ptr <= b_ptr
-          ? b_ptr - a_ptr < static_cast<uintptr_t>(a_bytes)
-          : a_ptr - b_ptr < static_cast<uintptr_t>(b_bytes);
+        return a_ptr <= b_ptr ? b_ptr - a_ptr < static_cast<uintptr_t>(a_bytes)
+                              : a_ptr - b_ptr < static_cast<uintptr_t>(b_bytes);
       }
 
     }
@@ -33,21 +31,20 @@ namespace ctranslate2 {
         throw std::invalid_argument("MoeTopK k must be positive");
     }
 
-    void MoeTopK::operator()(const StorageView& router_logits,
-                            StorageView& expert_indices,
-                            StorageView& routing_weights) const {
+    void MoeTopK::operator()(const StorageView& router_logits, StorageView& expert_indices,
+                             StorageView& routing_weights) const {
       PROFILE("MoeTopK");
-      if (router_logits.device() != Device::CPU
-          || expert_indices.device() != Device::CPU
-          || routing_weights.device() != Device::CPU
-          || router_logits.dtype() != DataType::FLOAT32
+      if (router_logits.device() != Device::CPU || expert_indices.device() != Device::CPU
+          || routing_weights.device() != Device::CPU || router_logits.dtype() != DataType::FLOAT32
           || expert_indices.dtype() != DataType::INT32
           || routing_weights.dtype() != DataType::FLOAT32)
-        throw std::invalid_argument("MoeTopK requires CPU float32 logits/weights and int32 indices");
-      if (router_logits.rank() != 2 || router_logits.dim(0) < 0
-          || router_logits.dim(1) <= 0 || _k > router_logits.dim(1)
+        throw std::invalid_argument(
+            "MoeTopK requires CPU float32 logits/weights and int32 indices");
+      if (router_logits.rank() != 2 || router_logits.dim(0) < 0 || router_logits.dim(1) <= 0
+          || _k > router_logits.dim(1)
           || router_logits.dim(1) > std::numeric_limits<int32_t>::max())
-        throw std::invalid_argument("MoeTopK expects [rows, experts] with 0 < k <= experts <= INT32_MAX");
+        throw std::invalid_argument(
+            "MoeTopK expects [rows, experts] with 0 < k <= experts <= INT32_MAX");
       const auto input_bytes = router_logits.size() * router_logits.item_size();
       for (const auto* output : {&expert_indices, &routing_weights}) {
         if (&router_logits == output
@@ -55,8 +52,8 @@ namespace ctranslate2 {
           throw std::invalid_argument("MoeTopK outputs must not alias logits");
       }
       if (&expert_indices == &routing_weights
-          || overlaps(expert_indices, expert_indices.reserved_memory(),
-                      routing_weights, routing_weights.reserved_memory()))
+          || overlaps(expert_indices, expert_indices.reserved_memory(), routing_weights,
+                      routing_weights.reserved_memory()))
         throw std::invalid_argument("MoeTopK outputs must not alias each other");
       const auto* logits = router_logits.data<float>();
       for (dim_t i = 0; i < router_logits.size(); ++i) {
@@ -78,8 +75,7 @@ namespace ctranslate2 {
           std::iota(order.begin(), order.end(), int32_t(0));
           std::partial_sort(order.begin(), order.begin() + _k, order.end(),
                             [&](int32_t a, int32_t b) {
-                              return values[a] > values[b]
-                                || (values[a] == values[b] && a < b);
+                              return values[a] > values[b] || (values[a] == values[b] && a < b);
                             });
           const double maximum = values[order[0]];
           double sum = 0;

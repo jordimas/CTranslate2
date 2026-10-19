@@ -4,10 +4,8 @@
 namespace {
 
   // Independent cross-correlation oracle; accumulate in double precision.
-  StorageView scalar_convolution(const StorageView& input,
-                                 const StorageView& weight,
-                                 const StorageView* bias,
-                                 dim_t stride, dim_t padding,
+  StorageView scalar_convolution(const StorageView& input, const StorageView& weight,
+                                 const StorageView* bias, dim_t stride, dim_t padding,
                                  dim_t dilation, dim_t groups) {
     const dim_t batches = input.dim(0);
     const dim_t channels = input.dim(1);
@@ -26,9 +24,9 @@ namespace {
             for (dim_t k = 0; k < kernel; ++k) {
               const dim_t position = t * stride - padding + k * dilation;
               if (position >= 0 && position < length) {
-                sum += double(input.data<float>()[
-                         (b * channels + group * per_group + c) * length + position])
-                  * weight.data<float>()[(o * per_group + c) * kernel + k];
+                sum += double(input.data<float>()[(b * channels + group * per_group + c) * length
+                                                  + position])
+                       * weight.data<float>()[(o * per_group + c) * kernel + k];
               }
             }
           }
@@ -53,10 +51,9 @@ TEST(Conv1DDilationTest, ScalarReferenceWithGroupsPaddingAndStride) {
             if (length + 2 * padding < dilation * 2 + 1)
               continue;
             for (const bool with_bias : {false, true}) {
-              SCOPED_TRACE(::testing::Message() << "length=" << length
-                           << " dilation=" << dilation << " groups=" << groups
-                           << " stride=" << stride << " padding=" << padding
-                           << " bias=" << with_bias);
+              SCOPED_TRACE(::testing::Message() << "length=" << length << " dilation=" << dilation
+                                                << " groups=" << groups << " stride=" << stride
+                                                << " padding=" << padding << " bias=" << with_bias);
               StorageView input({2, 4, length});
               StorageView weight({4, 4 / groups, 3});
               StorageView bias(Shape{4});
@@ -66,8 +63,7 @@ TEST(Conv1DDilationTest, ScalarReferenceWithGroupsPaddingAndStride) {
                 weight.data<float>()[i] = float(i % 11 - 5) / 9;
               for (dim_t i = 0; i < bias.size(); ++i)
                 bias.data<float>()[i] = float(i - 2) / 3;
-              const auto expected = scalar_convolution(input, weight,
-                                                       with_bias ? &bias : nullptr,
+              const auto expected = scalar_convolution(input, weight, with_bias ? &bias : nullptr,
                                                        stride, padding, dilation, groups);
               StorageView output;
               const ops::Conv1D op(stride, padding, dilation, groups);
@@ -103,8 +99,8 @@ TEST(Conv1DDilationTest, QuantizedWeightsRetainDilatedGroupedBehavior) {
         quantized_weights.data<int8_t>()[i] = int8_t(127 * value);
       }
       // Inputs and weights are exactly representable after int8 quantization.
-      const auto expected = scalar_convolution(input, weights, nullptr,
-                                               2, dilation, dilation, groups);
+      const auto expected =
+          scalar_convolution(input, weights, nullptr, 2, dilation, dilation, groups);
       StorageView output;
       ops::Conv1D(2, dilation, dilation, groups)(input, quantized_weights, output, &scales);
       expect_storage_eq(output, expected, 1e-5f);

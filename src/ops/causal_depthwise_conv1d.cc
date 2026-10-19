@@ -11,8 +11,7 @@ namespace ctranslate2 {
   namespace ops {
     namespace {
 
-      bool overlaps(const StorageView& a, dim_t a_bytes,
-                    const StorageView& b, dim_t b_bytes) {
+      bool overlaps(const StorageView& a, dim_t a_bytes, const StorageView& b, dim_t b_bytes) {
         if (!a.buffer() || !b.buffer() || a_bytes == 0 || b_bytes == 0)
           return false;
         const auto x = reinterpret_cast<uintptr_t>(a.buffer());
@@ -27,11 +26,9 @@ namespace ctranslate2 {
       : _apply_silu(apply_silu) {
     }
 
-    void CausalDepthwiseConv1D::operator()(const StorageView& input,
-                                          const StorageView& weight,
-                                          const StorageView* bias,
-                                          StorageView& history,
-                                          StorageView& output) const {
+    void CausalDepthwiseConv1D::operator()(const StorageView& input, const StorageView& weight,
+                                           const StorageView* bias, StorageView& history,
+                                           StorageView& output) const {
       PROFILE("CausalDepthwiseConv1D");
       const StorageView* tensors[] = {&input, &weight, bias, &history, &output};
       for (const auto* tensor : tensors) {
@@ -48,7 +45,8 @@ namespace ctranslate2 {
       const dim_t kernel = weight.dim(1);
       const dim_t past = kernel - 1;
       if (history.shape() != Shape{batch, channels, past})
-        throw std::invalid_argument("CausalDepthwiseConv1D history must be [batch,channels,kernel-1]");
+        throw std::invalid_argument(
+            "CausalDepthwiseConv1D history must be [batch,channels,kernel-1]");
       if (bias && bias->shape() != Shape{channels})
         throw std::invalid_argument("CausalDepthwiseConv1D bias must be [channels]");
       if (&history == &output
@@ -59,17 +57,20 @@ namespace ctranslate2 {
           continue;
         for (const auto* mutable_tensor : {&history, &output}) {
           if (tensor == mutable_tensor
-              || overlaps(*tensor, tensor->size() * tensor->item_size(),
-                          *mutable_tensor, mutable_tensor->reserved_memory()))
-            throw std::invalid_argument("CausalDepthwiseConv1D inputs must not alias history or output");
+              || overlaps(*tensor, tensor->size() * tensor->item_size(), *mutable_tensor,
+                          mutable_tensor->reserved_memory()))
+            throw std::invalid_argument(
+                "CausalDepthwiseConv1D inputs must not alias history or output");
         }
       }
-      for (const auto* tensor : {&input, &weight, bias, static_cast<const StorageView*>(&history)}) {
+      for (const auto* tensor :
+           {&input, &weight, bias, static_cast<const StorageView*>(&history)}) {
         if (tensor) {
           const auto* data = tensor->data<float>();
           for (dim_t i = 0; i < tensor->size(); ++i) {
             if (!std::isfinite(data[i]))
-              throw std::invalid_argument("CausalDepthwiseConv1D inputs and history must be finite");
+              throw std::invalid_argument(
+                  "CausalDepthwiseConv1D inputs and history must be finite");
           }
         }
       }

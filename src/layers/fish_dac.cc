@@ -10,19 +10,23 @@
 namespace ctranslate2 {
   namespace layers {
     namespace {
+
       bool overlaps(const StorageView& source, const StorageView& output) {
-        if (!source.buffer() || !output.buffer()) return false;
+        if (!source.buffer() || !output.buffer())
+          return false;
         const auto a = reinterpret_cast<uintptr_t>(source.buffer());
         const auto b = reinterpret_cast<uintptr_t>(output.buffer());
         const auto as = static_cast<uintptr_t>(source.size() * source.item_size());
-        const auto bs = static_cast<uintptr_t>(std::max(output.reserved_memory(),
-                                                       output.size() * output.item_size()));
-        return a <= b ? b-a < as : a-b < bs;
+        const auto bs = static_cast<uintptr_t>(
+            std::max(output.reserved_memory(), output.size() * output.item_size()));
+        return a <= b ? b - a < as : a - b < bs;
       }
+
     }
 
-    FishDACWaveformDecoder::FishDACWaveformDecoder(
-        const models::Model& model, const std::string& scope, std::vector<dim_t> strides) {
+    FishDACWaveformDecoder::FishDACWaveformDecoder(const models::Model& model,
+                                                   const std::string& scope,
+                                                   std::vector<dim_t> strides) {
       if (model.device() != Device::CPU || strides.empty())
         throw std::invalid_argument("FishDAC waveform decoder requires CPU and nonempty strides");
       auto parameter = [&](std::string name) {
@@ -52,12 +56,13 @@ namespace ctranslate2 {
         return a;
       };
       const auto& first = *parameter(scope + ".model.0.conv.weight");
-      if (first.rank() != 3) throw std::invalid_argument("FishDAC initial weight must be rank 3");
+      if (first.rank() != 3)
+        throw std::invalid_argument("FishDAC initial weight must be rank 3");
       _initial = convolution(scope + ".model.0.conv", first.dim(1), false);
       dim_t channels = first.dim(0);
       for (size_t i = 0; i < strides.size(); ++i) {
         const auto prefix = scope + ".model." + std::to_string(i + 1) + ".block.";
-        if (strides[i] <= 0 || strides[i] > std::numeric_limits<dim_t>::max()/2)
+        if (strides[i] <= 0 || strides[i] > std::numeric_limits<dim_t>::max() / 2)
           throw std::invalid_argument("FishDAC stride must be positive and bounded");
         Upsample block;
         block.stride = strides[i];
@@ -81,9 +86,11 @@ namespace ctranslate2 {
       _final_alpha = alpha(end + std::to_string(strides.size() + 1), channels);
       _final = convolution(end + std::to_string(strides.size() + 2) + ".conv", channels, false);
       if (_initial.weight->dim(2) != 7 || _final.weight->dim(2) != 7 || _final.weight->dim(0) != 1)
-        throw std::invalid_argument("FishDAC boundary convolutions require kernel7 and mono output");
+        throw std::invalid_argument(
+            "FishDAC boundary convolutions require kernel7 and mono output");
       if (model.config.contains("drama3_gpu_compute_type")
-          && model.config.value("drama3_gpu_waveform", read_bool_from_env("CT2_DRAMA_GPU_WAVEFORM", true))) {
+          && model.config.value("drama3_gpu_waveform",
+                                read_bool_from_env("CT2_DRAMA_GPU_WAVEFORM", true))) {
         _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
         const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
         for (const auto* parameter : _parameters)
@@ -92,7 +99,7 @@ namespace ctranslate2 {
     }
 
     void FishDACWaveformDecoder::causal(const StorageView& input, const Convolution& conv,
-                                      dim_t dilation, StorageView& output) {
+                                        dim_t dilation, StorageView& output) {
       const dim_t left = dilation * (conv.weight->dim(2) - 1);
       if (input.dim(2) > std::numeric_limits<dim_t>::max() - left)
         throw std::invalid_argument("FishDAC causal length overflow");
@@ -106,17 +113,22 @@ namespace ctranslate2 {
     void FishDACWaveformDecoder::forward_gpu(const StorageView& input, StorageView& output) const {
 #ifdef CT2_WITH_CUDA
       const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
-      auto parameter = [&](const StorageView* p) -> const StorageView& { return _gpu_parameters.at(p); };
-      auto convolution = [&](const StorageView& x, const Convolution& conv, dim_t dilation, StorageView& y) {
+      auto parameter = [&](const StorageView* p) -> const StorageView& {
+        return _gpu_parameters.at(p);
+      };
+      auto convolution = [&](const StorageView& x, const Convolution& conv, dim_t dilation,
+                             StorageView& y) {
         ops::fish_causal_gpu(x, parameter(conv.weight), parameter(conv.bias), dilation, y);
       };
       auto gpu_input = input.to(Device::CUDA);
       StorageView current(DataType::FLOAT32, Device::CUDA);
       convolution(gpu_input, _initial, 1, current);
       for (const auto& block : _blocks) {
-        StorageView activated(DataType::FLOAT32, Device::CUDA), transposed(DataType::FLOAT32, Device::CUDA);
+        StorageView activated(DataType::FLOAT32, Device::CUDA),
+            transposed(DataType::FLOAT32, Device::CUDA);
         ops::fish_snake_gpu(current, parameter(block.alpha), activated);
-        ops::fish_transpose_gpu(activated, parameter(block.transpose.weight), parameter(block.transpose.bias), block.stride, transposed);
+        ops::fish_transpose_gpu(activated, parameter(block.transpose.weight),
+                                parameter(block.transpose.bias), block.stride, transposed);
         current = std::move(transposed);
         dim_t dilation = 1;
         for (const auto& residual : block.residuals) {
@@ -130,13 +142,16 @@ namespace ctranslate2 {
           dilation *= 3;
         }
       }
-      StorageView activated(DataType::FLOAT32, Device::CUDA), result(DataType::FLOAT32, Device::CUDA);
+      StorageView activated(DataType::FLOAT32, Device::CUDA),
+          result(DataType::FLOAT32, Device::CUDA);
       ops::fish_snake_gpu(current, parameter(_final_alpha), activated);
       convolution(activated, _final, 1, result);
       ops::fish_tanh_gpu(result);
-      output.copy_from(result); synchronize_stream(Device::CUDA);
-      for (dim_t i=0;i<output.size();++i)
-        if (!std::isfinite(output.data<float>()[i])) throw std::runtime_error("GPU FishDAC produced nonfinite waveform");
+      output.copy_from(result);
+      synchronize_stream(Device::CUDA);
+      for (dim_t i = 0; i < output.size(); ++i)
+        if (!std::isfinite(output.data<float>()[i]))
+          throw std::runtime_error("GPU FishDAC produced nonfinite waveform");
 #else
       throw std::runtime_error("GPU FishDAC requires GPU support");
 #endif
@@ -149,17 +164,22 @@ namespace ctranslate2 {
           || input.dim(2) <= 0 || &input == &output || overlaps(input, output))
         throw std::invalid_argument("FishDAC waveform input requires nonempty CPUfloat32 [1,C,T]");
       for (const auto* p : _parameters)
-        if (overlaps(*p, output)) throw std::invalid_argument("FishDAC output aliases weights");
+        if (overlaps(*p, output))
+          throw std::invalid_argument("FishDAC output aliases weights");
       for (dim_t i = 0; i < input.size(); ++i)
-        if (!std::isfinite(input.data<float>()[i])) throw std::invalid_argument("FishDAC input must be finite");
-      if (_gpu_device_index >= 0) { forward_gpu(input, output); return; }
+        if (!std::isfinite(input.data<float>()[i]))
+          throw std::invalid_argument("FishDAC input must be finite");
+      if (_gpu_device_index >= 0) {
+        forward_gpu(input, output);
+        return;
+      }
       StorageView current;
       causal(input, _initial, 1, current);
       for (const auto& block : _blocks) {
         StorageView activated, transposed;
         ops::Snake()(current, *block.alpha, activated);
         ops::ConvTranspose1D(block.stride)(activated, *block.transpose.weight,
-                                          *block.transpose.bias, transposed);
+                                           *block.transpose.bias, transposed);
         // Fish causal transpose discards k-stride samples exclusively at right.
         const dim_t length = transposed.dim(2) - block.stride;
         StorageView cropped({1, transposed.dim(1), length}, DataType::FLOAT32);
@@ -174,7 +194,8 @@ namespace ctranslate2 {
           causal(a, residual.conv0, dilation, b);
           ops::Snake()(b, *residual.alpha1, c);
           causal(c, residual.conv1, 1, branch);
-          for (dim_t i = 0; i < current.size(); ++i) current.data<float>()[i] += branch.data<float>()[i];
+          for (dim_t i = 0; i < current.size(); ++i)
+            current.data<float>()[i] += branch.data<float>()[i];
           dilation *= 3;
         }
       }
@@ -183,10 +204,12 @@ namespace ctranslate2 {
       causal(activated, _final, 1, result);
       for (dim_t i = 0; i < result.size(); ++i) {
         const float value = result.data<float>()[i];
-        if (!std::isfinite(value)) throw std::runtime_error("FishDAC produced nonfinite waveform");
+        if (!std::isfinite(value))
+          throw std::runtime_error("FishDAC produced nonfinite waveform");
         result.data<float>()[i] = std::tanh(value);
       }
       output = std::move(result);
     }
+
   }
 }

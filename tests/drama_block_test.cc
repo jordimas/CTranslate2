@@ -21,16 +21,23 @@ namespace {
         put(name + "/up_proj/weight", {1, 2}, {.2f, .5f});
         put(name + "/down_proj/weight", {2, 1}, {.5f, -.3f});
       }
-      drama_test::add_mixer([&](const std::string& name, Shape shape, std::vector<float> values) {
-        put(name, std::move(shape), std::move(values));
-      }, attention);
+      drama_test::add_mixer(
+          [&](const std::string& name, Shape shape, std::vector<float> values) {
+            put(name, std::move(shape), std::move(values));
+          },
+          attention);
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
     }
+
   protected:
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<TinyBlockModel>(*this);
     }
+
   private:
     void put(const std::string& path, Shape shape, std::vector<float> values) {
       register_variable(block_scope + "/" + path, StorageView(std::move(shape), values));
@@ -65,7 +72,7 @@ TEST(DramaBlockTest, IndependentCompositionHasTwoPrenormResiduals) {
     if (attention) {
       layers::GatedSelfAttention mixer(model, block_scope + "/self_attn", cfg.attention);
       layers::GatedSelfAttentionCache cache{StorageView({3, 1, 2}, DataType::FLOAT32),
-                                         StorageView({3, 1, 2}, DataType::FLOAT32), 0};
+                                            StorageView({3, 1, 2}, DataType::FLOAT32), 0};
       mixer(normalized, cache, mixed);
     } else {
       layers::GatedDeltaNet mixer(model, block_scope + "/linear_attn", 1, 1, 1, 1, 1e-5f);

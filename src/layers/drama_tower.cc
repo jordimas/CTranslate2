@@ -13,13 +13,13 @@ namespace ctranslate2 {
   namespace layers {
 
     int32_t sample_drama_token(const std::vector<float>& logits,
-                               const DramaSamplingOptions& options,
-                               std::mt19937& rng) {
+                               const DramaSamplingOptions& options, std::mt19937& rng) {
       if (logits.empty() || logits.size() > size_t(std::numeric_limits<int32_t>::max())
           || !std::isfinite(options.temperature) || options.temperature <= 0
           || !std::isfinite(options.top_p) || options.top_p < 0 || options.top_p > 1
           || options.top_k <= 0)
-        throw std::invalid_argument("Drama sampling requires finite positive temperature/top_k and top_p in [0,1]");
+        throw std::invalid_argument(
+            "Drama sampling requires finite positive temperature/top_k and top_p in [0,1]");
       for (const auto value : logits) {
         if (!std::isfinite(value))
           throw std::invalid_argument("Drama sampling logits must be finite");
@@ -61,6 +61,7 @@ namespace ctranslate2 {
       }
       return chosen;
     }
+
     namespace {
 
       void require_cpu_float(const StorageView& tensor) {
@@ -71,7 +72,8 @@ namespace ctranslate2 {
       bool overlaps(const StorageView& a, const StorageView& b) {
         if (!a.buffer() || !b.buffer() || !a.reserved_memory() || !b.reserved_memory())
           return false;
-        const auto x = reinterpret_cast<uintptr_t>(a.buffer()), y = reinterpret_cast<uintptr_t>(b.buffer());
+        const auto x = reinterpret_cast<uintptr_t>(a.buffer()),
+                   y = reinterpret_cast<uintptr_t>(b.buffer());
         return x <= y ? y - x < static_cast<uintptr_t>(a.reserved_memory())
                       : x - y < static_cast<uintptr_t>(b.reserved_memory());
       }
@@ -86,10 +88,12 @@ namespace ctranslate2 {
           const auto* scale = model.get_variable_if_exists(scope + "/weight_scale");
           if (!scale || scale->device() != Device::CPU || scale->dtype() != DataType::FLOAT32
               || (!scale->is_scalar() && scale->shape() != Shape{weights.dim(0)}))
-            throw std::invalid_argument("DramaTower quantized embeddings need float32 per-row or scalar scales");
+            throw std::invalid_argument(
+                "DramaTower quantized embeddings need float32 per-row or scalar scales");
           for (dim_t i = 0; i < scale->size(); ++i) {
             if (!std::isfinite(scale->data<float>()[i]) || scale->data<float>()[i] <= 0)
-              throw std::invalid_argument("DramaTower embedding scales must be finite and positive");
+              throw std::invalid_argument(
+                  "DramaTower embedding scales must be finite and positive");
           }
         }
       }
@@ -112,9 +116,10 @@ namespace ctranslate2 {
       float epsilon;
       dim_t dim;
 
-      TowerLayer(const models::Model& model, const std::string& scope,
-                 const DramaTowerConfig& cfg, bool shared)
-        : embedding(model.get_variable(scope + (shared ? "/semantic_embedding/weight" : "/codebook_embedding/weight")))
+      TowerLayer(const models::Model& model, const std::string& scope, const DramaTowerConfig& cfg,
+                 bool shared)
+        : embedding(model.get_variable(
+              scope + (shared ? "/semantic_embedding/weight" : "/codebook_embedding/weight")))
         , embedding_lookup(model, scope + (shared ? "/semantic_embedding" : "/codebook_embedding"))
         , enorm(model.get_variable(scope + "/enorm/weight"))
         , hnorm(model.get_variable(scope + "/hnorm/weight"))
@@ -132,7 +137,8 @@ namespace ctranslate2 {
         , dim(attention.output_size()) {
         if (embedding.shape() != Shape{cfg.vocab_size, dim})
           throw std::invalid_argument("DramaTower layer embedding dimensions are incompatible");
-        validate_embedding(model, scope + (shared ? "/semantic_embedding" : "/codebook_embedding"), embedding);
+        validate_embedding(model, scope + (shared ? "/semantic_embedding" : "/codebook_embedding"),
+                           embedding);
         for (const auto* gamma : {&enorm, &hnorm, &attention_norm, &ffn_norm, &final_norm}) {
           require_cpu_float(*gamma);
           if (gamma->shape() != Shape{dim})
@@ -146,7 +152,8 @@ namespace ctranslate2 {
           const auto& value = model.get_variable(path + "/weight");
           if (value.device() != Device::CPU || value.shape() != Shape{rows, cols}
               || model.get_variable_if_exists(path + "/weight_packed"))
-            throw std::invalid_argument("DramaTower requires compatible unpacked projection matrices");
+            throw std::invalid_argument(
+                "DramaTower requires compatible unpacked projection matrices");
         };
         if (gate.output_size() <= 0 || gate.output_type() != DataType::FLOAT32)
           throw std::invalid_argument("DramaTower requires float32 activation projections");
@@ -155,16 +162,16 @@ namespace ctranslate2 {
         weight(scope + "/transformer_layer/feed_forward/up_proj", gate.output_size(), dim);
         weight(scope + "/transformer_layer/feed_forward/down_proj", dim, gate.output_size());
         if (resident_gpu) {
-          const ScopedDeviceSetter setter(Device::CUDA,gpu_device_index);
-          gpu_attention_norm=attention_norm.to(Device::CUDA);
-          gpu_ffn_norm=ffn_norm.to(Device::CUDA);gpu_final_norm=final_norm.to(Device::CUDA);
+          const ScopedDeviceSetter setter(Device::CUDA, gpu_device_index);
+          gpu_attention_norm = attention_norm.to(Device::CUDA);
+          gpu_ffn_norm = ffn_norm.to(Device::CUDA);
+          gpu_final_norm = final_norm.to(Device::CUDA);
         }
       }
 
-      void operator()(const StorageView& hidden, const StorageView& next_frames,
-                      dim_t code_column, int32_t semantic_begin, int32_t semantic_end,
-                      const StorageView* shared_input, GatedSelfAttentionCache& cache,
-                      StorageView& output) const {
+      void operator()(const StorageView& hidden, const StorageView& next_frames, dim_t code_column,
+                      int32_t semantic_begin, int32_t semantic_end, const StorageView* shared_input,
+                      GatedSelfAttentionCache& cache, StorageView& output) const {
         const dim_t rows = hidden.dim(0), columns = next_frames.dim(1);
         StorageView e(hidden.shape(), 0.f);
         StorageView ids({rows}, DataType::INT32), selected;
@@ -176,8 +183,9 @@ namespace ctranslate2 {
           const int32_t main = next_frames.data<int32_t>()[t * columns];
           const bool semantic = main >= semantic_begin && main <= semantic_end;
           for (dim_t d = 0; d < dim; ++d)
-            e.data<float>()[t * dim + d] = (semantic ? selected.data<float>()[t * dim + d] : 0.f)
-              + (shared_input ? shared_input->data<float>()[t * dim + d] : 0.f);
+            e.data<float>()[t * dim + d] =
+                (semantic ? selected.data<float>()[t * dim + d] : 0.f)
+                + (shared_input ? shared_input->data<float>()[t * dim + d] : 0.f);
         }
         StorageView en, hn;
         ops::RMSNorm(epsilon, true)(enorm, e, en);
@@ -190,18 +198,28 @@ namespace ctranslate2 {
           return;
         }
         if (resident_gpu) {
-          const ScopedDeviceSetter setter(Device::CUDA,gpu_device_index);
-          auto gpu_joined=joined.to(Device::CUDA);
-          StorageView gm(DataType::FLOAT32,Device::CUDA),gn(DataType::FLOAT32,Device::CUDA),ga(DataType::FLOAT32,Device::CUDA);
-          eh_proj(gpu_joined,gm);
-          ops::RMSNorm(epsilon,true)(gpu_attention_norm,gm,gn);attention(gn,cache,ga);
-          ops::Add()(gm,ga,gm);ops::RMSNorm(epsilon,true)(gpu_ffn_norm,gm,gn);
-          StorageView gates(DataType::FLOAT32,Device::CUDA),ups(DataType::FLOAT32,Device::CUDA);
-          StorageView activated(DataType::FLOAT32,Device::CUDA),projected(DataType::FLOAT32,Device::CUDA);
-          gate(gn,gates);up(gn,ups);ops::get_activation_op(ops::ActivationType::Swish)(gates,activated);
-          ops::Mul()(activated,ups,activated);down(activated,projected);ops::Add()(gm,projected,gm);
-          ops::RMSNorm(epsilon,true)(gpu_final_norm,gm,gn);
-          output.copy_from(gn);synchronize_stream(Device::CUDA);return;
+          const ScopedDeviceSetter setter(Device::CUDA, gpu_device_index);
+          auto gpu_joined = joined.to(Device::CUDA);
+          StorageView gm(DataType::FLOAT32, Device::CUDA), gn(DataType::FLOAT32, Device::CUDA),
+              ga(DataType::FLOAT32, Device::CUDA);
+          eh_proj(gpu_joined, gm);
+          ops::RMSNorm(epsilon, true)(gpu_attention_norm, gm, gn);
+          attention(gn, cache, ga);
+          ops::Add()(gm, ga, gm);
+          ops::RMSNorm(epsilon, true)(gpu_ffn_norm, gm, gn);
+          StorageView gates(DataType::FLOAT32, Device::CUDA), ups(DataType::FLOAT32, Device::CUDA);
+          StorageView activated(DataType::FLOAT32, Device::CUDA),
+              projected(DataType::FLOAT32, Device::CUDA);
+          gate(gn, gates);
+          up(gn, ups);
+          ops::get_activation_op(ops::ActivationType::Swish)(gates, activated);
+          ops::Mul()(activated, ups, activated);
+          down(activated, projected);
+          ops::Add()(gm, projected, gm);
+          ops::RMSNorm(epsilon, true)(gpu_final_norm, gm, gn);
+          output.copy_from(gn);
+          synchronize_stream(Device::CUDA);
+          return;
         }
         eh_proj(joined, mixed);
         StorageView normalized, attended;
@@ -233,16 +251,19 @@ namespace ctranslate2 {
           || is_semantic(cfg.eos_id) || _embeddings.rank() != 2
           || _embeddings.dim(0) != cfg.num_codebooks * cfg.vocab_size || _embeddings.dim(1) <= 0
           || !cfg.attention.rotary_interleaved || !cfg.attention.zero_centered_qk_norm)
-        throw std::invalid_argument("DramaTower configuration or codebook embedding dimensions are incompatible");
+        throw std::invalid_argument(
+            "DramaTower configuration or codebook embedding dimensions are incompatible");
       validate_embedding(model, scope + "/codebook_embeddings", _embeddings);
       for (dim_t i = 0; i < cfg.shared_layers; ++i) {
-        auto layer = std::make_unique<TowerLayer>(model, scope + "/shared_layers_" + std::to_string(i), cfg, true);
+        auto layer = std::make_unique<TowerLayer>(
+            model, scope + "/shared_layers_" + std::to_string(i), cfg, true);
         if (layer->dim != output_size())
           throw std::invalid_argument("DramaTower shared hidden dimension is incompatible");
         _shared.emplace_back(std::move(layer));
       }
       for (dim_t i = 0; i < cfg.num_codebooks - 1; ++i) {
-        auto layer = std::make_unique<TowerLayer>(model, scope + "/residual_layers_" + std::to_string(i), cfg, false);
+        auto layer = std::make_unique<TowerLayer>(
+            model, scope + "/residual_layers_" + std::to_string(i), cfg, false);
         if (layer->dim != output_size())
           throw std::invalid_argument("DramaTower residual hidden dimension is incompatible");
         _residual.emplace_back(std::move(layer));
@@ -253,14 +274,21 @@ namespace ctranslate2 {
           throw std::invalid_argument("DramaTower requires compatible unpacked head matrices");
         _heads.emplace_back(std::make_unique<Dense>(model, head_scope));
       }
-      _resident_gpu=drama_gpu_resident(model);
-      if (_resident_gpu) _gpu_device_index=model.config.at("drama3_gpu_device_index").get<int>();
-
+      _resident_gpu = drama_gpu_resident(model);
+      if (_resident_gpu)
+        _gpu_device_index = model.config.at("drama3_gpu_device_index").get<int>();
     }
 
     DramaTower::~DramaTower() = default;
-    DataType DramaTower::output_type() const { return DataType::FLOAT32; }
-    dim_t DramaTower::output_size() const { return _embeddings.dim(1); }
+
+    DataType DramaTower::output_type() const {
+      return DataType::FLOAT32;
+    }
+
+    dim_t DramaTower::output_size() const {
+      return _embeddings.dim(1);
+    }
+
     bool DramaTower::is_semantic(int32_t token) const {
       return token >= _config.semantic_begin && token <= _config.semantic_end;
     }
@@ -268,14 +296,16 @@ namespace ctranslate2 {
     void DramaTower::initialize_state(DramaTowerState& state, dim_t max_tokens) const {
       if (max_tokens <= 0)
         throw std::invalid_argument("DramaTower requires positive cache capacity");
-      const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU,_gpu_device_index);
+      const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU,
+                                      _gpu_device_index);
       DramaTowerState fresh;
       fresh.capacity = max_tokens;
       auto allocate = [&](size_t count, std::vector<GatedSelfAttentionCache>& caches) {
         for (size_t i = 0; i < count; ++i) {
           const Shape shape{max_tokens, _config.attention.num_kv_heads, _config.attention.head_dim};
-          const auto device=_resident_gpu ? Device::CUDA : Device::CPU;
-          caches.push_back({StorageView(shape, DataType::FLOAT32, device), StorageView(shape, DataType::FLOAT32, device), 0});
+          const auto device = _resident_gpu ? Device::CUDA : Device::CPU;
+          caches.push_back({StorageView(shape, DataType::FLOAT32, device),
+                            StorageView(shape, DataType::FLOAT32, device), 0});
         }
       };
       allocate(_shared.size(), fresh.shared);
@@ -312,25 +342,31 @@ namespace ctranslate2 {
         throw std::invalid_argument("DramaTower state/context limit is incompatible");
       for (const auto* caches : {&state.shared, &state.residual})
         for (const auto& cache : *caches) {
-          for (const auto* tensor : {&cache.keys,&cache.values})
-            if (tensor->dtype()!=DataType::FLOAT32 || tensor->device()!=(_resident_gpu ? Device::CUDA : Device::CPU)
-                || (_resident_gpu && tensor->device_index()!=_gpu_device_index))
+          for (const auto* tensor : {&cache.keys, &cache.values})
+            if (tensor->dtype() != DataType::FLOAT32
+                || tensor->device() != (_resident_gpu ? Device::CUDA : Device::CPU)
+                || (_resident_gpu && tensor->device_index() != _gpu_device_index))
               throw std::invalid_argument("DramaTower cache device/type is incompatible");
-          if (cache.length != state.length || cache.keys.shape() != Shape{state.capacity, _config.attention.num_kv_heads, _config.attention.head_dim}
+          if (cache.length != state.length
+              || cache.keys.shape()
+                     != Shape{state.capacity, _config.attention.num_kv_heads,
+                              _config.attention.head_dim}
               || cache.values.shape() != cache.keys.shape())
-            throw std::invalid_argument("DramaTower temporal cache position/dimensions are incompatible");
+            throw std::invalid_argument(
+                "DramaTower temporal cache position/dimensions are incompatible");
         }
     }
 
     void DramaTower::validate_state_aliases(const DramaTowerState& state,
-                                           const std::vector<const StorageView*>& tensors) const {
+                                            const std::vector<const StorageView*>& tensors) const {
       std::vector<const StorageView*> allocations;
       for (const auto* caches : {&state.shared, &state.residual})
         for (const auto& cache : *caches)
           for (const auto* tensor : {&cache.keys, &cache.values}) {
             for (const auto* input : tensors) {
               if (input == tensor || overlaps(*input, *tensor))
-                throw std::invalid_argument("DramaTower temporal caches must not alias inputs/outputs");
+                throw std::invalid_argument(
+                    "DramaTower temporal caches must not alias inputs/outputs");
             }
             for (const auto* prior : allocations) {
               if (overlaps(*prior, *tensor))
@@ -349,13 +385,15 @@ namespace ctranslate2 {
       for (dim_t t = 0; t < frames.dim(0); ++t)
         for (dim_t c = first; c < end; ++c) {
           const dim_t code = frames.data<int32_t>()[t * (_config.num_codebooks + 1) + 1 + c];
-          ids.data<int32_t>()[t * count + c - first] = static_cast<int32_t>(c * _config.vocab_size + code);
+          ids.data<int32_t>()[t * count + c - first] =
+              static_cast<int32_t>(c * _config.vocab_size + code);
         }
       _embedding_lookup(ids, selected);
       for (dim_t t = 0; t < frames.dim(0); ++t)
         for (dim_t c = first; c < end; ++c)
           for (dim_t d = 0; d < output_size(); ++d)
-            result.data<float>()[t * output_size() + d] += selected.data<float>()[((t * count) + c - first) * output_size() + d];
+            result.data<float>()[t * output_size() + d] +=
+                selected.data<float>()[((t * count) + c - first) * output_size() + d];
       return result;
     }
 
@@ -373,8 +411,9 @@ namespace ctranslate2 {
         const bool semantic = is_semantic(frames.data<int32_t>()[t * (_config.num_codebooks + 1)]);
         for (dim_t d = 0; d < output_size(); ++d) {
           const dim_t i = t * output_size() + d;
-          extra.data<float>()[i] = semantic ? (text_embeddings.data<float>()[i] + extra.data<float>()[i]) / divisor
-                                           : text_embeddings.data<float>()[i];
+          extra.data<float>()[i] =
+              semantic ? (text_embeddings.data<float>()[i] + extra.data<float>()[i]) / divisor
+                       : text_embeddings.data<float>()[i];
         }
       }
       output = std::move(extra);
@@ -392,7 +431,7 @@ namespace ctranslate2 {
       for (size_t i = 0; i < _shared.size(); ++i) {
         StorageView next;
         (*_shared[i])(current, next_frames, 1, _config.semantic_begin, _config.semantic_end,
-                     i == 0 ? &unseen : nullptr, state.shared[i], next);
+                      i == 0 ? &unseen : nullptr, state.shared[i], next);
         current = std::move(next);
       }
       output = std::move(current);
@@ -410,7 +449,7 @@ namespace ctranslate2 {
       for (size_t i = 0; i < _residual.size(); ++i) {
         StorageView next;
         (*_residual[i])(current, next_frames, i + 1, _config.semantic_begin, _config.semantic_end,
-                       nullptr, state.residual[i], next);
+                        nullptr, state.residual[i], next);
         current = std::move(next);
       }
       state.length += hidden.dim(0);
@@ -427,7 +466,8 @@ namespace ctranslate2 {
                                    const std::vector<int32_t>& history_main_tokens,
                                    const DramaSamplingOptions& options, std::mt19937& rng,
                                    StorageView& next_frame) const {
-      decode_impl(logits, hidden, previous_frame, state, next_frame, &history_main_tokens, &options, &rng);
+      decode_impl(logits, hidden, previous_frame, state, next_frame, &history_main_tokens, &options,
+                  &rng);
     }
 
     void DramaTower::decode_impl(const StorageView& logits, const StorageView& hidden,
@@ -443,14 +483,16 @@ namespace ctranslate2 {
       if (hidden.dim(0) != 1 || logits.rank() != 2 || logits.dim(0) != 1
           || logits.dim(1) <= std::max(_config.semantic_end, _config.eos_id)
           || next_frame.device() != Device::CPU || next_frame.dtype() != DataType::INT32)
-        throw std::invalid_argument("DramaTower greedy decode expects one hidden/logit row and int32 frame output");
+        throw std::invalid_argument(
+            "DramaTower greedy decode expects one hidden/logit row and int32 frame output");
       for (const auto* input : {&logits, &hidden, &previous_frame, &_embeddings}) {
         if (input == &next_frame || overlaps(*input, next_frame))
           throw std::invalid_argument("DramaTower frame output must not alias inputs/weights");
       }
       int32_t main = _config.eos_id;
       float best = logits.data<float>()[main];
-      for (int64_t candidate = _config.semantic_begin; candidate <= _config.semantic_end; ++candidate) {
+      for (int64_t candidate = _config.semantic_begin; candidate <= _config.semantic_end;
+           ++candidate) {
         const float value = logits.data<float>()[candidate];
         if (!std::isfinite(value) || !std::isfinite(best))
           throw std::invalid_argument("DramaTower candidate logits must be finite");
@@ -461,7 +503,8 @@ namespace ctranslate2 {
       }
       if (options) {
         std::vector<int32_t> candidates{_config.eos_id};
-        for (int64_t candidate = _config.semantic_begin; candidate <= _config.semantic_end; ++candidate)
+        for (int64_t candidate = _config.semantic_begin; candidate <= _config.semantic_end;
+             ++candidate)
           candidates.push_back(static_cast<int32_t>(candidate));
         std::sort(candidates.begin(), candidates.end());
         std::vector<float> candidate_logits;
@@ -475,31 +518,36 @@ namespace ctranslate2 {
         // The official graph draws the retry unconditionally. Only semantic
         // repeats in the last16 main tokens use it; EOS is never resampled.
         const auto replacement = candidates[sample_drama_token(candidate_logits, retry, *rng)];
-        const size_t first = history_main_tokens->size() > 16 ? history_main_tokens->size() - 16 : 0;
+        const size_t first =
+            history_main_tokens->size() > 16 ? history_main_tokens->size() - 16 : 0;
         if (is_semantic(main)
-            && std::find(history_main_tokens->begin() + first, history_main_tokens->end(), main) != history_main_tokens->end())
+            && std::find(history_main_tokens->begin() + first, history_main_tokens->end(), main)
+                   != history_main_tokens->end())
           main = replacement;
       }
       StorageView frame({1, _config.num_codebooks + 1}, int32_t(0));
       frame.data<int32_t>()[0] = main;
-      frame.data<int32_t>()[1] = static_cast<int32_t>(std::max<int64_t>(0, std::min<int64_t>(_config.vocab_size - 1, int64_t(main) - _config.semantic_begin)));
+      frame.data<int32_t>()[1] = static_cast<int32_t>(std::max<int64_t>(
+          0, std::min<int64_t>(_config.vocab_size - 1, int64_t(main) - _config.semantic_begin)));
       StorageView current;
       run_shared(hidden, previous_frame, frame, state, current);
       for (size_t i = 0; i < _residual.size(); ++i) {
         StorageView next, code_logits;
         (*_residual[i])(current, frame, i + 1, _config.semantic_begin, _config.semantic_end,
-                       nullptr, state.residual[i], next);
+                        nullptr, state.residual[i], next);
         _heads[i]->operator()(next, code_logits);
         int32_t chosen = 0;
         for (dim_t code = 0; code < _config.vocab_size; ++code) {
           const float value = code_logits.data<float>()[code];
           if (!std::isfinite(value))
-            throw std::runtime_error("DramaTower code logits are non-finite; reset state before retry");
+            throw std::runtime_error(
+                "DramaTower code logits are non-finite; reset state before retry");
           if (value > code_logits.data<float>()[chosen])
             chosen = static_cast<int32_t>(code);
         }
         if (options) {
-          const std::vector<float> values(code_logits.data<float>(), code_logits.data<float>() + _config.vocab_size);
+          const std::vector<float> values(code_logits.data<float>(),
+                                          code_logits.data<float>() + _config.vocab_size);
           chosen = sample_drama_token(values, *options, *rng);
         }
         frame.data<int32_t>()[i + 2] = chosen;

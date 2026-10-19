@@ -8,8 +8,8 @@ namespace {
 
   class GatedDeltaModel : public models::Model {
   public:
-    GatedDeltaModel(dim_t hidden = 3, dim_t kh = 1, dim_t vh = 2,
-                    dim_t kd = 2, dim_t vd = 2, dim_t kernel = 3) {
+    GatedDeltaModel(dim_t hidden = 3, dim_t kh = 1, dim_t vh = 2, dim_t kd = 2, dim_t vd = 2,
+                    dim_t kernel = 3) {
       const dim_t channels = 2 * kh * kd + vh * vd;
       matrix("in_proj_qkv", channels, hidden);
       matrix("in_proj_z", vh * vd, hidden);
@@ -29,7 +29,10 @@ namespace {
     }
 
   protected:
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<GatedDeltaModel>(*this);
     }
@@ -52,8 +55,7 @@ TEST(GatedDeltaLayerTest, IndependentNonzeroStateScalarEquation) {
   model.put("in_proj_a/weight", StorageView({1, 1}, -.2f));
   model.put("in_proj_b/weight", StorageView({1, 1}, .4f));
   model.put("out_proj/weight", StorageView({1, 1}, -2.f));
-  model.put("conv1d/weight", StorageView({3, 1, 2},
-                                       std::vector<float>{.5f, 1, 1, -.25f, -.5f, 2}));
+  model.put("conv1d/weight", StorageView({3, 1, 2}, std::vector<float>{.5f, 1, 1, -.25f, -.5f, 2}));
   model.put("A_log", StorageView({1}, std::log(2.f)));
   model.put("dt_bias", StorageView({1}, .3f));
   model.put("norm/weight", StorageView({1}, 1.5f));
@@ -62,7 +64,9 @@ TEST(GatedDeltaLayerTest, IndependentNonzeroStateScalarEquation) {
   StorageView history({1, 3, 1}, std::vector<float>{1, -2, .25f});
   StorageView input({1, 1}, 2.f), output;
   layer(input, state, history, output);
-  const auto silu = [](double x) { return x / (1 + std::exp(-x)); };
+  const auto silu = [](double x) {
+    return x / (1 + std::exp(-x));
+  };
   // Causal conv uses raw previous projected QKV, followed by SiLU.
   double q = silu(2.5), k = silu(-3), v = silu(11.875);
   q /= std::sqrt(q * q + 1e-6);
@@ -135,7 +139,8 @@ TEST(GatedDeltaLayerTest, GuardsShapesTypesAndRetainedAllocationAliases) {
   StorageView aliased_input({1, 3}, allocation.data<float>() + 2);
   allocation.clear();
   EXPECT_THROW(layer(aliased_input, state, history, allocation), std::invalid_argument);
-  StorageView parameter_output({1}, const_cast<float*>(model.get_variable("delta/norm/weight").data<float>()));
+  StorageView parameter_output(
+      {1}, const_cast<float*>(model.get_variable("delta/norm/weight").data<float>()));
   EXPECT_THROW(layer(input, state, history, parameter_output), std::invalid_argument);
   StorageView wrong_state({1, 2, 1, 4}, .2f);
   EXPECT_THROW(layer(input, wrong_state, history, output), std::invalid_argument);

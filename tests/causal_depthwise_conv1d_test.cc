@@ -42,13 +42,15 @@ TEST(CausalDepthwiseConv1DTest, ArbitraryChunksMatchPrefill) {
     for (dim_t b = 0; b < 2; ++b)
       for (dim_t t = 0; t < size; ++t)
         for (dim_t c = 0; c < 3; ++c)
-          chunk.data<float>()[(b * size + t) * 3 + c] = x.data<float>()[(b * 9 + offset + t) * 3 + c];
+          chunk.data<float>()[(b * size + t) * 3 + c] =
+              x.data<float>()[(b * 9 + offset + t) * 3 + c];
     StorageView y;
     op(chunk, weight, nullptr, chunk_state, y);
     for (dim_t b = 0; b < 2; ++b)
       for (dim_t t = 0; t < size; ++t)
         for (dim_t c = 0; c < 3; ++c)
-          EXPECT_FLOAT_EQ(y.data<float>()[(b * size + t) * 3 + c], full.data<float>()[(b * 9 + offset + t) * 3 + c]);
+          EXPECT_FLOAT_EQ(y.data<float>()[(b * size + t) * 3 + c],
+                          full.data<float>()[(b * 9 + offset + t) * 3 + c]);
     offset += size;
   }
   expect_storage_eq(chunk_state, full_state);

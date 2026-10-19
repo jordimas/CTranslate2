@@ -26,8 +26,8 @@ TEST(ConvTranspose1DTest, GroupsDoNotMixChannels) {
   StorageView w({2, 2, 1}, std::vector<float>{1, 10, 100, 1000});
   StorageView y;
   ops::ConvTranspose1D(1, 0, 0, 1, 2)(x, w, y);
-  expect_storage_eq(y, StorageView({1, 4, 2},
-                                  std::vector<float>{1, 2, 10, 20, 300, 400, 3000, 4000}));
+  expect_storage_eq(y,
+                    StorageView({1, 4, 2}, std::vector<float>{1, 2, 10, 20, 300, 400, 3000, 4000}));
 }
 
 TEST(ConvTranspose1DTest, DilationPaddingAndOutputPadding) {
@@ -91,18 +91,21 @@ TEST(ConvTranspose1DTest, RejectsAliasingInRetainedOutputCapacity) {
 }
 
 namespace {
-  void compare_transpose_with_scalar(dim_t batch, dim_t cin, dim_t cout_group,
-                                     dim_t time, dim_t kernel, dim_t stride,
-                                     dim_t padding, dim_t output_padding,
-                                     dim_t dilation, dim_t groups) {
+
+  void compare_transpose_with_scalar(dim_t batch, dim_t cin, dim_t cout_group, dim_t time,
+                                     dim_t kernel, dim_t stride, dim_t padding,
+                                     dim_t output_padding, dim_t dilation, dim_t groups) {
     StorageView x({batch, cin, time}), w({cin, cout_group, kernel});
     const dim_t cout = cout_group * groups;
     StorageView bias(Shape{cout});
-    for (dim_t i = 0; i < x.size(); ++i) x.data<float>()[i] = (i % 17 - 8) * .03125f;
-    for (dim_t i = 0; i < w.size(); ++i) w.data<float>()[i] = (i % 13 - 6) * .015625f;
-    for (dim_t i = 0; i < cout; ++i) bias.data<float>()[i] = i * .00390625f;
-    const dim_t length = (time - 1) * stride - 2 * padding
-      + (kernel - 1) * dilation + output_padding + 1;
+    for (dim_t i = 0; i < x.size(); ++i)
+      x.data<float>()[i] = (i % 17 - 8) * .03125f;
+    for (dim_t i = 0; i < w.size(); ++i)
+      w.data<float>()[i] = (i % 13 - 6) * .015625f;
+    for (dim_t i = 0; i < cout; ++i)
+      bias.data<float>()[i] = i * .00390625f;
+    const dim_t length =
+        (time - 1) * stride - 2 * padding + (kernel - 1) * dilation + output_padding + 1;
     StorageView expected({batch, cout, length});
     for (dim_t n = 0; n < batch; ++n)
       for (dim_t oc = 0; oc < cout; ++oc) {
@@ -115,7 +118,7 @@ namespace {
               const dim_t pos = t * stride - padding + k * dilation;
               if (pos >= 0 && pos < length)
                 row[pos] += x.data<float>()[(n * cin + ic) * time + t]
-                  * w.data<float>()[(ic * cout_group + oc % cout_group) * kernel + k];
+                            * w.data<float>()[(ic * cout_group + oc % cout_group) * kernel + k];
             }
       }
     StorageView actual;
@@ -123,14 +126,14 @@ namespace {
     op(x, w, bias, actual);
     expect_storage_eq(actual, expected);
   }
+
 }
 
 TEST(ConvTranspose1DTest, GemmSizedInputsMatchScalarAcrossGroupsAndBoundaryParameters) {
   for (dim_t groups : {1, 2})
     for (dim_t dilation : {1, 2})
       for (dim_t output_padding : {0, 1})
-        compare_transpose_with_scalar(2, 16, 5, 7, 3, 2, 1,
-                                      output_padding, dilation, groups);
+        compare_transpose_with_scalar(2, 16, 5, 7, 3, 2, 1, output_padding, dilation, groups);
 }
 
 TEST(ConvTranspose1DTest, GemmTimeTilesPreserveOverlapsAndBiasAcrossTileBoundary) {

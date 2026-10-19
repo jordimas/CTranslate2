@@ -13,11 +13,10 @@ TEST(GatedDeltaNetTest, DecaysStateBeforeComputingResidual) {
   StorageView state({1, 1, 2, 2}, std::vector<float>{2, 4, 6, 8});
   StorageView output;
   ops::GatedDeltaNet()(q, k, v, g, beta, state, output);
-  expect_storage_eq(state, StorageView({1, 1, 2, 2},
-                                      std::vector<float>{2, 1, 5, 2}), 1e-6f);
-  expect_storage_eq(output, StorageView({1, 1, 1, 2},
-                                       std::vector<float>{9 / std::sqrt(2.f),
-                                                          4 / std::sqrt(2.f)}), 1e-6f);
+  expect_storage_eq(state, StorageView({1, 1, 2, 2}, std::vector<float>{2, 1, 5, 2}), 1e-6f);
+  expect_storage_eq(
+      output, StorageView({1, 1, 1, 2}, std::vector<float>{9 / std::sqrt(2.f), 4 / std::sqrt(2.f)}),
+      1e-6f);
 }
 
 TEST(GatedDeltaNetTest, ConsecutiveValueHeadsShareKeysAndQueries) {
@@ -29,10 +28,8 @@ TEST(GatedDeltaNetTest, ConsecutiveValueHeadsShareKeysAndQueries) {
   StorageView state({1, 4, 1, 1}, 0.f);
   StorageView output;
   ops::GatedDeltaNet()(q, k, v, g, beta, state, output);
-  expect_storage_eq(output, StorageView({1, 1, 4, 1},
-                                       std::vector<float>{1, 2, 9, 12}));
-  expect_storage_eq(state, StorageView({1, 4, 1, 1},
-                                      std::vector<float>{0.5f, 1, 3, 4}));
+  expect_storage_eq(output, StorageView({1, 1, 4, 1}, std::vector<float>{1, 2, 9, 12}));
+  expect_storage_eq(state, StorageView({1, 4, 1, 1}, std::vector<float>{0.5f, 1, 3, 4}));
 }
 
 TEST(GatedDeltaNetTest, PrefillMatchesSingleStepsWithNonzeroState) {
@@ -59,8 +56,7 @@ TEST(GatedDeltaNetTest, PrefillMatchesSingleStepsWithNonzeroState) {
   ops::GatedDeltaNet()(q, k, v, g, beta, prefill_state, prefill);
   // Slice each batch explicitly: a time slice across batches is not contiguous.
   for (dim_t b = 0; b < batch; ++b) {
-    StorageView state({1, heads, kd, vd},
-                      step_state.data<float>() + b * heads * kd * vd);
+    StorageView state({1, heads, kd, vd}, step_state.data<float>() + b * heads * kd * vd);
     for (dim_t t = 0; t < steps; ++t) {
       const auto row = b * steps + t;
       StorageView qt({1, 1, key_heads, kd}, q.data<float>() + row * key_heads * kd);
@@ -70,8 +66,8 @@ TEST(GatedDeltaNetTest, PrefillMatchesSingleStepsWithNonzeroState) {
       StorageView bt({1, 1, heads}, beta.data<float>() + row * heads);
       StorageView output;
       ops::GatedDeltaNet()(qt, kt, vt, gt, bt, state, output);
-      expect_array_eq(output.data<float>(), prefill.data<float>() + row * heads * vd,
-                      heads * vd, 1e-6f);
+      expect_array_eq(output.data<float>(), prefill.data<float>() + row * heads * vd, heads * vd,
+                      1e-6f);
     }
   }
   expect_storage_eq(step_state, prefill_state, 1e-6f);
@@ -155,15 +151,12 @@ TEST(GatedDeltaNetTest, MatchesIndependentDenseTransitionReference) {
   // the production residual/rank-one update implementation.
   StorageView q({1, 3, 1, 2}, std::vector<float>{0.4f, -0.7f, 1.2f, 0.3f, -0.8f, 0.6f});
   StorageView k({1, 3, 1, 2}, std::vector<float>{1.3f, -0.2f, 0.4f, 1.1f, -0.6f, 0.9f});
-  StorageView v({1, 3, 2, 3},
-                std::vector<float>{1, -2, 3, 4, 0.5f, -1,
-                                   -0.5f, 2, 1, -3, 0.2f, 0.7f,
-                                   2, 0, -1, 1, -0.4f, 3});
+  StorageView v({1, 3, 2, 3}, std::vector<float>{1, -2, 3, 4, 0.5f, -1, -0.5f, 2, 1, -3, 0.2f, 0.7f,
+                                                 2, 0, -1, 1, -0.4f, 3});
   StorageView g({1, 3, 2}, std::vector<float>{-0.2f, -0.7f, -0.9f, -0.1f, -0.4f, -0.3f});
   StorageView beta({1, 3, 2}, std::vector<float>{0.2f, 0.8f, 0.6f, 0.4f, 0.9f, 0.1f});
   StorageView state({1, 2, 2, 3},
-                    std::vector<float>{1, 2, -1, 0.5f, -0.2f, 3,
-                                       -2, 0.3f, 1, 4, -1, 0.7f});
+                    std::vector<float>{1, 2, -1, 0.5f, -0.2f, 3, -2, 0.3f, 1, 4, -1, 0.7f});
   std::vector<double> expected_state(state.data<float>(), state.data<float>() + state.size());
   std::vector<float> expected_output(18);
   for (int t = 0; t < 3; ++t) {
@@ -173,14 +166,13 @@ TEST(GatedDeltaNetTest, MatchesIndependentDenseTransitionReference) {
       double transition[2][2];
       for (int i = 0; i < 2; ++i)
         for (int j = 0; j < 2; ++j)
-          transition[i][j] = decay * ((i == j ? 1. : 0.)
-                                     - gate * k.data<float>()[t * 2 + i]
-                                     * k.data<float>()[t * 2 + j]);
+          transition[i][j] = decay
+                             * ((i == j ? 1. : 0.)
+                                - gate * k.data<float>()[t * 2 + i] * k.data<float>()[t * 2 + j]);
       const auto previous = expected_state;
       for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 3; ++j) {
-          double result = gate * k.data<float>()[t * 2 + i]
-            * v.data<float>()[(t * 2 + h) * 3 + j];
+          double result = gate * k.data<float>()[t * 2 + i] * v.data<float>()[(t * 2 + h) * 3 + j];
           for (int l = 0; l < 2; ++l)
             result += transition[i][l] * previous[(h * 2 + l) * 3 + j];
           expected_state[(h * 2 + i) * 3 + j] = result;

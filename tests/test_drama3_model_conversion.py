@@ -1,8 +1,9 @@
 """Run: python3 -m unittest discover -s tests -p test_drama3_model_conversion.py"""
 import json
-from pathlib import Path
 import tempfile
 import unittest
+
+from pathlib import Path
 
 import numpy as np
 
@@ -14,10 +15,14 @@ from ctranslate2.converters.transformers import Drama3Loader as converter
 from ctranslate2.specs.drama3_spec import Drama3Spec
 
 
-
 def config():
-    return {"audio_decoder_config": {"n_head": 2, "n_local_heads": 1, "head_dim": 2},
-            "quantization_config": {"weight_block_size": [128, 128], "quant_method": "bsgemm-moe"}}
+    return {
+        "audio_decoder_config": {"n_head": 2, "n_local_heads": 1, "head_dim": 2},
+        "quantization_config": {
+            "weight_block_size": [128, 128],
+            "quant_method": "bsgemm-moe",
+        },
+    }
 
 
 def optimized_variables(variables):
@@ -51,52 +56,79 @@ class DramaModelConversionTest(unittest.TestCase):
             "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w1.weight": "tower/residual_layers_2/transformer_layer/feed_forward/gate_proj/weight",
             "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w3.weight": "tower/residual_layers_2/transformer_layer/feed_forward/up_proj/weight",
             "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w2.weight": "tower/residual_layers_2/transformer_layer/feed_forward/down_proj/weight",
-            "audio_decoder_mtp.heads.8.weight": "tower/heads_8/weight"}
+            "audio_decoder_mtp.heads.8.weight": "tower/heads_8/weight",
+        }
         for source, target in cases.items():
             self.assertEqual(converter.canonical_name(source), target)
         with self.assertRaises(ValueError):
             converter.canonical_name("unknown.weight")
 
     def test_bf16_tower_row_split_across_chunk_boundaries(self):
-        name = "audio_decoder_mtp_shared.layers.0.transformer_layer.attention.wqkv.weight"
+        name = (
+            "audio_decoder_mtp_shared.layers.0.transformer_layer.attention.wqkv.weight"
+        )
         original = np.arange(36, dtype=np.float32).reshape(12, 3)
         bf16 = (original.view(np.uint32) >> 16).astype("<u2")
         path = self.root / "tower.safetensors"
         shard(path, {name: (bf16, "BF16")})
         reader = drama3_weights.SafeTensorMatrixReader(path)
-        for kind, rows in (("q_proj", [0, 1, 4, 5, 2, 3, 6, 7]),
-                           ("k_proj", [8, 9]), ("v_proj", [10, 11])):
+        for kind, rows in (
+            ("q_proj", [0, 1, 4, 5, 2, 3, 6, 7]),
+            ("k_proj", [8, 9]),
+            ("v_proj", [10, 11]),
+        ):
             item = {"source": name, "tower_slice": kind, "shape": (len(rows), 2)}
-            chunks = list(converter.tower_matrix_chunks(
-                reader, item, config()["audio_decoder_config"], chunk_rows=3))
+            chunks = list(
+                converter.tower_matrix_chunks(
+                    reader, item, config()["audio_decoder_config"], chunk_rows=3
+                )
+            )
             self.assertTrue(all(len(chunk) <= 3 for chunk in chunks))
             np.testing.assert_array_equal(np.concatenate(chunks), original[rows])
         metadata = {name: {**reader.tensors[name], "shard": path.name}}
         plan = converter.build_plan(metadata, config())
         self.assertEqual([item["shape"] for item in plan], [[8, 3], [2, 3], [2, 3]])
-        loaded = converter.load_model_tensors(plan, {path.name: reader}, config(), chunk_rows=3)
+        loaded = converter.load_model_tensors(
+            plan, {path.name: reader}, config(), chunk_rows=3
+        )
         prefix = "tower/shared_layers_0/transformer_layer/attention/"
-        np.testing.assert_array_equal(loaded[prefix + "q_proj/weight"], original[[0, 1, 4, 5, 2, 3, 6, 7]])
+        np.testing.assert_array_equal(
+            loaded[prefix + "q_proj/weight"], original[[0, 1, 4, 5, 2, 3, 6, 7]]
+        )
         output = optimized_variables(loaded)
         prefix = "tower/shared_layers_0/transformer_layer/attention/"
-        np.testing.assert_array_equal(output[prefix + "q_proj/weight"], original[[0, 1, 4, 5, 2, 3, 6, 7]])
+        np.testing.assert_array_equal(
+            output[prefix + "q_proj/weight"], original[[0, 1, 4, 5, 2, 3, 6, 7]]
+        )
         self.assertNotIn(prefix + "q_proj/weight_scale", output)
 
     def test_cross_shard_fp8_bytes_and_scales_are_preserved_exactly(self):
         name = "model.language_model.layers.0.mlp.experts.0.gate_proj.weight"
         scale_name = name + "_scale_inv"
-        weight_path, scale_path = self.root / "weights.safetensors", self.root / "scales.safetensors"
+        weight_path, scale_path = (
+            self.root / "weights.safetensors",
+            self.root / "scales.safetensors",
+        )
         shard(weight_path, {name: (np.full((129, 129), 0x38, np.uint8), "F8_E4M3FN")})
-        scales = np.array([[.5, 1], [2, 4]], np.float32)
+        scales = np.array([[0.5, 1], [2, 4]], np.float32)
         shard(scale_path, {scale_name: (scales, "F32")})
-        readers = {p.name: drama3_weights.SafeTensorMatrixReader(p) for p in (weight_path, scale_path)}
-        tensors = {n: {**t, "shard": p} for p, r in readers.items() for n, t in r.tensors.items()}
+        readers = {
+            p.name: drama3_weights.SafeTensorMatrixReader(p)
+            for p in (weight_path, scale_path)
+        }
+        tensors = {
+            n: {**t, "shard": p}
+            for p, r in readers.items()
+            for n, t in r.tensors.items()
+        }
         plan = converter.build_plan(tensors, config())
         self.assertEqual(plan[0]["scale_shard"], scale_path.name)
         loaded = converter.load_model_tensors(plan, readers, config(), chunk_rows=1)
         output = optimized_variables(loaded)
         target = "backbone/layers_0/mlp/experts_0/gate_proj/weight"
-        np.testing.assert_array_equal(output[target].view(np.uint8), np.full((129, 129), 0x38, np.uint8))
+        np.testing.assert_array_equal(
+            output[target].view(np.uint8), np.full((129, 129), 0x38, np.uint8)
+        )
         np.testing.assert_array_equal(output[target + "_scale_inv"], scales)
         self.assertNotIn(target + "_scale", output)
 
@@ -115,14 +147,16 @@ class DramaModelConversionTest(unittest.TestCase):
     def test_vectors_and_convolutions_keep_float32_and_normalization_offsets(self):
         name = "model.language_model.layers.0.linear_attn.norm.weight"
         path = self.root / "vectors.safetensors"
-        values = np.array([-.5, .3], dtype="<f4")
+        values = np.array([-0.5, 0.3], dtype="<f4")
         shard(path, {name: (values, "F32")})
         reader = drama3_weights.SafeTensorMatrixReader(path)
         metadata = {name: {**reader.tensors[name], "shard": path.name}}
         plan = converter.build_plan(metadata, config())
         self.assertEqual(plan[0]["dtype"], "float32")
         output = converter.load_model_tensors(plan, {path.name: reader}, config())
-        np.testing.assert_array_equal(output["backbone/layers_0/linear_attn/norm/weight"], values)
+        np.testing.assert_array_equal(
+            output["backbone/layers_0/linear_attn/norm/weight"], values
+        )
 
     def test_depthwise_convolution_preserves_rank_and_flat_chunk_contents(self):
         name = "model.language_model.layers.0.linear_attn.conv1d.weight"
@@ -170,7 +204,16 @@ class DramaModelConversionTest(unittest.TestCase):
 
     def test_orphan_scales_and_nonfinite_vectors_rejected(self):
         with self.assertRaisesRegex(ValueError, "orphan"):
-            converter.build_plan({"unused.weight_scale_inv": {"shape": (1, 1), "dtype": "F32", "shard": "a"}}, config())
+            converter.build_plan(
+                {
+                    "unused.weight_scale_inv": {
+                        "shape": (1, 1),
+                        "dtype": "F32",
+                        "shard": "a",
+                    }
+                },
+                config(),
+            )
         path = self.root / "nonfinite.safetensors"
         name = "model.language_model.norm.weight"
         shard(path, {name: (np.array([np.nan], np.float32), "F32")})

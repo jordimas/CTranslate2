@@ -23,9 +23,8 @@ namespace {
   class TinyTowerModel : public models::Model {
   public:
     explicit TinyTowerModel(bool quantized_embeddings = false) {
-      put("codebook_embeddings/weight", {9, 2}, {0, 0, 1, 0, 0, 1,
-                                                .2f, .4f, .5f, -.1f, -.3f, .8f,
-                                                .1f, -.5f, -.4f, .2f, .6f, .3f});
+      put("codebook_embeddings/weight", {9, 2},
+          {0, 0, 1, 0, 0, 1, .2f, .4f, .5f, -.1f, -.3f, .8f, .1f, -.5f, -.4f, .2f, .6f, .3f});
       add_layer("shared_layers_0", true);
       for (dim_t i = 0; i < 2; ++i) {
         add_layer("residual_layers_" + std::to_string(i), false);
@@ -40,26 +39,34 @@ namespace {
             continue;
           StorageView quantized(pair.second.shape(), DataType::INT8);
           for (dim_t i = 0; i < pair.second.size(); ++i)
-            quantized.data<int8_t>()[i] = static_cast<int8_t>(std::round(10.f * pair.second.data<float>()[i]));
+            quantized.data<int8_t>()[i] =
+                static_cast<int8_t>(std::round(10.f * pair.second.data<float>()[i]));
           remove_variable(pair.first);
           register_variable(pair.first, std::move(quantized));
           register_variable(pair.first + "_scale", StorageView({pair.second.dim(0)}, 10.f));
         }
       }
     }
+
   protected:
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<TinyTowerModel>(*this);
     }
+
   private:
     void put(const std::string& name, Shape shape, std::vector<float> values) {
       register_variable("tower/" + name, StorageView(std::move(shape), values));
     }
+
     void add_layer(const std::string& name, bool shared) {
-      put(name + (shared ? "/semantic_embedding/weight" : "/codebook_embedding/weight"),
-          {3, 2}, {-1, .2f, .2f, 1, 1, -.4f});
-      for (const auto* norm : {"enorm", "hnorm", "final_layernorm", "transformer_layer/attention_norm", "transformer_layer/ffn_norm"})
+      put(name + (shared ? "/semantic_embedding/weight" : "/codebook_embedding/weight"), {3, 2},
+          {-1, .2f, .2f, 1, 1, -.4f});
+      for (const auto* norm : {"enorm", "hnorm", "final_layernorm",
+                               "transformer_layer/attention_norm", "transformer_layer/ffn_norm"})
         put(name + "/" + norm + "/weight", {2}, {0, 0});
       put(name + "/eh_proj/weight", {2, 4}, {.5f, 0, 1, 0, 0, .5f, 0, 1});
       const auto attn = name + "/transformer_layer/attention/";
@@ -174,8 +181,10 @@ TEST_F(DramaTowerTest, EosAndInputStateGuards) {
 TEST_F(DramaTowerTest, Int8EmbeddingTablesUsePerRowScales) {
   TinyTowerModel floating, quantized(true);
   ASSERT_EQ(quantized.get_variable("tower/codebook_embeddings/weight").dtype(), DataType::INT8);
-  ASSERT_EQ(quantized.get_variable("tower/shared_layers_0/semantic_embedding/weight").dtype(), DataType::INT8);
-  ASSERT_EQ(quantized.get_variable("tower/residual_layers_0/codebook_embedding/weight").dtype(), DataType::INT8);
+  ASSERT_EQ(quantized.get_variable("tower/shared_layers_0/semantic_embedding/weight").dtype(),
+            DataType::INT8);
+  ASSERT_EQ(quantized.get_variable("tower/residual_layers_0/codebook_embedding/weight").dtype(),
+            DataType::INT8);
   layers::DramaTower a(floating, "tower", config()), b(quantized, "tower", config());
   StorageView current({1, 4}, std::vector<int32_t>{6, 1, 1, 2});
   StorageView next({1, 4}, std::vector<int32_t>{5, 0, 2, 1});
@@ -266,8 +275,10 @@ TEST_F(DramaTowerTest, RepetitionResamplesSemanticOnceWithinLastSixteenTokens) {
   const std::vector<float> candidate_logits{0, 0, .1f, 0};
   for (uint64_t seed = 0; seed < 16; ++seed) {
     std::mt19937 reference_rng(seed);
-    EXPECT_EQ(candidate_ids[layers::sample_drama_token(candidate_logits, options, reference_rng)], 6);
-    const auto expected_retry = candidate_ids[layers::sample_drama_token(candidate_logits, retry, reference_rng)];
+    EXPECT_EQ(candidate_ids[layers::sample_drama_token(candidate_logits, options, reference_rng)],
+              6);
+    const auto expected_retry =
+        candidate_ids[layers::sample_drama_token(candidate_logits, retry, reference_rng)];
     layers::DramaTowerState state;
     tower.initialize_state(state, 1);
     StorageView next(DataType::INT32);
@@ -323,7 +334,8 @@ TEST_F(DramaTowerTest, SamplingRejectsInvalidOptionsAndNonfiniteLogits) {
   EXPECT_THROW(layers::sample_drama_token({0, 1}, options, rng), std::invalid_argument);
   options.top_k = 1;
   EXPECT_THROW(layers::sample_drama_token({}, options, rng), std::invalid_argument);
-  EXPECT_THROW(layers::sample_drama_token({std::numeric_limits<float>::infinity()}, options, rng), std::invalid_argument);
+  EXPECT_THROW(layers::sample_drama_token({std::numeric_limits<float>::infinity()}, options, rng),
+               std::invalid_argument);
 }
 
 TEST_F(DramaTowerTest, SamplingMatchesTorchCpuReferenceStream) {
@@ -331,11 +343,10 @@ TEST_F(DramaTowerTest, SamplingMatchesTorchCpuReferenceStream) {
   // draw schedules. Also checks masked draws consume RNG and that
   // high seed bits match Torch CPU's low-32-bit generator initialization.
   const std::vector<std::vector<int32_t>> expected{
-    {1764, 3530, 2940, 2646, 2349, 1760, 2642, 2054, 1170, 1464, 1169,
-     2638, 579, 2932, 1753, 1752, 1752, 280, 3810, 1456, 1750, 1160},
-    {2648, 2646, 3235, 3823, 1467, 3233, 877, 3525, 1170, 3230, 873,
-     2639, 285, 3521, 2343, 3814, 1163, 2046, 1750, 3221, 1161, 1749}
-  };
+      {1764, 3530, 2940, 2646, 2349, 1760, 2642, 2054, 1170, 1464, 1169,
+       2638, 579,  2932, 1753, 1752, 1752, 280,  3810, 1456, 1750, 1160},
+      {2648, 2646, 3235, 3823, 1467, 3233, 877,  3525, 1170, 3230, 873,
+       2639, 285,  3521, 2343, 3814, 1163, 2046, 1750, 3221, 1161, 1749}};
   const uint64_t seeds[]{0, 17, (uint64_t(1) << 32) + 17};
   for (size_t run = 0; run < 3; ++run) {
     std::mt19937 rng(static_cast<uint32_t>(seeds[run]));
@@ -349,7 +360,7 @@ TEST_F(DramaTowerTest, SamplingMatchesTorchCpuReferenceStream) {
         options.top_p = .95f;
       }
       EXPECT_EQ(layers::sample_drama_token(logits, options, rng), expected[run == 0 ? 0 : 1][call])
-        << "seed=" << seeds[run] << " call=" << call;
+          << "seed=" << seeds[run] << " call=" << call;
     }
   }
 }
@@ -381,58 +392,94 @@ TEST_F(DramaTowerTest, SamplingTiedCutoffIsSeededAndUniformWithinRetainedCandida
 }
 
 TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+
   class Fixture : public models::Model {
   public:
     Fixture(bool resident, ComputeType type) {
-      auto matrix=[&](const std::string& name,dim_t rows,dim_t cols) {
-        StorageView w({rows,cols});int salt=0;for(char c:name)salt+=c;
-        for(dim_t i=0;i<w.size();++i)w.data<float>()[i]=.025f*std::sin(float(i+salt));
-        register_variable("tower/"+name+"/weight",std::move(w));
+      auto matrix = [&](const std::string& name, dim_t rows, dim_t cols) {
+        StorageView w({rows, cols});
+        int salt = 0;
+        for (char c : name)
+          salt += c;
+        for (dim_t i = 0; i < w.size(); ++i)
+          w.data<float>()[i] = .025f * std::sin(float(i + salt));
+        register_variable("tower/" + name + "/weight", std::move(w));
       };
-      matrix("codebook_embeddings",48,16);
-      for(int layer=-1;layer<2;++layer) {
-        const auto s=layer<0?std::string("shared_layers_0"):"residual_layers_"+std::to_string(layer);
-        matrix(s+(layer<0?"/semantic_embedding":"/codebook_embedding"),16,16);
-        for(const auto* norm:{"enorm","hnorm","final_layernorm","transformer_layer/attention_norm","transformer_layer/ffn_norm"})
-          register_variable("tower/"+s+"/"+norm+"/weight",StorageView({16},.1f));
-        matrix(s+"/eh_proj",16,32);
-        const auto a=s+"/transformer_layer/attention/";
-        matrix(a+"q_proj",32,16);matrix(a+"k_proj",16,16);matrix(a+"v_proj",16,16);matrix(a+"o_proj",16,16);
-        register_variable("tower/"+a+"q_norm/weight",StorageView({16},.05f));
-        register_variable("tower/"+a+"k_norm/weight",StorageView({16},-.05f));
-        const auto f=s+"/transformer_layer/feed_forward/";
-        matrix(f+"gate_proj",32,16);matrix(f+"up_proj",32,16);matrix(f+"down_proj",16,32);
-        if(layer>=0)matrix("heads_"+std::to_string(layer),16,16);
+      matrix("codebook_embeddings", 48, 16);
+      for (int layer = -1; layer < 2; ++layer) {
+        const auto s =
+            layer < 0 ? std::string("shared_layers_0") : "residual_layers_" + std::to_string(layer);
+        matrix(s + (layer < 0 ? "/semantic_embedding" : "/codebook_embedding"), 16, 16);
+        for (const auto* norm : {"enorm", "hnorm", "final_layernorm",
+                                 "transformer_layer/attention_norm", "transformer_layer/ffn_norm"})
+          register_variable("tower/" + s + "/" + norm + "/weight", StorageView({16}, .1f));
+        matrix(s + "/eh_proj", 16, 32);
+        const auto a = s + "/transformer_layer/attention/";
+        matrix(a + "q_proj", 32, 16);
+        matrix(a + "k_proj", 16, 16);
+        matrix(a + "v_proj", 16, 16);
+        matrix(a + "o_proj", 16, 16);
+        register_variable("tower/" + a + "q_norm/weight", StorageView({16}, .05f));
+        register_variable("tower/" + a + "k_norm/weight", StorageView({16}, -.05f));
+        const auto f = s + "/transformer_layer/feed_forward/";
+        matrix(f + "gate_proj", 32, 16);
+        matrix(f + "up_proj", 32, 16);
+        matrix(f + "down_proj", 16, 32);
+        if (layer >= 0)
+          matrix("heads_" + std::to_string(layer), 16, 16);
       }
-      set_compute_type(ComputeType::FLOAT32,Device::CPU,0);
-      config["drama3_gpu_compute_type"]=compute_type_to_str(type);config["drama3_gpu_device_index"]=0;
-      config["drama3_gpu_resident_backbone"]=resident;
+      set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
+      config["drama3_gpu_compute_type"] = compute_type_to_str(type);
+      config["drama3_gpu_device_index"] = 0;
+      config["drama3_gpu_resident_backbone"] = resident;
     }
-    std::unique_ptr<models::Model> clone() const override {return std::make_unique<Fixture>(*this);}
+
+    std::unique_ptr<models::Model> clone() const override {
+      return std::make_unique<Fixture>(*this);
+    }
   };
-  const ScopedDeviceSetter setter(Device::CUDA,0);
-  for(auto type : {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
-                   ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
-  try {resolve_compute_type(type,ComputeType::FLOAT32,Device::CUDA,0);}
-  catch(const std::invalid_argument&) {continue;}
-  SCOPED_TRACE(compute_type_to_str(type));
-  Fixture rm(false,type),gm(true,type);auto cfg=config();cfg.vocab_size=16;cfg.attention={1,1,16,16,100.f,1e-5f,true,true};
-  layers::DramaTower reference(rm,"tower",cfg),resident(gm,"tower",cfg);
-  layers::DramaTowerState rs,gs;reference.initialize_state(rs,8);resident.initialize_state(gs,8);
-  StorageView hidden({3,16});for(dim_t i=0;i<hidden.size();++i)hidden.data<float>()[i]=std::sin(float(i));
-  StorageView frames({3,4},std::vector<int32_t>{5,1,2,3,6,3,2,1,7,2,1,3});
-  reference.prefill(hidden,frames,frames,rs);resident.prefill(hidden,frames,frames,gs);
-  EXPECT_EQ(rs.length,gs.length);
-  for(size_t i=0;i<rs.residual.size();++i) {
-    auto keys=gs.residual[i].keys.to(Device::CPU);synchronize_stream(Device::CUDA);
-    // Only the initialized prefix is semantically defined.
-    expect_array_eq(keys.data<float>(),rs.residual[i].keys.data<float>(),3*16,2e-3f);
-  }
-  StorageView logits({1,8},-10.f);logits.data<float>()[6]=10.f;
-  StorageView token_hidden({1,16},hidden.data<float>()),previous({1,4},std::vector<int32_t>{6,1,2,3}),rf(DataType::INT32),gf(DataType::INT32);
-  reference.decode_greedy(logits,token_hidden,previous,rs,rf);
-  resident.decode_greedy(logits,token_hidden,previous,gs,gf);
-  expect_storage_eq(gf,rf);EXPECT_EQ(rs.length,gs.length);
+
+  const ScopedDeviceSetter setter(Device::CUDA, 0);
+  for (auto type :
+       {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
+        ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
+    try {
+      resolve_compute_type(type, ComputeType::FLOAT32, Device::CUDA, 0);
+    } catch (const std::invalid_argument&) {
+      continue;
+    }
+    SCOPED_TRACE(compute_type_to_str(type));
+    Fixture rm(false, type), gm(true, type);
+    auto cfg = config();
+    cfg.vocab_size = 16;
+    cfg.attention = {1, 1, 16, 16, 100.f, 1e-5f, true, true};
+    layers::DramaTower reference(rm, "tower", cfg), resident(gm, "tower", cfg);
+    layers::DramaTowerState rs, gs;
+    reference.initialize_state(rs, 8);
+    resident.initialize_state(gs, 8);
+    StorageView hidden({3, 16});
+    for (dim_t i = 0; i < hidden.size(); ++i)
+      hidden.data<float>()[i] = std::sin(float(i));
+    StorageView frames({3, 4}, std::vector<int32_t>{5, 1, 2, 3, 6, 3, 2, 1, 7, 2, 1, 3});
+    reference.prefill(hidden, frames, frames, rs);
+    resident.prefill(hidden, frames, frames, gs);
+    EXPECT_EQ(rs.length, gs.length);
+    for (size_t i = 0; i < rs.residual.size(); ++i) {
+      auto keys = gs.residual[i].keys.to(Device::CPU);
+      synchronize_stream(Device::CUDA);
+      // Only the initialized prefix is semantically defined.
+      expect_array_eq(keys.data<float>(), rs.residual[i].keys.data<float>(), 3 * 16, 2e-3f);
+    }
+    StorageView logits({1, 8}, -10.f);
+    logits.data<float>()[6] = 10.f;
+    StorageView token_hidden({1, 16}, hidden.data<float>()),
+        previous({1, 4}, std::vector<int32_t>{6, 1, 2, 3}), rf(DataType::INT32),
+        gf(DataType::INT32);
+    reference.decode_greedy(logits, token_hidden, previous, rs, rf);
+    resident.decode_greedy(logits, token_hidden, previous, gs, gf);
+    expect_storage_eq(gf, rf);
+    EXPECT_EQ(rs.length, gs.length);
   }
 }

@@ -36,8 +36,8 @@ namespace ctranslate2 {
       dim_t output_size() const override;
       dim_t vocabulary_size() const;
       void initialize_state(DramaBackboneState& state, dim_t max_tokens = 0) const;
-      void operator()(const StorageView& embedded, DramaBackboneState& state,
-                      StorageView& hidden, StorageView& logits) const;
+      void operator()(const StorageView& embedded, DramaBackboneState& state, StorageView& hidden,
+                      StorageView& logits) const;
 
     private:
       bool _resident_gpu = false;

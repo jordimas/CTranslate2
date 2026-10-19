@@ -6,6 +6,7 @@
 #include "ctranslate2/layers/fish_dac.h"
 
 namespace {
+
   const std::string scope = "codec/decoder";
 
   class TinyFishDACModel : public models::Model {
@@ -32,7 +33,10 @@ namespace {
     }
 
   protected:
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<TinyFishDACModel>(*this);
     }
@@ -45,6 +49,7 @@ namespace {
       register_variable(scope + "/" + name + "/weight", std::move(weight));
       register_variable(scope + "/" + name + "/bias", StorageView({1}, zero ? 0.f : -.003f));
     }
+
     void alpha(const std::string& name, float value, bool zero) {
       register_variable(scope + "/" + name + "/alpha", StorageView({1, 1, 1}, zero ? 0.f : value));
     }
@@ -61,7 +66,7 @@ namespace {
   }
 
   std::vector<double> causal(const TinyFishDACModel& model, const std::string& name,
-                              const std::vector<double>& values, int dilation) {
+                             const std::vector<double>& values, int dilation) {
     const auto& weight = model.get_variable(scope + "/" + name + "/weight");
     const auto bias = model.get_variable(scope + "/" + name + "/bias").data<float>()[0];
     std::vector<double> result(values.size(), bias);
@@ -100,14 +105,17 @@ namespace {
       branch = causal(model, prefix + "1/conv", branch, dilation);
       branch = snake(std::move(branch), coefficient(model, prefix + "2"));
       branch = causal(model, prefix + "3/conv", branch, 1);
-      for (size_t t = 0; t < x.size(); ++t) x[t] += branch[t];
+      for (size_t t = 0; t < x.size(); ++t)
+        x[t] += branch[t];
       dilation *= 3;
     }
     x = snake(std::move(x), coefficient(model, "model/2"));
     x = causal(model, "model/3/conv", x, 1);
-    for (auto& value : x) value = std::tanh(value);
+    for (auto& value : x)
+      value = std::tanh(value);
     return x;
   }
+
 }
 
 TEST(FishDACTest, MatchesIndependentScalarGraphIncludingCausalDilationsAndRightCrop) {
@@ -143,7 +151,8 @@ TEST(FishDACTest, RejectsInvalidInputShapesTypesAndNonfiniteSamples) {
   EXPECT_THROW(decoder(wrong_type, output), std::invalid_argument);
   StorageView input({1, 1, 3}, 1.f), wrong_output(DataType::INT32);
   EXPECT_THROW(decoder(input, wrong_output), std::invalid_argument);
-  for (const float value : {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
+  for (const float value :
+       {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
     input.data<float>()[1] = value;
     EXPECT_THROW(decoder(input, output), std::invalid_argument);
   }
@@ -175,47 +184,62 @@ TEST(FishDACTest, RejectsMalformedWeightsAndStrides) {
   bad_alpha.replace("model/2/alpha", StorageView({2}, 1.f));
   EXPECT_THROW(layers::FishDACWaveformDecoder(bad_alpha, scope, {2}), std::invalid_argument);
   TinyFishDACModel bad_finite;
-  bad_finite.replace("model/3/conv/bias", StorageView({1}, std::numeric_limits<float>::quiet_NaN()));
+  bad_finite.replace("model/3/conv/bias",
+                     StorageView({1}, std::numeric_limits<float>::quiet_NaN()));
   EXPECT_THROW(layers::FishDACWaveformDecoder(bad_finite, scope, {2}), std::invalid_argument);
 }
 
 TEST(FishDACTest, GpuWaveformMatchesCpuAndIndependentScalarReference) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
-  for(int index=0;index<get_device_count(Device::CUDA);++index) {
-    const ScopedDeviceSetter setter(Device::CUDA,index);
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+  for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
+    const ScopedDeviceSetter setter(Device::CUDA, index);
     TinyFishDACModel cpu_model, gpu_model;
-    gpu_model.config["drama3_gpu_compute_type"]="int8_float32";
-    gpu_model.config["drama3_gpu_device_index"]=index;
-    gpu_model.config["drama3_gpu_waveform"]=true;
-    layers::FishDACWaveformDecoder cpu(cpu_model,scope,{2}), gpu(gpu_model,scope,{2});
-    for(dim_t time : {1,7,37}) {
-      StorageView input({1,1,time});
-      for(dim_t i=0;i<time;++i)input.data<float>()[i]=.4f*std::sin(float(i));
-      StorageView expected, actual;cpu(input,expected);gpu(input,actual);
-      expect_storage_eq(actual,expected,2e-6f);
-      const auto scalar=reference(cpu_model,input);
-      ASSERT_EQ(actual.size(),dim_t(scalar.size()));
-      for(dim_t i=0;i<actual.size();++i)EXPECT_NEAR(actual.data<float>()[i],scalar[i],2e-6);
+    gpu_model.config["drama3_gpu_compute_type"] = "int8_float32";
+    gpu_model.config["drama3_gpu_device_index"] = index;
+    gpu_model.config["drama3_gpu_waveform"] = true;
+    layers::FishDACWaveformDecoder cpu(cpu_model, scope, {2}), gpu(gpu_model, scope, {2});
+    for (dim_t time : {1, 7, 37}) {
+      StorageView input({1, 1, time});
+      for (dim_t i = 0; i < time; ++i)
+        input.data<float>()[i] = .4f * std::sin(float(i));
+      StorageView expected, actual;
+      cpu(input, expected);
+      gpu(input, actual);
+      expect_storage_eq(actual, expected, 2e-6f);
+      const auto scalar = reference(cpu_model, input);
+      ASSERT_EQ(actual.size(), dim_t(scalar.size()));
+      for (dim_t i = 0; i < actual.size(); ++i)
+        EXPECT_NEAR(actual.data<float>()[i], scalar[i], 2e-6);
     }
   }
 }
 
 #ifdef CT2_WITH_CUDA
-#include "ctranslate2/ops/fish_dac_gpu.h"
+#  include "ctranslate2/ops/fish_dac_gpu.h"
+
 TEST(FishDACTest, GpuCausalConvolutionTilesLongMultichannelInput) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
-  const ScopedDeviceSetter setter(Device::CUDA,0);
-  constexpr dim_t time=45000, cin=16, cout=8, kernel=7, dilation=3, left=(kernel-1)*dilation;
-  StorageView input({1,cin,time}),weight({cout,cin,kernel}),bias({cout},.01f);
-  for(dim_t i=0;i<input.size();++i)input.data<float>()[i]=.2f*std::sin(float(i));
-  for(dim_t i=0;i<weight.size();++i)weight.data<float>()[i]=.02f*std::cos(float(i));
-  StorageView padded({1,cin,time+left},0.f);
-  for(dim_t c=0;c<cin;++c)std::copy_n(input.data<float>()+c*time,time,padded.data<float>()+c*(time+left)+left);
-  StorageView reference;ops::Conv1D(1,0,dilation)(padded,weight,bias,reference);
-  auto gx=input.to(Device::CUDA),gw=weight.to(Device::CUDA),gb=bias.to(Device::CUDA);
-  StorageView output(DataType::FLOAT32,Device::CUDA);
-  ops::fish_causal_gpu(gx,gw,gb,dilation,output);
-  auto host=output.to(Device::CPU);synchronize_stream(Device::CUDA);
-  expect_storage_eq(host,reference,2e-5f);
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+  const ScopedDeviceSetter setter(Device::CUDA, 0);
+  constexpr dim_t time = 45000, cin = 16, cout = 8, kernel = 7, dilation = 3,
+                  left = (kernel - 1) * dilation;
+  StorageView input({1, cin, time}), weight({cout, cin, kernel}), bias({cout}, .01f);
+  for (dim_t i = 0; i < input.size(); ++i)
+    input.data<float>()[i] = .2f * std::sin(float(i));
+  for (dim_t i = 0; i < weight.size(); ++i)
+    weight.data<float>()[i] = .02f * std::cos(float(i));
+  StorageView padded({1, cin, time + left}, 0.f);
+  for (dim_t c = 0; c < cin; ++c)
+    std::copy_n(input.data<float>() + c * time, time,
+                padded.data<float>() + c * (time + left) + left);
+  StorageView reference;
+  ops::Conv1D(1, 0, dilation)(padded, weight, bias, reference);
+  auto gx = input.to(Device::CUDA), gw = weight.to(Device::CUDA), gb = bias.to(Device::CUDA);
+  StorageView output(DataType::FLOAT32, Device::CUDA);
+  ops::fish_causal_gpu(gx, gw, gb, dilation, output);
+  auto host = output.to(Device::CPU);
+  synchronize_stream(Device::CUDA);
+  expect_storage_eq(host, reference, 2e-5f);
 }
 #endif

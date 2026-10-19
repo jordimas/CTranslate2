@@ -6,13 +6,12 @@
 
 TEST(SnakeTest, AnalyticalAndChannelBroadcast) {
   const float pi = std::acos(-1.f);
-  StorageView x({2, 2, 2}, std::vector<float>{0, pi / 2, 0, pi / 4,
-                                            -pi / 2, pi, -pi / 4, pi / 2});
+  StorageView x({2, 2, 2}, std::vector<float>{0, pi / 2, 0, pi / 4, -pi / 2, pi, -pi / 4, pi / 2});
   StorageView alpha({2}, std::vector<float>{1, 2});
   StorageView y;
   ops::Snake()(x, alpha, y);
-  const std::vector<float> expected{0, pi / 2 + 1, 0, pi / 4 + .5f,
-                                   -pi / 2 + 1, pi, -pi / 4 + .5f, pi / 2};
+  const std::vector<float> expected{0,  pi / 2 + 1,    0,     pi / 4 + .5f, -pi / 2 + 1,
+                                    pi, -pi / 4 + .5f, pi / 2};
   ASSERT_EQ(y.shape(), x.shape());
   for (dim_t i = 0; i < y.size(); ++i)
     EXPECT_NEAR(y.data<float>()[i], expected[i], 1e-6);

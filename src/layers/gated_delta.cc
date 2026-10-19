@@ -59,8 +59,8 @@ namespace ctranslate2 {
     }
 
     GatedDeltaNet::GatedDeltaNet(const models::Model& model, const std::string& scope,
-                                dim_t key_heads, dim_t value_heads,
-                                dim_t key_dim, dim_t value_dim, float rms_epsilon)
+                                 dim_t key_heads, dim_t value_heads, dim_t key_dim, dim_t value_dim,
+                                 float rms_epsilon)
       : _qkv(model, scope + "/in_proj_qkv")
       , _z(model, scope + "/in_proj_z")
       , _a(model, scope + "/in_proj_a")
@@ -70,12 +70,16 @@ namespace ctranslate2 {
       , _dt_bias(model.get_variable(scope + "/dt_bias"))
       , _norm_weight(model.get_variable(scope + "/norm/weight"))
       , _conv_bias(model.get_variable_if_exists(scope + "/conv1d/bias"))
-      , _key_heads(key_heads), _value_heads(value_heads)
-      , _key_dim(key_dim), _value_dim(value_dim), _rms_epsilon(rms_epsilon) {
-      if (model.device() != Device::CPU || _qkv.output_type() != DataType::FLOAT32
-          || key_heads <= 0 || value_heads <= 0 || value_heads % key_heads
-          || !std::isfinite(rms_epsilon) || rms_epsilon <= 0)
-        throw std::invalid_argument("GatedDeltaNet requires CPU float32 and valid dimensions/epsilon");
+      , _key_heads(key_heads)
+      , _value_heads(value_heads)
+      , _key_dim(key_dim)
+      , _value_dim(value_dim)
+      , _rms_epsilon(rms_epsilon) {
+      if (model.device() != Device::CPU || _qkv.output_type() != DataType::FLOAT32 || key_heads <= 0
+          || value_heads <= 0 || value_heads % key_heads || !std::isfinite(rms_epsilon)
+          || rms_epsilon <= 0)
+        throw std::invalid_argument(
+            "GatedDeltaNet requires CPU float32 and valid dimensions/epsilon");
       _key_width = product(key_heads, key_dim);
       _value_width = product(value_heads, value_dim);
       if (_key_width > (std::numeric_limits<dim_t>::max() - _value_width) / 2)
@@ -87,7 +91,8 @@ namespace ctranslate2 {
         if (weight.rank() != 2 || weight.device() != Device::CPU
             || model.get_variable_if_exists(scope + name + "/weight_packed")
             || model.get_variable_if_exists(scope + name + "/bias"))
-          throw std::invalid_argument("GatedDeltaNet requires unpacked bias-free projection matrices");
+          throw std::invalid_argument(
+              "GatedDeltaNet requires unpacked bias-free projection matrices");
         _parameters.push_back(&weight);
         for (const auto* suffix : {"/weight_scale", "/weight_zero", "/weight_compensation"}) {
           if (const auto* parameter = model.get_variable_if_exists(scope + name + suffix))
@@ -122,56 +127,79 @@ namespace ctranslate2 {
       if (_a_log.shape() != Shape{value_heads} || _dt_bias.shape() != Shape{value_heads}
           || _norm_weight.shape() != Shape{value_dim}
           || (_conv_bias && _conv_bias->shape() != Shape{_conv_channels}))
-        throw std::invalid_argument("GatedDeltaNet gate/norm/conv bias dimensions are incompatible");
+        throw std::invalid_argument(
+            "GatedDeltaNet gate/norm/conv bias dimensions are incompatible");
       _resident_gpu = drama_gpu_resident(model);
       if (_resident_gpu) {
-        const ScopedDeviceSetter setter(Device::CUDA, model.config.at("drama3_gpu_device_index").get<int>());
+        const ScopedDeviceSetter setter(Device::CUDA,
+                                        model.config.at("drama3_gpu_device_index").get<int>());
         _gpu_conv = _conv_weight.to(Device::CUDA);
-        if (_conv_bias) _gpu_conv_bias = _conv_bias->to(Device::CUDA);
-        _gpu_a_log = _a_log.to(Device::CUDA); _gpu_dt_bias = _dt_bias.to(Device::CUDA);
+        if (_conv_bias)
+          _gpu_conv_bias = _conv_bias->to(Device::CUDA);
+        _gpu_a_log = _a_log.to(Device::CUDA);
+        _gpu_dt_bias = _dt_bias.to(Device::CUDA);
         _gpu_norm = _norm_weight.to(Device::CUDA);
       }
     }
 
-    DataType GatedDeltaNet::output_type() const { return DataType::FLOAT32; }
-    dim_t GatedDeltaNet::output_size() const { return _hidden; }
+    DataType GatedDeltaNet::output_type() const {
+      return DataType::FLOAT32;
+    }
+
+    dim_t GatedDeltaNet::output_size() const {
+      return _hidden;
+    }
 
     void GatedDeltaNet::initialize_state(StorageView& state, StorageView& history) const {
       if (&state == &history)
         throw std::invalid_argument("GatedDeltaNet state and history must be distinct");
       const ScopedDeviceSetter setter(_resident_gpu ? Device::CUDA : Device::CPU,
-                                       _resident_gpu ? _gpu_conv.device_index() : 0);
+                                      _resident_gpu ? _gpu_conv.device_index() : 0);
       state = StorageView({1, _value_heads, _key_dim, _value_dim}, 0.f);
       history = StorageView({1, _conv_channels, _kernel - 1}, 0.f);
-      if (_resident_gpu) { state = state.to(Device::CUDA); history = history.to(Device::CUDA); }
+      if (_resident_gpu) {
+        state = state.to(Device::CUDA);
+        history = history.to(Device::CUDA);
+      }
     }
 
     void GatedDeltaNet::forward_gpu(const StorageView& input, StorageView& state,
                                     StorageView& history, StorageView& output) const {
 #ifdef CT2_WITH_CUDA
-      for (const StorageView* tensor : std::initializer_list<const StorageView*>{&input, &state, &history, &output})
+      for (const StorageView* tensor :
+           std::initializer_list<const StorageView*>{&input, &state, &history, &output})
         if (tensor->device() != Device::CUDA || tensor->dtype() != DataType::FLOAT32
             || tensor->device_index() != input.device_index())
-          throw std::invalid_argument("Resident GatedDeltaNet requires matching GPU float32 tensors");
+          throw std::invalid_argument(
+              "Resident GatedDeltaNet requires matching GPU float32 tensors");
       if (input.rank() != 2 || input.dim(1) != _hidden
-          || state.shape() != Shape{1,_value_heads,_key_dim,_value_dim}
-          || history.shape() != Shape{1,_conv_channels,_kernel-1} || _value_dim > 1024
+          || state.shape() != Shape{1, _value_heads, _key_dim, _value_dim}
+          || history.shape() != Shape{1, _conv_channels, _kernel - 1} || _value_dim > 1024
           || &input == &output || overlaps(input, output) || overlaps(input, state)
-          || overlaps(input, history) || overlaps(state, history) || overlaps(state, output) || overlaps(history, output))
+          || overlaps(input, history) || overlaps(state, history) || overlaps(state, output)
+          || overlaps(history, output))
         throw std::invalid_argument("Resident GatedDeltaNet shapes/aliasing are incompatible");
       const ScopedDeviceSetter setter(Device::CUDA, input.device_index());
-      if (!input.dim(0)) { output.resize({0,_hidden}); return; }
-      StorageView projected(DataType::FLOAT32, Device::CUDA), mixed(DataType::FLOAT32, Device::CUDA);
-      StorageView z(DataType::FLOAT32, Device::CUDA), a(DataType::FLOAT32, Device::CUDA), b(DataType::FLOAT32, Device::CUDA);
+      if (!input.dim(0)) {
+        output.resize({0, _hidden});
+        return;
+      }
+      StorageView projected(DataType::FLOAT32, Device::CUDA),
+          mixed(DataType::FLOAT32, Device::CUDA);
+      StorageView z(DataType::FLOAT32, Device::CUDA), a(DataType::FLOAT32, Device::CUDA),
+          b(DataType::FLOAT32, Device::CUDA);
       _qkv(input, projected);
-      ops::drama_conv_gpu(projected, _gpu_conv, _conv_bias ? &_gpu_conv_bias : nullptr, history, mixed);
-      _z(input, z); _a(input, a); _b(input, b);
+      ops::drama_conv_gpu(projected, _gpu_conv, _conv_bias ? &_gpu_conv_bias : nullptr, history,
+                          mixed);
+      _z(input, z);
+      _a(input, a);
+      _b(input, b);
       StorageView core(DataType::FLOAT32, Device::CUDA);
-      ops::drama_delta_gpu(mixed, a, b, _gpu_a_log, _gpu_dt_bias, state,
-                           _key_heads, _value_heads, _key_dim, _value_dim, core);
+      ops::drama_delta_gpu(mixed, a, b, _gpu_a_log, _gpu_dt_bias, state, _key_heads, _value_heads,
+                           _key_dim, _value_dim, core);
       ops::RMSNorm{_rms_epsilon}(_gpu_norm, core, core);
       ops::drama_swigate_gpu(core, z);
-      core.reshape({input.dim(0),_value_width});
+      core.reshape({input.dim(0), _value_width});
       _out(core, output);
 #else
       throw std::runtime_error("Resident GatedDeltaNet requires GPU support");
@@ -181,11 +209,12 @@ namespace ctranslate2 {
     void GatedDeltaNet::operator()(const StorageView& input, StorageView& state,
                                    StorageView& history, StorageView& output) const {
       if (_resident_gpu && input.device() == Device::CUDA) {
-        forward_gpu(input, state, history, output); return;
+        forward_gpu(input, state, history, output);
+        return;
       }
-      for (const auto* tensor : {&input, static_cast<const StorageView*>(&state),
-                                 static_cast<const StorageView*>(&history),
-                                 static_cast<const StorageView*>(&output)})
+      for (const auto* tensor :
+           {&input, static_cast<const StorageView*>(&state),
+            static_cast<const StorageView*>(&history), static_cast<const StorageView*>(&output)})
         require_float(*tensor);
       if (input.rank() != 2 || input.dim(0) < 0 || input.dim(1) != _hidden
           || state.shape() != Shape{1, _value_heads, _key_dim, _value_dim}
@@ -233,7 +262,8 @@ namespace ctranslate2 {
         const auto* row = mixed.data<float>() + t * _conv_channels;
         std::copy(row, row + _key_width, query.data<float>() + t * _key_width);
         std::copy(row + _key_width, row + 2 * _key_width, key.data<float>() + t * _key_width);
-        std::copy(row + 2 * _key_width, row + _conv_channels, value.data<float>() + t * _value_width);
+        std::copy(row + 2 * _key_width, row + _conv_channels,
+                  value.data<float>() + t * _value_width);
       }
       for (auto* tensor : {&query, &key}) {
         for (dim_t row = 0; row < steps * _key_heads; ++row) {
@@ -250,7 +280,7 @@ namespace ctranslate2 {
         const auto head = i % _value_heads;
         beta.data<float>()[i] = sigmoid(beta.data<float>()[i]);
         a.data<float>()[i] = -std::exp(_a_log.data<float>()[head])
-          * softplus(a.data<float>()[i] + _dt_bias.data<float>()[head]);
+                             * softplus(a.data<float>()[i] + _dt_bias.data<float>()[head]);
       }
       a.reshape({1, steps, _value_heads});
       beta.reshape(a.shape());

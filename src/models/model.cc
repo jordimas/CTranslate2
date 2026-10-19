@@ -18,10 +18,10 @@
 #include "drama3_memory.h"
 
 #if defined(__linux__)
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#  include <fcntl.h>
+#  include <sys/mman.h>
+#  include <sys/stat.h>
+#  include <unistd.h>
 #endif
 
 namespace ctranslate2 {
@@ -642,8 +642,8 @@ namespace ctranslate2 {
       }
 
       size_t mapped_size = 0;
-      const bool drama3 = model->config.is_object()
-        && model->config.value("model_type", std::string()) == "drama3";
+      const bool drama3 =
+          model->config.is_object() && model->config.value("model_type", std::string()) == "drama3";
       if (drama3) {
         const auto legacy_budget = read_string_from_env("CT2_DRAMA3_MAX_MEMORY_GB");
         if (!legacy_budget.empty() && legacy_budget != "0")
@@ -654,10 +654,11 @@ namespace ctranslate2 {
       const bool gpu_expert_cache = drama3 && drama3_gpu_expert_cache_budget();
       if (gpu_expert_cache && device == Device::CPU && compute_type == ComputeType::DEFAULT)
         compute_type = model->config.value("quantization_policy", std::string()) == "standard"
-          && model->config.value("matrix_dtype", std::string()) == "int8"
-          ? ComputeType::INT8_FLOAT32 : ComputeType::FLOAT32;
+                               && model->config.value("matrix_dtype", std::string()) == "int8"
+                           ? ComputeType::INT8_FLOAT32
+                           : ComputeType::FLOAT32;
       const bool local_mapping = device == Device::CPU && !tensor_parallel
-        && dynamic_cast<ModelFileReader*>(&model_reader);
+                                 && dynamic_cast<ModelFileReader*>(&model_reader);
       if (gpu_expert_cache) {
         if (!local_mapping)
           throw std::invalid_argument("Drama3 mapped weights require a local checkpoint, "
@@ -681,7 +682,8 @@ namespace ctranslate2 {
           munmap(p, mapped_size);
         });
 #else
-        throw std::invalid_argument("Drama3 GPU expert-cache mapping is currently supported on Linux only");
+        throw std::invalid_argument(
+            "Drama3 GPU expert-cache mapping is currently supported on Linux only");
 #endif
       }
 
@@ -748,9 +750,10 @@ namespace ctranslate2 {
 
         StorageView variable(dtype);
         const bool map_expert = model->_mapped_weight_file && dtype == DataType::INT8 && rank == 2
-          && starts_with(name, "backbone/layers_")
-          && name.find("/mlp/experts_") != std::string::npos
-          && name.size() >= 7 && name.compare(name.size() - 7, 7, "/weight") == 0;
+                                && starts_with(name, "backbone/layers_")
+                                && name.find("/mlp/experts_") != std::string::npos
+                                && name.size() >= 7
+                                && name.compare(name.size() - 7, 7, "/weight") == 0;
         if (map_expert) {
           const auto offset = static_cast<size_t>(static_cast<std::streamoff>(payload_position));
           if (offset > mapped_size || static_cast<size_t>(num_bytes) > mapped_size - offset)

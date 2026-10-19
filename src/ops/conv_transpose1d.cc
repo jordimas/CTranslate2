@@ -12,6 +12,7 @@
 namespace ctranslate2 {
   namespace ops {
     namespace {
+
       bool overlaps(const StorageView& a, const StorageView& b) {
         const auto an = std::max(a.reserved_memory(), a.size() * a.item_size());
         const auto bn = std::max(b.reserved_memory(), b.size() * b.item_size());
@@ -34,15 +35,18 @@ namespace ctranslate2 {
           throw std::invalid_argument("ConvTranspose1D dimensions overflow");
         return a + b;
       }
+
     }
 
-    ConvTranspose1D::ConvTranspose1D(dim_t stride, dim_t padding,
-                                    dim_t output_padding, dim_t dilation,
-                                    dim_t groups)
-      : _stride(stride), _padding(padding), _output_padding(output_padding),
-        _dilation(dilation), _groups(groups) {
-      if (stride <= 0 || dilation <= 0 || groups <= 0 || padding < 0
-          || output_padding < 0 || (output_padding >= stride && output_padding >= dilation))
+    ConvTranspose1D::ConvTranspose1D(dim_t stride, dim_t padding, dim_t output_padding,
+                                     dim_t dilation, dim_t groups)
+      : _stride(stride)
+      , _padding(padding)
+      , _output_padding(output_padding)
+      , _dilation(dilation)
+      , _groups(groups) {
+      if (stride <= 0 || dilation <= 0 || groups <= 0 || padding < 0 || output_padding < 0
+          || (output_padding >= stride && output_padding >= dilation))
         throw std::invalid_argument("ConvTranspose1D invalid convolution parameters");
     }
 
@@ -76,8 +80,8 @@ namespace ctranslate2 {
       if (weight.dim(0) != cin || cin % _groups != 0)
         throw std::invalid_argument("ConvTranspose1D incompatible input channels/groups");
       const dim_t cout = checked_product(cout_group, _groups);
-      dim_t length = checked_sum(checked_product(time - 1, _stride),
-                                 checked_product(kernel - 1, _dilation));
+      dim_t length =
+          checked_sum(checked_product(time - 1, _stride), checked_product(kernel - 1, _dilation));
       length = checked_sum(length, checked_sum(_output_padding, 1));
       const auto crop = checked_product(_padding, 2);
       if (length <= crop)
@@ -115,8 +119,9 @@ namespace ctranslate2 {
         });
         for (dim_t n = 0; n < batch; ++n) {
           for (dim_t group = 0; group < _groups; ++group) {
-            StorageView weight_matrix({cin_group, contribution_rows},
-                                     const_cast<float*>(w + group * cin_group * contribution_rows));
+            StorageView weight_matrix(
+                {cin_group, contribution_rows},
+                const_cast<float*>(w + group * cin_group * contribution_rows));
             const auto* group_input = x + (n * cin + group * cin_group) * time;
             for (dim_t start = 0; start < time; start += tile_size) {
               const dim_t count = std::min(tile_size, time - start);
@@ -172,5 +177,6 @@ namespace ctranslate2 {
         }
       });
     }
+
   }
 }

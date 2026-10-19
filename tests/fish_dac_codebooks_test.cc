@@ -4,6 +4,7 @@
 #include "ctranslate2/layers/fish_dac_codebooks.h"
 
 namespace {
+
   class TinyCodebooks : public models::Model {
   public:
     TinyCodebooks() {
@@ -11,20 +12,30 @@ namespace {
       add("quantizer/quantizers/0", {8, -9, 10, 11, -12, 13}, {2, -1, 3, 2}, {-7, 8});
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
     }
+
     void replace(const std::string& name, StorageView value) {
       remove_variable("codec/quantizer/" + name);
       register_variable("codec/quantizer/" + name, std::move(value));
     }
+
   protected:
-    bool is_packable(const std::string&) const override { return false; }
-    std::unique_ptr<models::Model> clone() const override { return std::make_unique<TinyCodebooks>(*this); }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
+    std::unique_ptr<models::Model> clone() const override {
+      return std::make_unique<TinyCodebooks>(*this);
+    }
+
   private:
-    void add(const std::string& name, std::vector<float> e, std::vector<float> p, std::vector<float> b) {
+    void add(const std::string& name, std::vector<float> e, std::vector<float> p,
+             std::vector<float> b) {
       register_variable("codec/quantizer/" + name + "/codebook/weight", StorageView({3, 2}, e));
       register_variable("codec/quantizer/" + name + "/out_proj/weight", StorageView({2, 2, 1}, p));
       register_variable("codec/quantizer/" + name + "/out_proj/bias", StorageView({2}, b));
     }
   };
+
 }
 
 TEST(FishDACCodebooksTest, RawVectorsBiasedProjectionsAndSumMatchIndependentScalarEquation) {
@@ -34,8 +45,7 @@ TEST(FishDACCodebooksTest, RawVectorsBiasedProjectionsAndSumMatchIndependentScal
   books(ids, output);
   // Raw code vectors deliberately have norms far from one. Including each
   // projection's bias gives these values; encoder-side L2 normalization does not.
-  expect_storage_eq(output, StorageView({1, 2, 3},
-                                       std::vector<float>{-28, 31, -1, -1, 34, 8}));
+  expect_storage_eq(output, StorageView({1, 2, 3}, std::vector<float>{-28, 31, -1, -1, 34, 8}));
 }
 
 TEST(FishDACCodebooksTest, OutOfRangeCodesPreserveOutput) {
@@ -67,7 +77,8 @@ TEST(FishDACCodebooksTest, RejectsShapesTypesAndAliasing) {
   StorageView shared_ids({1, 2, 1}, reinterpret_cast<int32_t*>(retained.data<float>() + 4));
   retained.resize({0});
   EXPECT_THROW(books(shared_ids, retained), std::invalid_argument);
-  const auto& weight = model.get_variable("codec/quantizer/semantic_quantizer/quantizers/0/codebook/weight");
+  const auto& weight =
+      model.get_variable("codec/quantizer/semantic_quantizer/quantizers/0/codebook/weight");
   StorageView weight_alias({1}, const_cast<float*>(weight.data<float>()) + 1);
   EXPECT_THROW(books(ids, weight_alias), std::invalid_argument);
 }

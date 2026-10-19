@@ -4,6 +4,7 @@
 
 namespace ctranslate2 {
   namespace layers {
+
     // Configures the codec transformer depth, attention window, and normalization.
     struct FishDACTransformerConfig {
       dim_t heads = 16;
@@ -28,17 +29,20 @@ namespace ctranslate2 {
       FishDACTransformer(const models::Model& model, const std::string& scope,
                          FishDACTransformerConfig config = {});
       void operator()(const StorageView& input, StorageView& output) const;
+
     private:
       // Groups the attention and feed-forward parameters of one codec transformer block.
       struct Block {
         const StorageView *attention_norm, *ffn_norm, *attention_scale, *ffn_scale;
         std::unique_ptr<Dense> qkv, out, gate, down, up;
       };
+
       FishDACTransformerConfig _config;
       dim_t _channels;
       const StorageView* _norm;
       std::vector<Block> _blocks;
       std::vector<const StorageView*> _parameters;
     };
+
   }
 }

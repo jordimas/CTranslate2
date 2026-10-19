@@ -37,8 +37,8 @@ namespace {
         // weight-quantization implementation.
         for (dim_t i = 0; i < original.size(); ++i)
           quantized.data<int8_t>()[i] = static_cast<int8_t>(original.data<float>()[i]);
-        auto compensation = ops::Gemm::compensate_u8_input(quantized, true,
-                                                          quantized.dim(1), quantized.dim(0), 1.f);
+        auto compensation = ops::Gemm::compensate_u8_input(quantized, true, quantized.dim(1),
+                                                           quantized.dim(0), 1.f);
         replace(pair.first, std::move(quantized));
         register_variable(pair.first + "_scale", StorageView({original.dim(0)}, 1.f));
         register_variable(pair.first + "_compensation", std::move(compensation));
@@ -47,7 +47,10 @@ namespace {
     }
 
   protected:
-    bool is_packable(const std::string&) const override { return false; }
+    bool is_packable(const std::string&) const override {
+      return false;
+    }
+
     std::unique_ptr<models::Model> clone() const override {
       return std::make_unique<TinyMoEModel>(*this);
     }
@@ -63,46 +66,59 @@ namespace {
 }
 
 TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+
   class GpuFixture : public models::Model {
   public:
     GpuFixture(ComputeType type, int index) {
       auto add = [&](const std::string& scope) {
-        StorageView weight({16,16}, DataType::FLOAT32);
+        StorageView weight({16, 16}, DataType::FLOAT32);
         for (dim_t i = 0; i < weight.size(); ++i)
           weight.data<float>()[i] = .1f * std::sin(float(i + scope.size()));
         register_variable(scope + "/weight", std::move(weight));
       };
       add("moe/router");
-      register_variable("moe/shared_expert_gate/weight", StorageView({1,16}, .01f));
+      register_variable("moe/shared_expert_gate/weight", StorageView({1, 16}, .01f));
       for (int e = -1; e < 16; ++e) {
         const auto scope = e == -1 ? "moe/shared_expert" : "moe/experts_" + std::to_string(e);
-        for (const auto* projection : {"/gate_proj", "/up_proj", "/down_proj"}) add(scope + projection);
+        for (const auto* projection : {"/gate_proj", "/up_proj", "/down_proj"})
+          add(scope + projection);
       }
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
       config["drama3_gpu_compute_type"] = compute_type_to_str(type);
       config["drama3_gpu_device_index"] = index;
     }
-    std::unique_ptr<models::Model> clone() const override { return std::make_unique<GpuFixture>(*this); }
+
+    std::unique_ptr<models::Model> clone() const override {
+      return std::make_unique<GpuFixture>(*this);
+    }
   };
+
   for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
     const ScopedDeviceSetter setter(Device::CUDA, index);
-    for (auto type : {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
-                      ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
-      try { resolve_compute_type(type, ComputeType::FLOAT32, Device::CUDA, index); }
-      catch (const std::invalid_argument&) { continue; }
+    for (auto type :
+         {ComputeType::FLOAT32, ComputeType::FLOAT16, ComputeType::BFLOAT16,
+          ComputeType::INT8_FLOAT32, ComputeType::INT8_FLOAT16, ComputeType::INT8_BFLOAT16}) {
+      try {
+        resolve_compute_type(type, ComputeType::FLOAT32, Device::CUDA, index);
+      } catch (const std::invalid_argument&) {
+        continue;
+      }
       SCOPED_TRACE(compute_type_to_str(type));
       GpuFixture model(type, index);
       layers::SparseMoE layer(model, "moe", 16, 2);
       std::unique_ptr<layers::SparseMoE> cached;
       const auto weight_type = compute_type_to_data_type(type).first;
-      const size_t cache_bytes = weight_type == DataType::INT8 ? 2880
-        : 3 * 3 * 256 * (weight_type == DataType::FLOAT32 ? 4 : 2);
+      const size_t cache_bytes = weight_type == DataType::INT8
+                                     ? 2880
+                                     : 3 * 3 * 256 * (weight_type == DataType::FLOAT32 ? 4 : 2);
       model.config["drama3_gpu_expert_cache_bytes"] = cache_bytes;
       cached = std::make_unique<layers::SparseMoE>(model, "moe", 16, 2);
       layers::Dense router(model, "moe/router"), shared_gate(model, "moe/shared_expert_gate");
       auto expert_reference = [&](const std::string& scope, const StorageView& row) {
-        layers::Dense gate(model, scope + "/gate_proj"), up(model, scope + "/up_proj"), down(model, scope + "/down_proj");
+        layers::Dense gate(model, scope + "/gate_proj"), up(model, scope + "/up_proj"),
+            down(model, scope + "/down_proj");
         StorageView gated, values, activated, output;
         gate(row, gated);
         up(row, values);
@@ -112,24 +128,28 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
         return output;
       };
       for (dim_t rows : {1, 3, 1}) {
-        StorageView input({rows,16}, DataType::FLOAT32), output;
-        for (dim_t i = 0; i < input.size(); ++i) input.data<float>()[i] = std::sin(float(i + 1));
+        StorageView input({rows, 16}, DataType::FLOAT32), output;
+        for (dim_t i = 0; i < input.size(); ++i)
+          input.data<float>()[i] = std::sin(float(i + 1));
         layer(input, output);
         StorageView logits, indices(DataType::INT32), weights, reference(input.shape(), 0.f);
         router(input, logits);
         ops::MoeTopK(2)(logits, indices, weights);
         for (dim_t r = 0; r < rows; ++r) {
-          StorageView row({1,16}, input.data<float>() + r*16);
+          StorageView row({1, 16}, input.data<float>() + r * 16);
           for (dim_t i = 0; i < 2; ++i) {
-            auto result = expert_reference("moe/experts_" + std::to_string(indices.data<int32_t>()[r*2+i]), row);
+            auto result = expert_reference(
+                "moe/experts_" + std::to_string(indices.data<int32_t>()[r * 2 + i]), row);
             for (dim_t d = 0; d < 16; ++d)
-              reference.data<float>()[r*16+d] += weights.data<float>()[r*2+i] * result.data<float>()[d];
+              reference.data<float>()[r * 16 + d] +=
+                  weights.data<float>()[r * 2 + i] * result.data<float>()[d];
           }
           auto shared = expert_reference("moe/shared_expert", row);
           StorageView gate;
           shared_gate(row, gate);
           const float probability = 1.f / (1.f + std::exp(-gate.data<float>()[0]));
-          for (dim_t d = 0; d < 16; ++d) reference.data<float>()[r*16+d] += probability * shared.data<float>()[d];
+          for (dim_t d = 0; d < 16; ++d)
+            reference.data<float>()[r * 16 + d] += probability * shared.data<float>()[d];
         }
         expect_storage_eq(output, reference, type == ComputeType::FLOAT32 ? 1e-5f : 5e-4f);
         StorageView device_input = input.to(Device::CUDA);
@@ -151,7 +171,8 @@ TEST(SparseMoETest, GpuExpertMatchesProjectionByProjectionReference) {
 }
 
 TEST(SparseMoETest, BoundedGpuCacheEvictsAndReloadsWithoutChangingResults) {
-  if (!get_device_count(Device::CUDA)) GTEST_SKIP() << "No CUDA/HIP device";
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
   for (int device = 0; device < get_device_count(Device::CUDA); ++device) {
     const ScopedDeviceSetter setter(Device::CUDA, device);
     TinyMoEModel model;
@@ -166,21 +187,25 @@ TEST(SparseMoETest, BoundedGpuCacheEvictsAndReloadsWithoutChangingResults) {
     size_t expected_misses = 0;
     for (float value : {1.f, 1.f, -1.f, -1.f, 2.f}) {
       SCOPED_TRACE(value);
-      auto input = StorageView({1,1}, value).to(Device::CUDA);
-      StorageView expected(DataType::FLOAT32, Device::CUDA), actual(DataType::FLOAT32, Device::CUDA);
+      auto input = StorageView({1, 1}, value).to(Device::CUDA);
+      StorageView expected(DataType::FLOAT32, Device::CUDA),
+          actual(DataType::FLOAT32, Device::CUDA);
       baseline(input, expected);
       cached(input, actual);
       auto reference = expected.to(Device::CPU), result = actual.to(Device::CPU);
       synchronize_stream(Device::CUDA);
       expect_storage_eq(result, reference, 1e-6f);
       EXPECT_EQ(cached.gpu_expert_cache_bytes(), 30);
-      if (!expected_misses) expected_misses = 2;
-      else if (value == -1.f && expected_misses == 2) ++expected_misses;
-      else if (value == 2.f) ++expected_misses;
+      if (!expected_misses)
+        expected_misses = 2;
+      else if (value == -1.f && expected_misses == 2)
+        ++expected_misses;
+      else if (value == 2.f)
+        ++expected_misses;
       EXPECT_EQ(cached.gpu_expert_cache_misses(), expected_misses);
     }
     // Exercise several routing decisions in one prefill and the CPU-input path.
-    StorageView input({4,1}, std::vector<float>{1,-1,2,-2}), expected, actual;
+    StorageView input({4, 1}, std::vector<float>{1, -1, 2, -2}), expected, actual;
     baseline(input, expected);
     cached(input, actual);
     expect_storage_eq(actual, expected, 1e-6f);
@@ -285,8 +310,8 @@ TEST(SparseMoETest, ExplicitInt8WeightsIndependentQuantizedReference) {
     // Legacy U8 quantization offsets before truncation, then compensates the
     // integer dot product. Its boundary behavior differs from signed casting.
     const int32_t quantized = unsigned_activation
-      ? static_cast<int32_t>(value * scale + 128.f) - 128
-      : static_cast<int32_t>(value * scale);
+                                  ? static_cast<int32_t>(value * scale + 128.f) - 128
+                                  : static_cast<int32_t>(value * scale);
     return static_cast<float>(quantized * weight) * (1.f / scale);
   };
   auto expert = [&](float value, int32_t down) {
@@ -301,7 +326,7 @@ TEST(SparseMoETest, ExplicitInt8WeightsIndependentQuantizedReference) {
     const float probability = static_cast<float>(1. / (1. + std::exp(-router_max)));
     const int32_t chosen_down = value > 0 ? 4 : 100;
     const float expected = probability * expert(value, chosen_down)
-      + (1.f - probability) * expert(value, 2) + .5f * expert(value, 6);
+                           + (1.f - probability) * expert(value, 2) + .5f * expert(value, 6);
     EXPECT_NEAR(output.data<float>()[r], expected, 1e-4 * std::max(1.f, std::abs(expected)));
   }
 }

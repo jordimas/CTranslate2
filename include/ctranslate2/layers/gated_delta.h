@@ -11,9 +11,8 @@ namespace ctranslate2 {
     // State/history belong to the caller; no layer-internal sequence cache.
     class GatedDeltaNet : public Layer {
     public:
-      GatedDeltaNet(const models::Model& model, const std::string& scope,
-                    dim_t key_heads, dim_t value_heads,
-                    dim_t key_dim, dim_t value_dim, float rms_epsilon);
+      GatedDeltaNet(const models::Model& model, const std::string& scope, dim_t key_heads,
+                    dim_t value_heads, dim_t key_dim, dim_t value_dim, float rms_epsilon);
       DataType output_type() const override;
       dim_t output_size() const override;
 
@@ -21,8 +20,8 @@ namespace ctranslate2 {
       void initialize_state(StorageView& state, StorageView& history) const;
       // Input/output [time,hidden]. T=0 preserves caches. Inputs, parameters,
       // state, history and output must not overlap mutable allocations.
-      void operator()(const StorageView& input, StorageView& state,
-                      StorageView& history, StorageView& output) const;
+      void operator()(const StorageView& input, StorageView& state, StorageView& history,
+                      StorageView& output) const;
 
     private:
       void forward_gpu(const StorageView&, StorageView&, StorageView&, StorageView&) const;

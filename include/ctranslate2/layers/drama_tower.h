@@ -19,8 +19,7 @@ namespace ctranslate2 {
     // crossing top_p; rank0 always survives. Uses the tested Torch CPU exponential
     // race and seed stream; cross-platform bitwise parity is not guaranteed.
     int32_t sample_drama_token(const std::vector<float>& logits,
-                               const DramaSamplingOptions& options,
-                               std::mt19937& rng);
+                               const DramaSamplingOptions& options, std::mt19937& rng);
 
     // Configures audio codebooks, tower layers, and semantic token boundaries.
     struct DramaTowerConfig {
@@ -47,8 +46,7 @@ namespace ctranslate2 {
     // Reset/discard state on an exception after layer execution has started.
     class DramaTower : public Layer {
     public:
-      DramaTower(const models::Model& model, const std::string& scope,
-                 DramaTowerConfig config);
+      DramaTower(const models::Model& model, const std::string& scope, DramaTowerConfig config);
       ~DramaTower() override;
       DataType output_type() const override;
       dim_t output_size() const override;
@@ -82,8 +80,7 @@ namespace ctranslate2 {
       bool is_semantic(int32_t token) const;
       void decode_impl(const StorageView& logits, const StorageView& hidden,
                        const StorageView& previous_frame, DramaTowerState& state,
-                       StorageView& next_frame,
-                       const std::vector<int32_t>* history_main_tokens,
+                       StorageView& next_frame, const std::vector<int32_t>* history_main_tokens,
                        const DramaSamplingOptions* options, std::mt19937* rng) const;
       bool _resident_gpu = false;
       int _gpu_device_index = 0;

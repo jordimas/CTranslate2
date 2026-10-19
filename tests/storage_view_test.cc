@@ -133,7 +133,8 @@ class StorageViewDeviceTest : public ::testing::TestWithParam<Device> {
 
 TEST(StorageViewTest, DeviceCopyOwnsIndependentStorage) {
   for (const auto device : {Device::CPU, Device::CUDA}) {
-    if (!get_device_count(device)) continue;
+    if (!get_device_count(device))
+      continue;
     StorageView source({4}, std::vector<float>{1, 2, 3, 4});
     auto copy = source.to(device);
     synchronize_stream(device);

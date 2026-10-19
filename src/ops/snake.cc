@@ -22,9 +22,7 @@ namespace ctranslate2 {
 
     }
 
-    void Snake::operator()(const StorageView& x,
-                           const StorageView& alpha,
-                           StorageView& y) const {
+    void Snake::operator()(const StorageView& x, const StorageView& alpha, StorageView& y) const {
       PROFILE("Snake");
       for (const auto* tensor : {&x, &alpha, static_cast<const StorageView*>(&y)}) {
         if (tensor->device() != Device::CPU || tensor->dtype() != DataType::FLOAT32)
@@ -36,8 +34,7 @@ namespace ctranslate2 {
       const dim_t time = x.dim(2);
       if (alpha.shape() != Shape{channels} && alpha.shape() != Shape{1, channels, 1})
         throw std::invalid_argument("Snake alpha must have shape [channels] or [1, channels, 1]");
-      if (&y == &x || &y == &alpha
-          || overlaps_allocation(x, y) || overlaps_allocation(alpha, y))
+      if (&y == &x || &y == &alpha || overlaps_allocation(x, y) || overlaps_allocation(alpha, y))
         throw std::invalid_argument("Snake output must not alias inputs");
       const auto* data = x.data<float>();
       const auto* coefficients = alpha.data<float>();

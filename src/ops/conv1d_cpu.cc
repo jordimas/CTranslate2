@@ -127,10 +127,10 @@ namespace ctranslate2 {
 namespace ctranslate2 {
   namespace ops {
 
-    template<>
-    void
-    Conv1D::compute<Device::CPU, float>(const StorageView &input, const StorageView &weight, const StorageView *bias,
-                                        StorageView &output, const StorageView *qscale) const {
+    template <>
+    void Conv1D::compute<Device::CPU, float>(const StorageView& input, const StorageView& weight,
+                                             const StorageView* bias, StorageView& output,
+                                             const StorageView* qscale) const {
       compute_with_gemm(input, weight, output, qscale);
       // Add bias
       apply_bias_and_activation(output, bias, _activation_type, /*residual=*/nullptr, /*axis=*/-2);

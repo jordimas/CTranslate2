@@ -7,7 +7,9 @@
 #include "test_utils.h"
 
 namespace drama_test {
-  inline StorageView read_tensor(const std::string& directory, const std::string& name, Shape shape) {
+
+  inline StorageView read_tensor(const std::string& directory, const std::string& name,
+                                 Shape shape) {
     StorageView result(std::move(shape), DataType::FLOAT32);
     std::ifstream stream(directory + "/" + name, std::ios::binary);
     if (!stream)
@@ -19,8 +21,8 @@ namespace drama_test {
     return result;
   }
 
-  inline void compare(const StorageView& actual, const StorageView& expected,
-                      float max_tolerance, double rms_tolerance, const std::string& label) {
+  inline void compare(const StorageView& actual, const StorageView& expected, float max_tolerance,
+                      double rms_tolerance, const std::string& label) {
     ASSERT_EQ(actual.shape(), expected.shape());
     float maximum = 0;
     double squared = 0;
@@ -37,4 +39,5 @@ namespace drama_test {
     EXPECT_LT(maximum, max_tolerance) << label;
     EXPECT_LT(rms, rms_tolerance) << label;
   }
+
 }

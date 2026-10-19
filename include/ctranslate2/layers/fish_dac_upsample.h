@@ -12,7 +12,7 @@ namespace ctranslate2 {
     class FishDACLatentUpsampler {
     public:
       FishDACLatentUpsampler(const models::Model& model, const std::string& scope,
-                            dim_t block_count = 2);
+                             dim_t block_count = 2);
       void operator()(const StorageView& input, StorageView& output) const;
 
     private:
@@ -29,6 +29,7 @@ namespace ctranslate2 {
         const StorageView* gamma;
         dim_t channels;
       };
+
       dim_t _input_channels = 0;
       std::vector<std::unique_ptr<Block>> _blocks;
       std::vector<const StorageView*> _parameters;

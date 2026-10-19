@@ -10,19 +10,20 @@
 
 namespace ctranslate2 {
   namespace ops {
-    void DequantizeFP8::operator()(const StorageView& input,
-                                  const StorageView& scale_inv,
-                                  StorageView& output) const {
+
+    void DequantizeFP8::operator()(const StorageView& input, const StorageView& scale_inv,
+                                   StorageView& output) const {
       PROFILE("DequantizeFP8");
       if (scale_inv.device() != input.device() || output.device() != input.device()
-          || input.device_index() != scale_inv.device_index() || input.device_index() != output.device_index()
-          || input.dtype() != DataType::INT8
+          || input.device_index() != scale_inv.device_index()
+          || input.device_index() != output.device_index() || input.dtype() != DataType::INT8
           || scale_inv.dtype() != DataType::FLOAT32 || output.dtype() != DataType::FLOAT32)
-        throw std::invalid_argument("DequantizeFP8 requires INT8 bytes and F32 scales/output on the same device");
-      if (input.rank() != 2 || input.dim(0) <= 0 || input.dim(1) <= 0
-          || scale_inv.rank() != 2
-          || scale_inv.shape() != Shape{input.dim(0) / 128 + (input.dim(0) % 128 != 0),
-                                       input.dim(1) / 128 + (input.dim(1) % 128 != 0)})
+        throw std::invalid_argument(
+            "DequantizeFP8 requires INT8 bytes and F32 scales/output on the same device");
+      if (input.rank() != 2 || input.dim(0) <= 0 || input.dim(1) <= 0 || scale_inv.rank() != 2
+          || scale_inv.shape()
+                 != Shape{input.dim(0) / 128 + (input.dim(0) % 128 != 0),
+                          input.dim(1) / 128 + (input.dim(1) % 128 != 0)})
         throw std::invalid_argument("DequantizeFP8 requires a matrix and 128x128 block scales");
       for (const auto* source : {&input, &scale_inv}) {
         const auto a = reinterpret_cast<uintptr_t>(source->buffer());
@@ -48,8 +49,9 @@ namespace ctranslate2 {
         std::array<float, 256> values{};
         for (int i = 0; i < 256; ++i) {
           const int exponent = (i & 127) >> 3, mantissa = i & 7;
-          const float magnitude = exponent == 0 ? std::ldexp(float(mantissa), -9)
-            : std::ldexp(1.f + float(mantissa) / 8, exponent - 7);
+          const float magnitude = exponent == 0
+                                      ? std::ldexp(float(mantissa), -9)
+                                      : std::ldexp(1.f + float(mantissa) / 8, exponent - 7);
           values[i] = (i & 128) ? -magnitude : magnitude;
         }
         return values;
@@ -70,7 +72,9 @@ namespace ctranslate2 {
           }
       });
       if (invalid.load())
-        throw std::invalid_argument("DequantizeFP8 contains NaN codes or nonfinite decoded weights");
+        throw std::invalid_argument(
+            "DequantizeFP8 contains NaN codes or nonfinite decoded weights");
     }
+
   }
 }

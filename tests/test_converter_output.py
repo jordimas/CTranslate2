@@ -1,8 +1,9 @@
 """Regression checks for shared conversion output handling."""
 
-from pathlib import Path
 import tempfile
 import unittest
+
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from ctranslate2.converters.converter import Converter

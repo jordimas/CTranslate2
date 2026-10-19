@@ -11,6 +11,7 @@ namespace ctranslate2 {
     public:
       void operator()(const StorageView& input, const StorageView& scale_inv,
                       StorageView& output) const;
+
     private:
       void compute_gpu(const StorageView& input, const StorageView& scale_inv,
                        StorageView& output) const;

@@ -146,15 +146,9 @@ output audio and codes remain CPU arrays.
 
 ### Loading options
 
-Local checkpoints use read-only memory mapping for supported INT8 and FP8
-expert weights on Linux. The OS loads and reclaims file-backed pages. Other
-weights and runtime conversions use normal allocations. In-memory readers and
-unsupported platforms fall back to normal loading.
-
-- [`CT2_DRAMA_CPU_MMAP=0`](../environment_variables.md#ct2_drama_cpu_mmap)
-  disables default mapping.
-- [`CT2_DRAMA_CPU_MLOCK=1`](../environment_variables.md#ct2_drama_cpu_mlock)
-  optionally keeps mapped expert pages resident, subject to OS locking limits.
+CPU inference loads weights into allocated RAM. On Linux, the optional GPU
+expert cache maps supported INT8 and FP8 expert weights from local checkpoints;
+see `CT2_DRAMA3_GPU_EXPERT_CACHE_GB` above.
 
 ### Memory configuration
 

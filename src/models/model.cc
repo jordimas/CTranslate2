@@ -3,8 +3,6 @@
 #include <spdlog/spdlog.h>
 
 #include <limits>
-#include <cerrno>
-#include <cstring>
 
 #include "ctranslate2/models/model_factory.h"
 #include "ctranslate2/ops/ops.h"
@@ -650,7 +648,7 @@ namespace ctranslate2 {
         const auto legacy_budget = read_string_from_env("CT2_DRAMA3_MAX_MEMORY_GB");
         if (!legacy_budget.empty() && legacy_budget != "0")
           throw std::invalid_argument("CT2_DRAMA3_MAX_MEMORY_GB is no longer supported. "
-                                      "Drama3 uses mapped weights and allocation controls, "
+                                      "Drama3 uses allocation controls, "
                                       "without a total RAM ceiling.");
       }
       const bool gpu_expert_cache = drama3 && drama3_gpu_expert_cache_budget();
@@ -660,16 +658,7 @@ namespace ctranslate2 {
           ? ComputeType::INT8_FLOAT32 : ComputeType::FLOAT32;
       const bool local_mapping = device == Device::CPU && !tensor_parallel
         && dynamic_cast<ModelFileReader*>(&model_reader);
-      const bool lock_mapped_weights = drama3 && read_bool_from_env("CT2_DRAMA_CPU_MLOCK", false);
-#if defined(__linux__)
-      const bool cpu_expert_mapping = drama3 && local_mapping
-        && read_bool_from_env("CT2_DRAMA_CPU_MMAP", true);
-#else
-      const bool cpu_expert_mapping = false;
-#endif
-      if (lock_mapped_weights && !cpu_expert_mapping && !gpu_expert_cache)
-        throw std::invalid_argument("CT2_DRAMA_CPU_MLOCK requires supported local mapped weights");
-      if (cpu_expert_mapping || gpu_expert_cache) {
+      if (gpu_expert_cache) {
         if (!local_mapping)
           throw std::invalid_argument("Drama3 mapped weights require a local checkpoint, "
                                       "CPU loading, and no tensor parallelism");
@@ -692,7 +681,7 @@ namespace ctranslate2 {
           munmap(p, mapped_size);
         });
 #else
-        throw std::invalid_argument("CT2_DRAMA_CPU_MMAP is currently supported on Linux only");
+        throw std::invalid_argument("Drama3 GPU expert-cache mapping is currently supported on Linux only");
 #endif
       }
 
@@ -769,12 +758,6 @@ namespace ctranslate2 {
           // Only byte tensors are mapped: binary payloads are not necessarily
           // aligned for float32 access. Scales and other weights stay aligned.
           auto* data = static_cast<int8_t*>(model->_mapped_weight_file.get()) + offset;
-#if defined(__linux__)
-          if (lock_mapped_weights && mlock(data, static_cast<size_t>(num_bytes)) != 0)
-            throw std::runtime_error("Unable to lock Drama3 mapped expert weights: "
-                                     + std::string(std::strerror(errno))
-                                     + ". Check the OS locked-memory allowance.");
-#endif
           variable = StorageView(std::move(shape), data, Device::CPU);
           model_file.seekg(num_bytes, std::ios::cur);
           if (!model_file)

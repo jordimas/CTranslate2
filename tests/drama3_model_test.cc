@@ -1,9 +1,6 @@
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
-#if defined(__linux__)
-#include <sys/resource.h>
-#endif
 
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
@@ -112,12 +109,7 @@ TEST(Drama3ModelTest, GpuExpertCacheValidatesBudgetAndDeviceBeforeLoading) {
 namespace {
   struct MappedDramaFixture {
     std::string directory;
-    std::string previous;
-    bool had_previous;
     explicit MappedDramaFixture(bool fp8 = false) {
-      const char* value = std::getenv("CT2_DRAMA_CPU_MMAP");
-      had_previous = value != nullptr;
-      if (value) previous = value;
       char pattern[] = "/tmp/ct2-drama-mmap-XXXXXX";
       const char* path = mkdtemp(pattern);
       if (!path) throw std::runtime_error("Unable to create mapped model fixture");
@@ -148,11 +140,8 @@ namespace {
         {"fp8_format", "e4m3fn_block128"},
         {"matrix_dtype", fp8 ? "fp8_float32" : "int8"}, {"activation_dtype", "float32"}};
       std::ofstream(directory + "/config.json") << config.dump();
-      setenv("CT2_DRAMA_CPU_MMAP", "1", 1);
     }
     ~MappedDramaFixture() {
-      if (had_previous) setenv("CT2_DRAMA_CPU_MMAP", previous.c_str(), 1);
-      else unsetenv("CT2_DRAMA_CPU_MMAP");
       std::remove((directory + "/model.bin").c_str());
       std::remove((directory + "/config.json").c_str());
       std::remove(directory.c_str());
@@ -162,7 +151,6 @@ namespace {
 
 TEST(Drama3ModelTest, GpuCachePreservesStandardInt8Storage) {
   MappedDramaFixture files;
-  ScopedMemoryBudget legacy(nullptr, "CT2_DRAMA_CPU_MMAP");
   ScopedMemoryBudget cache("8", "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
   auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::DEFAULT);
   EXPECT_EQ(model->effective_compute_type(), ComputeType::INT8_FLOAT32);
@@ -173,7 +161,6 @@ TEST(Drama3ModelTest, GpuCachePreservesStandardInt8Storage) {
 
 TEST(Drama3ModelTest, GpuCacheLoadsFloatingPointCheckpointsWithoutQuantizing) {
   MappedDramaFixture files;
-  ScopedMemoryBudget legacy(nullptr, "CT2_DRAMA_CPU_MMAP");
   ScopedMemoryBudget cache("8", "CT2_DRAMA3_GPU_EXPERT_CACHE_GB");
   for (const auto* policy : {"standard", "experts_fp8_sensitive_float32"}) {
     auto reader = fixture({
@@ -191,6 +178,7 @@ TEST(Drama3ModelTest, GpuCacheLoadsFloatingPointCheckpointsWithoutQuantizing) {
 }
 
 TEST(Drama3ModelTest, MappedExpertsPreserveBytesScalesAndModelCopyLifetime) {
+  ScopedMemoryBudget cache("8");
   if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "INT8 unavailable";
   MappedDramaFixture fixture;
   auto model = models::Model::load(fixture.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
@@ -207,18 +195,18 @@ TEST(Drama3ModelTest, MappedExpertsPreserveBytesScalesAndModelCopyLifetime) {
   expect_storage_eq(copy->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight"), expected);
 }
 
-TEST(Drama3ModelTest, MappingDefaultsToEnabledAndCanBeDisabled) {
+TEST(Drama3ModelTest, CpuExpertsUseAllocatedStorage) {
   if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "INT8 unavailable";
   MappedDramaFixture files;
-  ScopedMemoryBudget mapping(nullptr, "CT2_DRAMA_CPU_MMAP");
+  ScopedMemoryBudget cache(nullptr);
   auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
-  EXPECT_FALSE(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").owns_data());
-  ScopedMemoryBudget disabled("0", "CT2_DRAMA_CPU_MMAP");
-  auto copied = models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
-  EXPECT_TRUE(copied->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").owns_data());
+  const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
+  EXPECT_TRUE(weight.owns_data());
+  expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
 }
 
 TEST(Drama3ModelTest, MappedExpertsAllowRuntimeConversionAndRejectTruncatedPayloads) {
+  ScopedMemoryBudget cache("8");
   MappedDramaFixture files;
   auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
   EXPECT_EQ(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight").dtype(), DataType::FLOAT32);
@@ -228,56 +216,27 @@ TEST(Drama3ModelTest, MappedExpertsAllowRuntimeConversionAndRejectTruncatedPaylo
 }
 
 TEST(Drama3ModelTest, MemoryReadersFallBackToAllocatedWeights) {
-  ScopedMemoryBudget mapping("1", "CT2_DRAMA_CPU_MMAP");
   auto reader = fixture();
   auto model = models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32);
   EXPECT_TRUE(model->get_variable("backbone/projection/weight").owns_data());
 }
 
-TEST(Drama3ModelTest, SourceFp8ExpertsAreMappedByDefault) {
+TEST(Drama3ModelTest, SourceFp8CpuExpertsUseAllocatedStorage) {
   MappedDramaFixture files(true);
-  ScopedMemoryBudget mapping(nullptr, "CT2_DRAMA_CPU_MMAP");
+  ScopedMemoryBudget cache(nullptr);
+  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
+  const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
+  EXPECT_TRUE(weight.owns_data());
+  expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
+}
+
+TEST(Drama3ModelTest, GpuCacheMapsSourceFp8Experts) {
+  MappedDramaFixture files(true);
+  ScopedMemoryBudget cache("8");
   auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
   const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
   EXPECT_FALSE(weight.owns_data());
   expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
-}
-
-TEST(Drama3ModelTest, OptionalLockingKeepsMappedWeightsReadable) {
-  if (!mayiuse_int8(Device::CPU)) GTEST_SKIP() << "INT8 unavailable";
-  struct rlimit limit;
-  ASSERT_EQ(getrlimit(RLIMIT_MEMLOCK, &limit), 0);
-  if (limit.rlim_cur < 8192) GTEST_SKIP() << "Locked-memory allowance too small";
-  auto locked_kb = []() {
-    std::ifstream status("/proc/self/status");
-    std::string line;
-    while (std::getline(status, line))
-      if (line.compare(0, 6, "VmLck:") == 0) return std::stoull(line.substr(6));
-    throw std::runtime_error("Missing VmLck accounting");
-  };
-  const auto before = locked_kb();
-  MappedDramaFixture files;
-  ScopedMemoryBudget locking("1", "CT2_DRAMA_CPU_MLOCK");
-  auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
-  expect_storage_eq(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight"),
-                    StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
-  // Sanitizers intercept mlock() without locking pages.
-#if defined(__has_feature)
-#if !__has_feature(address_sanitizer) && !__has_feature(thread_sanitizer)
-  EXPECT_GT(locked_kb(), before);
-#endif
-#elif !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_THREAD__)
-  EXPECT_GT(locked_kb(), before);
-#endif
-  model.reset();
-  EXPECT_EQ(locked_kb(), before);
-}
-
-TEST(Drama3ModelTest, LockingRequiresMappedWeights) {
-  MappedDramaFixture files;
-  ScopedMemoryBudget mapping("0", "CT2_DRAMA_CPU_MMAP");
-  ScopedMemoryBudget locking("1", "CT2_DRAMA_CPU_MLOCK");
-  EXPECT_THROW(models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32), std::invalid_argument);
 }
 
 TEST(Drama3ModelTest, RemovedProcessBudgetFailsExplicitly) {

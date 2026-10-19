@@ -101,17 +101,11 @@ constructor options, generation parameters and defaults, and result fields.
 
 ### CPU execution
 
-Standard CT2 compute types include `auto`, `float32`, `int8`, and `int8_float32`.
-CPU support depends on the backend: unsupported explicit types raise an error;
-`default` and `auto` allow fallback.
-FLOAT16/BFLOAT16 storage can be converted at load time for CPU execution.
-The synthesis graph and codec use FLOAT32 activations.
-
-For default FP8 storage with FLOAT32 execution, selected experts are decoded
-on demand. INT8/INT16 execution decodes and quantizes matrices at load time,
-requiring temporary memory. All experts remain resident by default: sparse
-selection reduces computation, not storage. The CPU memory budget below enables
-mapped experts. Each call has independent generation state.
+The synthesis graph and codec use FLOAT32 activations. For FP8 storage with
+FLOAT32 execution, selected experts are decoded on demand. INT8/INT16 execution
+decodes and quantizes matrices at load time, requiring temporary memory.
+All experts remain resident in RAM; sparse selection reduces computation,
+not storage.
 
 ### CUDA and ROCm
 

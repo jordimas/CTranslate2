@@ -261,7 +261,14 @@ TEST(Drama3ModelTest, OptionalLockingKeepsMappedWeightsReadable) {
   auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
   expect_storage_eq(model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight"),
                     StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
+  // Sanitizers intercept mlock() without locking pages.
+#if defined(__has_feature)
+#if !__has_feature(address_sanitizer) && !__has_feature(thread_sanitizer)
   EXPECT_GT(locked_kb(), before);
+#endif
+#elif !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_THREAD__)
+  EXPECT_GT(locked_kb(), before);
+#endif
   model.reset();
   EXPECT_EQ(locked_kb(), before);
 }

@@ -1,5 +1,4 @@
-"""Standalone coverage of Drama3 checkpoint reads without the CT2 extension."""
-import importlib.util
+"""Coverage of Drama3 checkpoint reads without the CT2 extension."""
 import json
 import struct
 import tempfile
@@ -11,13 +10,7 @@ import numpy as np
 
 from drama_test_utils import shard
 
-SPEC = importlib.util.spec_from_file_location(
-    "drama3_weights",
-    Path(__file__).resolve().parents[1]
-    / "python/ctranslate2/converters/drama3_weights.py",
-)
-weights = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(weights)
+from ctranslate2.converters import drama3_weights as weights
 
 
 def write_tensors(path, tensors):

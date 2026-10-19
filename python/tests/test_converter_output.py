@@ -1,10 +1,13 @@
 """Regression checks for shared conversion output handling."""
 
+import os
 import tempfile
 import unittest
 
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+from drama_test_utils import requires_atomic_publish
 
 from ctranslate2.converters.converter import Converter
 
@@ -45,6 +48,7 @@ class ConverterOutputTest(unittest.TestCase):
         converter.convert(str(self.output), force=True)
         self.assertFalse((self.output / "old").exists())
 
+    @requires_atomic_publish
     def test_atomic_report_failure_preserves_previous_output_and_cleans_staging(self):
         converter = FixtureConverter(atomic=True)
         converter.convert(str(self.output))
@@ -57,6 +61,7 @@ class ConverterOutputTest(unittest.TestCase):
         self.assertEqual((self.output / "model.bin").read_bytes(), b"model")
         self.assertEqual(list(self.output.parent.glob(".model.*")), [])
 
+    @requires_atomic_publish
     def test_atomic_publication_does_not_replace_concurrent_output(self):
         converter = FixtureConverter(atomic=True)
 
@@ -70,6 +75,7 @@ class ConverterOutputTest(unittest.TestCase):
         self.assertEqual(list(self.output.iterdir()), [])
         self.assertEqual(list(self.output.parent.glob(".model.*")), [])
 
+    @unittest.skipIf(os.name == "nt", "Creating symlinks requires Windows privileges")
     def test_atomic_force_rejects_symlink_without_changing_target(self):
         target = Path(self.temp.name) / "target"
         target.mkdir()

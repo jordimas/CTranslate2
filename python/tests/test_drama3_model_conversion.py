@@ -1,4 +1,4 @@
-"""Run: python3 -m unittest discover -s tests -p test_drama3_model_conversion.py"""
+"""Regression tests for Drama3 tensor mapping and conversion."""
 import json
 import tempfile
 import unittest
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from drama_test_utils import shard
+from drama_test_utils import requires_atomic_publish, shard
 
 from ctranslate2.converters import drama3_weights
 from ctranslate2.converters.converter import publish_directory
@@ -47,15 +47,25 @@ class DramaModelConversionTest(unittest.TestCase):
     def test_explicit_backbone_and_tower_names(self):
         cases = {
             "model.language_model.layers.3.mlp.gate.weight": "backbone/layers_3/mlp/router/weight",
-            "model.language_model.layers.0.mlp.experts.12.up_proj.weight": "backbone/layers_0/mlp/experts_12/up_proj/weight",
+            "model.language_model.layers.0.mlp.experts.12.up_proj.weight": (
+                "backbone/layers_0/mlp/experts_12/up_proj/weight"
+            ),
             "model.language_model.embed_tokens.weight": "backbone/embeddings/weight",
             "model.language_model.norm.weight": "backbone/norm/weight",
             "lm_head.weight": "backbone/lm_head/weight",
             "audio_decoder.codebook_embeddings.weight": "tower/codebook_embeddings/weight",
-            "audio_decoder_mtp_shared.layers.0.transformer_layer.attention.wo.weight": "tower/shared_layers_0/transformer_layer/attention/o_proj/weight",
-            "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w1.weight": "tower/residual_layers_2/transformer_layer/feed_forward/gate_proj/weight",
-            "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w3.weight": "tower/residual_layers_2/transformer_layer/feed_forward/up_proj/weight",
-            "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w2.weight": "tower/residual_layers_2/transformer_layer/feed_forward/down_proj/weight",
+            "audio_decoder_mtp_shared.layers.0.transformer_layer.attention.wo.weight": (
+                "tower/shared_layers_0/transformer_layer/attention/o_proj/weight"
+            ),
+            "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w1.weight": (
+                "tower/residual_layers_2/transformer_layer/feed_forward/gate_proj/weight"
+            ),
+            "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w3.weight": (
+                "tower/residual_layers_2/transformer_layer/feed_forward/up_proj/weight"
+            ),
+            "audio_decoder_mtp.layers.2.transformer_layer.feed_forward.w2.weight": (
+                "tower/residual_layers_2/transformer_layer/feed_forward/down_proj/weight"
+            ),
             "audio_decoder_mtp.heads.8.weight": "tower/heads_8/weight",
         }
         for source, target in cases.items():
@@ -189,6 +199,7 @@ class DramaModelConversionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             converter.inspect_shards(self.root)
 
+    @requires_atomic_publish
     def test_atomic_directory_publish_never_replaces_even_empty_directory(self):
         staging, destination = self.root / "staging", self.root / "destination"
         staging.mkdir()

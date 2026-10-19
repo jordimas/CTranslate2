@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from drama_test_utils import shard
+from drama_test_utils import requires_atomic_publish, shard
 
 from ctranslate2.converters import Converter, TransformersConverter, drama3_codec
 from ctranslate2.converters.transformers import Drama3Loader as c
@@ -106,6 +106,7 @@ class ConversionFixture(unittest.TestCase):
 
 
 class StandardConversionTest(ConversionFixture):
+    @requires_atomic_publish
     def test_float32_conversion_preserves_scaled_fp8_without_quantization(self):
         TransformersConverter(self.source).convert(
             str(self.output), quantization="float32"
@@ -137,6 +138,7 @@ class StandardConversionTest(ConversionFixture):
         self.assertFalse(self.output.exists())
         self.assertEqual(list(self.output.parent.glob(".converted.*")), [])
 
+    @requires_atomic_publish
     def test_standard_api_and_force(self):
         converter = TransformersConverter(self.source)
         self.assertIsInstance(converter, Converter)
@@ -154,6 +156,7 @@ class StandardConversionTest(ConversionFixture):
         values = read_model(self.output / "model.bin")
         self.assertFalse(any(key.endswith("_scale") for key in values))
 
+    @requires_atomic_publish
     def test_force_failure_preserves_old_output(self):
         converter = TransformersConverter(self.source)
         converter.convert(str(self.output))
@@ -175,6 +178,7 @@ class StandardConversionTest(ConversionFixture):
             load.assert_not_called()
             self.assertFalse(self.output.exists())
 
+    @requires_atomic_publish
     def test_all_standard_quantizations(self):
         expert = "backbone/layers_0/mlp/experts_0/up_proj/weight"
         original = np.array([[1, -1], [0.5, 0.25]], np.float32) * np.float32(1.0001)
@@ -263,6 +267,7 @@ class StandardConversionTest(ConversionFixture):
         np.testing.assert_array_equal(values["backbone/lm_head/weight"], self.sensitive)
         self.assertEqual(converter.conversion_report["model_name"], "Drama3Spec")
 
+    @requires_atomic_publish
     def test_repeated_conversion_preserves_default_quantization(self):
         converter = TransformersConverter(self.source)
         converter.convert(str(self.output), quantization="float32")
@@ -273,6 +278,7 @@ class StandardConversionTest(ConversionFixture):
         self.assertNotIn(expert + "_scale", values)
         self.assertEqual(converter.conversion_report["quantization"], "float32")
 
+    @requires_atomic_publish
     def test_transformers_cli_conversion_writes_report(self):
         from ctranslate2.converters.transformers import main
 
@@ -383,6 +389,7 @@ class LosslessFP8ConversionTest(ConversionFixture):
             expert = next(item for item in plan if item["source"] == self.expert)
             self.assertEqual(expert["dtype"], "fp8")
 
+    @requires_atomic_publish
     def test_transformers_default_uses_lossless_fp8(self):
         converter = TransformersConverter(self.source)
         self.assertEqual(converter.inspect()["quantization_policy"], c.FP8_POLICY)

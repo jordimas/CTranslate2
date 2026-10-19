@@ -129,7 +129,6 @@ set(SOURCES
   src/dtw.cc
   src/encoder.cc
   src/env.cc
-  src/drama3_memory.cc
   src/filesystem.cc
   src/generator.cc
   src/layers/attention_layer.cc
@@ -154,6 +153,7 @@ set(SOURCES
   src/models/language_model.cc
   src/models/model.cc
   src/models/drama3.cc
+  src/models/drama3_memory.cc
   src/models/model_factory.cc
   src/models/model_reader.cc
   src/models/sequence_to_sequence.cc

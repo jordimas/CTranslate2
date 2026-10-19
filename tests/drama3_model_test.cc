@@ -5,7 +5,7 @@
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
 #include "ctranslate2/models/model_reader.h"
-#include "drama3_memory.h"
+#include "models/drama3_memory.h"
 
 namespace {
   struct ScopedMemoryBudget {

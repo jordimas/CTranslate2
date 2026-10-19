@@ -146,7 +146,9 @@ def test_int8_quantization():
 def test_int8_quantization_tiny_row_scale_is_finite(tiny_weight):
     class Spec(ctranslate2.specs.LayerSpec):
         def __init__(self):
-            self.weight = np.array([[tiny_weight, -tiny_weight, 0, 0]], dtype=np.float32)
+            self.weight = np.array(
+                [[tiny_weight, -tiny_weight, 0, 0]], dtype=np.float32
+            )
             self.weight_scale = OPTIONAL
 
     spec = Spec()

@@ -10,7 +10,6 @@ import numpy as np
 from drama_test_utils import shard
 
 from ctranslate2.converters import drama3_weights
-from ctranslate2.converters.converter import publish_directory
 from ctranslate2.converters.transformers import Drama3Loader as converter
 from ctranslate2.specs.drama3_spec import Drama3Spec
 
@@ -198,22 +197,6 @@ class DramaModelConversionTest(unittest.TestCase):
         index_path.write_text(json.dumps({"weight_map": {"missing": p.name}}))
         with self.assertRaises(ValueError):
             converter.inspect_shards(self.root)
-
-    def test_atomic_directory_publish_preserves_nonempty_directory(self):
-        staging, destination = self.root / "staging", self.root / "destination"
-        staging.mkdir()
-        (staging / "marker").write_text("complete")
-        destination.mkdir()
-        (destination / "existing").write_text("keep")
-        with self.assertRaises(OSError):
-            publish_directory(staging, destination)
-        self.assertEqual((destination / "existing").read_text(), "keep")
-        self.assertTrue((staging / "marker").exists())
-        (destination / "existing").unlink()
-        destination.rmdir()
-        publish_directory(staging, destination)
-        self.assertEqual((destination / "marker").read_text(), "complete")
-        self.assertFalse(staging.exists())
 
     def test_orphan_scales_and_nonfinite_vectors_rejected(self):
         with self.assertRaisesRegex(ValueError, "orphan"):

@@ -1,18 +1,18 @@
 """Regression checks for shared conversion output handling."""
 
 import os
+import stat
 import tempfile
 import unittest
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from ctranslate2.converters.converter import Converter
 
 
 class FixtureConverter(Converter):
-    def __init__(self, atomic=False):
-        self._atomic_conversion = atomic
+    def __init__(self):
         self.spec = Mock()
         self.spec.save.side_effect = lambda output: (
             Path(output) / "model.bin"
@@ -46,42 +46,16 @@ class ConverterOutputTest(unittest.TestCase):
         converter.convert(str(self.output), force=True)
         self.assertFalse((self.output / "old").exists())
 
-    def test_atomic_report_failure_preserves_previous_output_and_cleans_staging(self):
-        converter = FixtureConverter(atomic=True)
-        converter.convert(str(self.output))
-        converter.conversion_report = {"dry_run": False}
-        with patch.object(
-            converter, "write_report", side_effect=OSError("report failed")
-        ):
-            with self.assertRaisesRegex(OSError, "report failed"):
-                converter.convert(str(self.output), force=True)
-        self.assertEqual((self.output / "model.bin").read_bytes(), b"model")
-        self.assertEqual(list(self.output.parent.glob(".model.*")), [])
-
-    def test_atomic_publication_does_not_replace_concurrent_output(self):
-        converter = FixtureConverter(atomic=True)
-
-        def save(output):
-            (Path(output) / "model.bin").write_bytes(b"new")
-            self.output.mkdir()
-            (self.output / "existing").write_bytes(b"keep")
-
-        converter.spec.save.side_effect = save
-        with self.assertRaises(OSError):
-            converter.convert(str(self.output))
-        self.assertEqual((self.output / "existing").read_bytes(), b"keep")
-        self.assertFalse((self.output / "model.bin").exists())
-        self.assertEqual(list(self.output.parent.glob(".model.*")), [])
-
-    @unittest.skipIf(os.name == "nt", "Creating symlinks requires Windows privileges")
-    def test_atomic_force_rejects_symlink_without_changing_target(self):
-        target = Path(self.temp.name) / "target"
-        target.mkdir()
-        (target / "marker").write_bytes(b"keep")
-        self.output.parent.mkdir()
-        self.output.symlink_to(target, target_is_directory=True)
-        with self.assertRaisesRegex(ValueError, "regular directory"):
-            FixtureConverter(atomic=True).convert(str(self.output), force=True)
-        self.assertTrue(self.output.is_symlink())
-        self.assertEqual((target / "marker").read_bytes(), b"keep")
-        self.assertEqual(list(self.output.parent.glob(".model.*")), [])
+    @unittest.skipIf(os.name == "nt", "POSIX directory permissions")
+    def test_output_respects_umask(self):
+        for mask in (0o022, 0o027, 0o077):
+            with self.subTest(umask=oct(mask)):
+                previous = os.umask(mask)
+                try:
+                    FixtureConverter().convert(str(self.output), force=True)
+                    self.assertEqual(
+                        stat.S_IMODE(self.output.stat().st_mode), 0o777 & ~mask
+                    )
+                    self.assertEqual(os.umask(mask), mask)
+                finally:
+                    os.umask(previous)

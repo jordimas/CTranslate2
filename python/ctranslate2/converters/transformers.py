@@ -146,7 +146,6 @@ class TransformersConverter(Converter):
 
     def convert(self, output_dir, vmap=None, quantization=None, force=False):
         path = self._get_drama3_path()
-        self._atomic_conversion = path is not None
         self.conversion_report = None
         if path is not None:
             output_dir = str(output_dir)

@@ -3,44 +3,11 @@ import argparse
 import json
 import os
 import shutil
-import tempfile
 
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
 from ctranslate2.specs.model_spec import ACCEPTED_MODEL_TYPES, ModelSpec
-
-
-def publish_directory(staging, destination):
-    """Atomically publish a staged directory on the same filesystem."""
-    os.rename(staging, destination)
-
-
-@contextmanager
-def _output_directory(output_dir, force=False, atomic=False):
-    """Stage atomic conversions; keep the existing flow for other converters."""
-    output = Path(output_dir)
-    staging = (
-        Path(tempfile.mkdtemp(prefix="." + output.name + ".", dir=output.parent))
-        if atomic
-        else output
-    )
-    try:
-        if not atomic:
-            if output.exists():
-                shutil.rmtree(output)
-            output.mkdir(parents=True)
-        yield staging
-        if atomic:
-            if force and os.path.lexists(output):
-                if output.is_symlink() or not output.is_dir():
-                    raise ValueError("--force requires an existing regular directory")
-                shutil.rmtree(output)
-            publish_directory(staging, output)
-    finally:
-        if atomic:
-            shutil.rmtree(staging, ignore_errors=True)
 
 
 class Converter(abc.ABC):
@@ -115,14 +82,7 @@ class Converter(abc.ABC):
           NotImplementedError: If the converter cannot convert this model to the
             CTranslate2 format.
         """
-        atomic = getattr(self, "_atomic_conversion", False)
-        if atomic:
-            Path(output_dir).parent.mkdir(parents=True, exist_ok=True)
         if os.path.lexists(output_dir) and not force:
-            if atomic:
-                raise FileExistsError(
-                    f"{output_dir} already exists; use --force to overwrite"
-                )
             raise RuntimeError(
                 "output directory %s already exists, use --force to override"
                 % output_dir
@@ -139,15 +99,18 @@ class Converter(abc.ABC):
         model_spec.validate()
         model_spec.optimize(quantization=quantization)
 
-        with _output_directory(output_dir, force=force, atomic=atomic) as staging:
-            model_spec.save(str(staging))
-            report = getattr(self, "conversion_report", None)
-            if report is not None:
-                report.update(
-                    output=str(output_dir),
-                    output_bytes=(staging / "model.bin").stat().st_size,
-                )
-                self.write_report(staging / "conversion.json")
+        output = Path(output_dir)
+        if output.exists():
+            shutil.rmtree(output)
+        output.mkdir(parents=True)
+        model_spec.save(str(output))
+        report = getattr(self, "conversion_report", None)
+        if report is not None:
+            report.update(
+                output=str(output_dir),
+                output_bytes=(output / "model.bin").stat().st_size,
+            )
+            self.write_report(output / "conversion.json")
         return output_dir
 
     def write_report(self, path):

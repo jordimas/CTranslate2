@@ -130,12 +130,12 @@ class StandardConversionTest(ConversionFixture):
         load.assert_not_called()
         self.assertFalse(self.output.exists())
 
-    def test_failure_removes_partial_package(self):
+    def test_save_failure_leaves_output_directory(self):
         with patch.object(Drama3Spec, "save", side_effect=RuntimeError("write failed")):
             with self.assertRaisesRegex(RuntimeError, "write failed"):
                 TransformersConverter(self.source).convert(str(self.output))
-        self.assertFalse(self.output.exists())
-        self.assertEqual(list(self.output.parent.glob(".converted.*")), [])
+        self.assertTrue(self.output.is_dir())
+        self.assertFalse((self.output / "model.bin").exists())
 
     def test_standard_api_and_force(self):
         converter = TransformersConverter(self.source)
@@ -148,20 +148,20 @@ class StandardConversionTest(ConversionFixture):
         self.assertEqual(
             values["backbone/layers_0/mlp/experts_0/up_proj/weight"].dtype, "int8"
         )
-        with self.assertRaises(FileExistsError):
+        with self.assertRaises(RuntimeError):
             converter.convert(str(self.output))
         converter.convert(str(self.output), quantization="float32", force=True)
         values = read_model(self.output / "model.bin")
         self.assertFalse(any(key.endswith("_scale") for key in values))
 
-    def test_force_failure_preserves_old_output(self):
+    def test_force_save_failure_replaces_old_output(self):
         converter = TransformersConverter(self.source)
         converter.convert(str(self.output))
-        previous = (self.output / "model.bin").read_bytes()
         with patch.object(Drama3Spec, "save", side_effect=RuntimeError("write failed")):
             with self.assertRaisesRegex(RuntimeError, "write failed"):
                 converter.convert(str(self.output), force=True)
-        self.assertEqual((self.output / "model.bin").read_bytes(), previous)
+        self.assertTrue(self.output.is_dir())
+        self.assertFalse((self.output / "model.bin").exists())
 
     def test_reject_unsupported_quantization_before_loading(self):
         for quantization in ("invalid", "auto", "int4"):

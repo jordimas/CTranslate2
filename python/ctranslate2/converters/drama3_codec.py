@@ -22,30 +22,29 @@ FLOAT_TYPES = {
 def conversion_plan(schema):
     """Resolve direct/legacy/parametrized tensors using only names and shapes."""
     keys = schema.get("keys", schema)
-    plan, targets = [], set()
+    plan = []
     for source, shape in codec_parameter_shapes().items():
         candidates = []
         if source in keys:
-            candidates.append(("direct", source, None))
+            candidates.append((source, None))
         if source.endswith(".weight"):
             stem = source[: -len(".weight")]
-            for style, g, v in (
+            for g, v in (
                 (
-                    "parametrized_axis0",
                     stem + ".parametrizations.weight.original0",
                     stem + ".parametrizations.weight.original1",
                 ),
-                ("legacy_axis0", stem + ".weight_g", stem + ".weight_v"),
+                (stem + ".weight_g", stem + ".weight_v"),
             ):
                 if g in keys or v in keys:
                     if g not in keys or v not in keys:
                         raise ValueError(
                             "incomplete weight-normalization pair: " + source
                         )
-                    candidates.append((style, v, g))
+                    candidates.append((v, g))
         if len(candidates) != 1:
             raise ValueError("missing or ambiguous official tensor: " + source)
-        style, value_key, magnitude_key = candidates[0]
+        value_key, magnitude_key = candidates[0]
         if tuple(keys[value_key]["shape"]) != shape:
             raise ValueError("unsupported codec weight shape: " + source)
         selected = [value_key]
@@ -60,15 +59,11 @@ def conversion_plan(schema):
         if any(keys[key]["dtype"] not in FLOAT_TYPES for key in selected):
             raise ValueError("non-floating codec tensor: " + source)
         target = "codec/" + source.replace(".", "/")
-        if target in targets:
-            raise ValueError("duplicate codec target: " + target)
-        targets.add(target)
         plan.append(
             {
                 "source_name": source,
                 "target": target,
                 "shape": list(keys[value_key]["shape"]),
-                "style": style,
                 "value_key": value_key,
                 "magnitude_key": magnitude_key,
             }

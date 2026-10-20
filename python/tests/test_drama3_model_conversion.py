@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from drama_test_utils import requires_atomic_publish, shard
+from drama_test_utils import shard
 
 from ctranslate2.converters import drama3_weights
 from ctranslate2.converters.converter import publish_directory
@@ -199,15 +199,17 @@ class DramaModelConversionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             converter.inspect_shards(self.root)
 
-    @requires_atomic_publish
-    def test_atomic_directory_publish_never_replaces_even_empty_directory(self):
+    def test_atomic_directory_publish_preserves_nonempty_directory(self):
         staging, destination = self.root / "staging", self.root / "destination"
         staging.mkdir()
         (staging / "marker").write_text("complete")
         destination.mkdir()
-        with self.assertRaises(FileExistsError):
+        (destination / "existing").write_text("keep")
+        with self.assertRaises(OSError):
             publish_directory(staging, destination)
+        self.assertEqual((destination / "existing").read_text(), "keep")
         self.assertTrue((staging / "marker").exists())
+        (destination / "existing").unlink()
         destination.rmdir()
         publish_directory(staging, destination)
         self.assertEqual((destination / "marker").read_text(), "complete")

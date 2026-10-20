@@ -1,14 +1,6 @@
 """Independent checkpoint writer shared by Drama3 conversion tests."""
-import ctypes
 import json
-import os
 import struct
-import unittest
-
-requires_atomic_publish = unittest.skipUnless(
-    os.name == "nt" or hasattr(ctypes.CDLL(None), "renameat2"),
-    "Atomic directory publication requires Windows rename or renameat2",
-)
 
 
 def shard(path, tensors):

@@ -1,7 +1,5 @@
 import abc
 import argparse
-import ctypes
-import errno
 import json
 import os
 import shutil
@@ -15,29 +13,8 @@ from ctranslate2.specs.model_spec import ACCEPTED_MODEL_TYPES, ModelSpec
 
 
 def publish_directory(staging, destination):
-    """Atomic no-replace publication, including the existing-empty-dir case."""
-    if os.name == "nt":
-        os.rename(staging, destination)
-        return
-    libc = ctypes.CDLL(None, use_errno=True)
-    rename = getattr(libc, "renameat2", None)
-    if rename is None:
-        raise RuntimeError(
-            "atomic no-replace directory publication requires renameat2 on this platform"
-        )
-    rename.argtypes = [
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_uint,
-    ]
-    rename.restype = ctypes.c_int
-    if rename(-100, os.fsencode(staging), -100, os.fsencode(destination), 1):
-        code = ctypes.get_errno()
-        if code == errno.EEXIST:
-            raise FileExistsError(destination)
-        raise OSError(code, os.strerror(code), str(destination))
+    """Atomically publish a staged directory on the same filesystem."""
+    os.rename(staging, destination)
 
 
 @contextmanager

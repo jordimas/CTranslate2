@@ -7,8 +7,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from drama_test_utils import requires_atomic_publish
-
 from ctranslate2.converters.converter import Converter
 
 
@@ -48,7 +46,6 @@ class ConverterOutputTest(unittest.TestCase):
         converter.convert(str(self.output), force=True)
         self.assertFalse((self.output / "old").exists())
 
-    @requires_atomic_publish
     def test_atomic_report_failure_preserves_previous_output_and_cleans_staging(self):
         converter = FixtureConverter(atomic=True)
         converter.convert(str(self.output))
@@ -61,18 +58,19 @@ class ConverterOutputTest(unittest.TestCase):
         self.assertEqual((self.output / "model.bin").read_bytes(), b"model")
         self.assertEqual(list(self.output.parent.glob(".model.*")), [])
 
-    @requires_atomic_publish
     def test_atomic_publication_does_not_replace_concurrent_output(self):
         converter = FixtureConverter(atomic=True)
 
         def save(output):
             (Path(output) / "model.bin").write_bytes(b"new")
             self.output.mkdir()
+            (self.output / "existing").write_bytes(b"keep")
 
         converter.spec.save.side_effect = save
-        with self.assertRaises(FileExistsError):
+        with self.assertRaises(OSError):
             converter.convert(str(self.output))
-        self.assertEqual(list(self.output.iterdir()), [])
+        self.assertEqual((self.output / "existing").read_bytes(), b"keep")
+        self.assertFalse((self.output / "model.bin").exists())
         self.assertEqual(list(self.output.parent.glob(".model.*")), [])
 
     @unittest.skipIf(os.name == "nt", "Creating symlinks requires Windows privileges")

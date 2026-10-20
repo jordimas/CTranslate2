@@ -2,7 +2,7 @@
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
 #include "ctranslate2/models/model_reader.h"
-#include "ctranslate2/layers/drama_projection.h"
+#include "layers/drama/drama_projection.h"
 #include "ctranslate2/ops/dequantize.h"
 
 namespace {

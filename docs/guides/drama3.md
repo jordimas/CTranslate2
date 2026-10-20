@@ -9,7 +9,8 @@ generates audio codes and decodes them to a mono waveform.
 Supported: offline synthesis and waveform decoding. Unsupported: reference-audio
 voice cloning, audio encoding, voice design, a dedicated multi-speaker API,
 speech editing or history, automatic long-text splitting, public streaming,
-and batching. Transcription is a separate speech-recognition task.
+and tensor batching. Independent requests can be submitted together and scheduled
+across execution replicas. Transcription is a separate speech-recognition task.
 
 Voice cloning requires a reference-audio encoder and reference-conditioned
 prompt preparation; the waveform decoder cannot encode reference recordings.
@@ -99,6 +100,35 @@ audio.cpp, or GGML.
 See the [Python API reference](../python/ctranslate2.models.Drama3.rst) for
 constructor options, generation parameters and defaults, and result fields.
 
+### Concurrent and asynchronous requests
+
+Drama3 uses CTranslate2's replica pool. Set `inter_threads` to the number of
+requests that can execute concurrently; `intra_threads` controls CPU threads per
+replica. Replicas share immutable CPU checkpoint weights and own separate layers,
+GPU weight caches, and sequence state. Additional GPU replicas require additional
+VRAM; `CT2_DRAMA3_GPU_EXPERT_CACHE_GB` applies to each replica.
+
+```python
+model = Drama3(str(model_path), intra_threads=4, inter_threads=2)
+pending = model.generate(prompt_rows, max_frames=256, asynchronous=True)
+result = pending.result()  # Waits and propagates generation errors.
+print(result.sample_rate, result.audio.shape)
+
+results = model.generate_batch([prompt_rows, prompt_rows], max_frames=256)
+```
+
+`generate` returns a typed `Drama3Result`; existing dictionary-style access such
+as `result["audio"]` remains supported, and `result.to_dict()` returns a dictionary.
+`asynchronous=True` returns `Drama3ResultAsync` with `done()` and `result()` methods.
+`generate_batch` returns results in input order, or a list of async results when
+requested. Each prompt has independent sequence state and uses the supplied seed.
+Kernels still process one sequence at a time within each replica.
+
+`max_queued_batches` limits queued requests: `0` allows four per replica, and a
+negative value removes the limit. Submitting to a full queue waits for space,
+including asynchronous submissions. `num_replicas`, `num_queued_batches`, and
+`num_active_batches` expose pool activity.
+
 ### CPU execution
 
 The synthesis graph and codec use FLOAT32 activations. For FP8 storage with
@@ -154,7 +184,7 @@ allocations, without a guaranteed total RAM ceiling:
   and output allocations. The checkpoint's maximum context remains the upper bound.
 - Lower `prefill_chunk_size` to reduce prompt-processing intermediate allocations.
   It does not reduce retained history or enable streaming. Generation accepts one
-  sequence per call; calls on one instance execute sequentially.
+  sequence per replica at a time; independent calls use the replica pool.
 - [`CT2_DRAMA3_GPU_EXPERT_CACHE_GB`](../environment_variables.md)
   bounds cached GPU expert weights, rather than total VRAM, on CUDA and ROCm.
   Other allocations require additional memory.

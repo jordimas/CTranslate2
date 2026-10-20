@@ -4,7 +4,7 @@
 #include <fstream>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/fish_dac_decoder.h"
+#include "layers/drama/fish_dac_decoder.h"
 #include "ctranslate2/models/model_factory.h"
 #include "ctranslate2/utils.h"
 

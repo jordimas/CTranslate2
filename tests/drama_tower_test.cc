@@ -3,7 +3,7 @@
 #include <set>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/drama_tower.h"
+#include "layers/drama/drama_tower.h"
 
 namespace {
 

@@ -3,7 +3,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/moe.h"
+#include "layers/drama/moe.h"
 #include "cpu/backend.h"
 
 namespace {

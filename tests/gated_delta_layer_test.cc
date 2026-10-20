@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/gated_delta.h"
+#include "layers/drama/gated_delta.h"
 
 namespace {
 

@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/ops/causal_depthwise_conv1d.h"
+#include "ops/drama/causal_depthwise_conv1d.h"
 
 TEST(CausalDepthwiseConv1DTest, AnalyticalNonzeroHistory) {
   StorageView x({1, 3, 1}, std::vector<float>{3, 4, 5});

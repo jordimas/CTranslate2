@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/fish_dac_upsample.h"
+#include "layers/drama/fish_dac_upsample.h"
 
 namespace {
 

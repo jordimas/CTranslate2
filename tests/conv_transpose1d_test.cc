@@ -2,7 +2,7 @@
 #include <stdexcept>
 
 #include "test_utils.h"
-#include "ctranslate2/ops/conv_transpose1d.h"
+#include "ops/drama/conv_transpose1d.h"
 
 TEST(ConvTranspose1DTest, ScattersOverlappingKernelWithoutReversal) {
   StorageView x({1, 1, 3}, std::vector<float>{1, 2, 3});

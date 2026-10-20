@@ -1,7 +1,7 @@
 #include <cmath>
 
 #include "drama_test_utils.h"
-#include "ctranslate2/layers/drama_backbone.h"
+#include "layers/drama/drama_backbone.h"
 
 namespace {
 

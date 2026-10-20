@@ -133,18 +133,19 @@ set(SOURCES
   src/generator.cc
   src/layers/attention_layer.cc
   src/layers/attention.cc
+  src/layers/drama/gated_self_attention.cc
   src/layers/flash_attention.cc
   src/layers/common.cc
-  src/layers/drama_projection.cc
-  src/layers/moe.cc
-  src/layers/gated_delta.cc
-  src/layers/drama_block.cc
-  src/layers/drama_backbone.cc
-  src/layers/drama_tower.cc
-  src/layers/fish_dac.cc
-  src/layers/fish_dac_codebooks.cc
-  src/layers/fish_dac_transformer.cc
-  src/layers/fish_dac_upsample.cc
+  src/layers/drama/drama_projection.cc
+  src/layers/drama/moe.cc
+  src/layers/drama/gated_delta.cc
+  src/layers/drama/drama_block.cc
+  src/layers/drama/drama_backbone.cc
+  src/layers/drama/drama_tower.cc
+  src/layers/drama/fish_dac.cc
+  src/layers/drama/fish_dac_codebooks.cc
+  src/layers/drama/fish_dac_transformer.cc
+  src/layers/drama/fish_dac_upsample.cc
   src/layers/decoder.cc
   src/layers/transformer.cc
   src/layers/wav2vec2.cc
@@ -173,19 +174,19 @@ set(SOURCES
   src/ops/concat_split_slide_cpu.cc
   src/ops/conv1d.cc
   src/ops/conv1d_cpu.cc
-  src/ops/conv_transpose1d.cc
-  src/ops/causal_depthwise_conv1d.cc
+  src/ops/drama/conv_transpose1d.cc
+  src/ops/drama/causal_depthwise_conv1d.cc
   src/ops/cos.cc
   src/ops/dequantize.cc
-  src/ops/dequantize_fp8.cc
+  src/ops/drama/dequantize_fp8.cc
   src/ops/dequantize_cpu.cc
   src/ops/flash_attention.cc
   src/ops/flash_attention_cpu.cc
   src/ops/gather.cc
   src/ops/gather_cpu.cc
-  src/ops/gated_delta_net.cc
-  src/ops/snake.cc
-  src/ops/moe_topk.cc
+  src/ops/drama/gated_delta_net.cc
+  src/ops/drama/snake.cc
+  src/ops/drama/moe_topk.cc
   src/ops/gelu.cc
   src/ops/gemm.cc
   src/ops/gumbel_max.cc
@@ -257,10 +258,10 @@ set(CUDA_SOURCES
   src/ops/concat_split_slide_gpu.cu
   src/ops/conv1d_gpu.cu
   src/ops/dequantize_gpu.cu
-  src/ops/dequantize_fp8_gpu.cu
-  src/ops/grouped_moe_gpu.cu
-  src/ops/drama_gpu.cu
-  src/ops/fish_dac_gpu.cu
+  src/ops/drama/dequantize_fp8_gpu.cu
+  src/ops/drama/grouped_moe_gpu.cu
+  src/ops/drama/drama_gpu.cu
+  src/ops/drama/fish_dac_gpu.cu
   src/ops/flash_attention_gpu.cu
   src/ops/gather_gpu.cu
   src/ops/gumbel_max_gpu.cu

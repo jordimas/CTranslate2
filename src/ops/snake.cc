@@ -1,4 +1,4 @@
-#include "ops/drama/snake.h"
+#include "ctranslate2/ops/snake.h"
 
 #include <cmath>
 #include <cstdint>

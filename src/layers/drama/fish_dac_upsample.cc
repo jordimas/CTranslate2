@@ -6,7 +6,7 @@
 #include <limits>
 #include <stdexcept>
 
-#include "ops/drama/conv_transpose1d.h"
+#include "ctranslate2/ops/conv_transpose1d.h"
 
 namespace ctranslate2 {
   namespace layers {

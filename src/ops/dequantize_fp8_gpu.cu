@@ -1,4 +1,4 @@
-#include "ops/drama/dequantize_fp8.h"
+#include "ctranslate2/ops/dequantize_fp8.h"
 #include "cuda/helpers.h"
 
 namespace ctranslate2 {

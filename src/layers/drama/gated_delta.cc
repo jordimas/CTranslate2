@@ -8,8 +8,8 @@
 #include <limits>
 #include <stdexcept>
 
-#include "ops/drama/causal_depthwise_conv1d.h"
-#include "ops/drama/gated_delta_net.h"
+#include "ctranslate2/ops/causal_depthwise_conv1d.h"
+#include "ctranslate2/ops/gated_delta_net.h"
 
 namespace ctranslate2 {
   namespace layers {

@@ -1,5 +1,5 @@
 #include "layers/drama/moe.h"
-#include "ops/drama/moe_topk.h"
+#include "ctranslate2/ops/moe_topk.h"
 
 #include <cmath>
 #include <cstring>

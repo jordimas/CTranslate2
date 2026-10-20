@@ -2,7 +2,7 @@
 #include <stdexcept>
 
 #include "test_utils.h"
-#include "ops/drama/gated_delta_net.h"
+#include "ctranslate2/ops/gated_delta_net.h"
 
 TEST(GatedDeltaNetTest, DecaysStateBeforeComputingResidual) {
   StorageView q({1, 1, 1, 2}, std::vector<float>{2, 1});

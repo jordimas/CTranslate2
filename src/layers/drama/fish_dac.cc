@@ -1,6 +1,6 @@
 #include "layers/drama/fish_dac.h"
-#include "ops/drama/snake.h"
-#include "ops/drama/conv_transpose1d.h"
+#include "ctranslate2/ops/snake.h"
+#include "ctranslate2/ops/conv_transpose1d.h"
 #include "ops/drama/fish_dac_gpu.h"
 #include "env.h"
 

@@ -1,4 +1,4 @@
-#include "ops/drama/gated_delta_net.h"
+#include "ctranslate2/ops/gated_delta_net.h"
 
 #include <cmath>
 #include <algorithm>

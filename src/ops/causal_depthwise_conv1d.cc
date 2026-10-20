@@ -1,4 +1,4 @@
-#include "ops/drama/causal_depthwise_conv1d.h"
+#include "ctranslate2/ops/causal_depthwise_conv1d.h"
 
 #include <cmath>
 #include <cstdint>

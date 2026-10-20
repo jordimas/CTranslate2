@@ -5,7 +5,7 @@
 #include "layers/drama/drama_tower.h"
 #include "layers/drama/fish_dac_decoder.h"
 #include "ctranslate2/utils.h"
-#include "ops/drama/dequantize_fp8.h"
+#include "ctranslate2/ops/dequantize_fp8.h"
 #include "drama3_memory.h"
 #include "drama3_checkpoint.h"
 #include "env.h"

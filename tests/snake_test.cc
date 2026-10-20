@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ops/drama/snake.h"
+#include "ctranslate2/ops/snake.h"
 
 TEST(SnakeTest, AnalyticalAndChannelBroadcast) {
   const float pi = std::acos(-1.f);

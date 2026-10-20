@@ -1,6 +1,6 @@
 #include "layers/drama/drama_projection.h"
 
-#include "ops/drama/dequantize_fp8.h"
+#include "ctranslate2/ops/dequantize_fp8.h"
 
 namespace ctranslate2 {
   namespace layers {

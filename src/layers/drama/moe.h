@@ -1,7 +1,7 @@
 #pragma once
 
 #include "drama_projection.h"
-#include "ops/drama/moe_topk.h"
+#include "ctranslate2/ops/moe_topk.h"
 #include <list>
 
 namespace ctranslate2 {

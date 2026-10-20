@@ -174,19 +174,19 @@ set(SOURCES
   src/ops/concat_split_slide_cpu.cc
   src/ops/conv1d.cc
   src/ops/conv1d_cpu.cc
-  src/ops/drama/conv_transpose1d.cc
-  src/ops/drama/causal_depthwise_conv1d.cc
+  src/ops/conv_transpose1d.cc
+  src/ops/causal_depthwise_conv1d.cc
   src/ops/cos.cc
   src/ops/dequantize.cc
-  src/ops/drama/dequantize_fp8.cc
+  src/ops/dequantize_fp8.cc
   src/ops/dequantize_cpu.cc
   src/ops/flash_attention.cc
   src/ops/flash_attention_cpu.cc
   src/ops/gather.cc
   src/ops/gather_cpu.cc
-  src/ops/drama/gated_delta_net.cc
-  src/ops/drama/snake.cc
-  src/ops/drama/moe_topk.cc
+  src/ops/gated_delta_net.cc
+  src/ops/snake.cc
+  src/ops/moe_topk.cc
   src/ops/gelu.cc
   src/ops/gemm.cc
   src/ops/gumbel_max.cc
@@ -258,7 +258,7 @@ set(CUDA_SOURCES
   src/ops/concat_split_slide_gpu.cu
   src/ops/conv1d_gpu.cu
   src/ops/dequantize_gpu.cu
-  src/ops/drama/dequantize_fp8_gpu.cu
+  src/ops/dequantize_fp8_gpu.cu
   src/ops/drama/grouped_moe_gpu.cu
   src/ops/drama/drama_gpu.cu
   src/ops/drama/fish_dac_gpu.cu

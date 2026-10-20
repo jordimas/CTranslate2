@@ -4,7 +4,7 @@
 #include <set>
 
 #include "test_utils.h"
-#include "ops/drama/moe_topk.h"
+#include "ctranslate2/ops/moe_topk.h"
 #include "ops/drama/grouped_moe.h"
 
 #ifdef CT2_WITH_CUDA

@@ -1,8 +1,10 @@
 # Drama3 execution layers
 
 These headers are private implementation details and are not installed with the
-public CTranslate2 headers. Drama3 and FishDAC layers live here; their operators
-live in `src/ops/drama`. Core attention shares its dot-product implementation
+public CTranslate2 headers. Drama3 and FishDAC layers live here; model-specific
+GPU helpers live in `src/ops/drama`. Reusable operators live in `src/ops`, with
+public headers in `include/ctranslate2/ops` and tests in `tests`.
+Core attention shares its dot-product implementation
 through the private `src/layers/attention_utils.h` interface.
 
 Each `Drama3Replica` owns a complete set of layers. A replica pool worker runs

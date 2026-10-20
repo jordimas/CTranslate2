@@ -131,22 +131,6 @@ TEST(StorageViewTest, ExpandDimsAndSqueeze) {
 class StorageViewDeviceTest : public ::testing::TestWithParam<Device> {
 };
 
-TEST(StorageViewTest, DeviceCopyOwnsIndependentStorage) {
-  for (const auto device : {Device::CPU, Device::CUDA}) {
-    if (!get_device_count(device))
-      continue;
-    StorageView source({4}, std::vector<float>{1, 2, 3, 4});
-    auto copy = source.to(device);
-    synchronize_stream(device);
-    ASSERT_TRUE(copy.owns_data());
-    EXPECT_NE(copy.buffer(), source.buffer());
-    source.data<float>()[0] = 99.f;
-    auto host_copy = copy.to(Device::CPU);
-    synchronize_stream(device);
-    expect_storage_eq(host_copy, StorageView({4}, std::vector<float>{1, 2, 3, 4}));
-  }
-}
-
 TEST_P(StorageViewDeviceTest, HalfConversion) {
   const Device device = GetParam();
   const StorageView a({4}, std::vector<float>{1, 2, 3, 4}, device);

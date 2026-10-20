@@ -11,6 +11,9 @@ namespace ctranslate2 {
       , _bias(model.get_variable_if_exists(scope + "/bias"))
       , _qscale(model.get_variable_if_exists(scope + "/weight_scale"))
       , _fp8_scale_inv(model.get_variable_if_exists(scope + "/weight_scale_inv"))
+      , _partial_weight(_weight.device(), _weight.dtype())
+      , _partial_bias(_weight.device(), _bias ? _bias->dtype() : DataType::FLOAT32)
+      , _partial_qscale(_weight.device(), DataType::FLOAT32)
       , _gpu_device_index(options.device == Device::CUDA ? options.device_index : -1)
       , _gpu_compute_type(options.compute_type)
     {

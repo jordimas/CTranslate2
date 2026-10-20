@@ -211,11 +211,10 @@ TEST(Drama3ModelTest, GpuCacheLoadsFloatingPointCheckpointsWithoutQuantizing) {
 }
 
 TEST(Drama3ModelTest, MappedExpertsPreserveBytesScalesAndModelCopyLifetime) {
-  ScopedMemoryBudget cache("8");
   if (!mayiuse_int8(Device::CPU))
     GTEST_SKIP() << "INT8 unavailable";
   MappedDramaFixture fixture;
-  auto model = models::Model::load(fixture.directory, Device::CPU, 0, ComputeType::INT8_FLOAT32);
+  auto model = models::Drama3Model::load_checkpoint(fixture.directory, ComputeType::INT8_FLOAT32, true);
   const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
   EXPECT_FALSE(weight.owns_data());
   const StorageView expected({2, 2}, std::vector<int8_t>{-7, 2, 4, -1});

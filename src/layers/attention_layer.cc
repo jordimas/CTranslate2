@@ -216,8 +216,7 @@ namespace ctranslate2 {
       const dim_t max_time = _transpose ? x.dim(-2) : x.dim(-3);
       const dim_t dim = _dim == 0 ? x.dim(-1) : _dim;
 
-      if (!_sin || _sin.device() != device || _sin.dtype() != dtype
-          || _sin.device_index() != x.device_index() || offset + max_time > _sin.dim(0)) {
+      if (!_sin || offset + max_time > _sin.dim(0)) {
         const dim_t cur_num_positions = _sin ? _sin.dim(0) : 0;
         const dim_t new_num_positions = std::max(offset + max_time, cur_num_positions + _num_initial_positions);
         initialize(new_num_positions, dim, device, dtype);

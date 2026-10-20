@@ -49,8 +49,10 @@ class Drama3WeightsTest(unittest.TestCase):
         matrix = np.arange(15, dtype=np.float32).reshape(5, 3) / 4
         for dtype in ("F32", "F16"):
             with self.subTest(dtype=dtype):
-                write_tensors(self.path, {"matrix": (dtype, matrix)})
-                reader = weights.SafeTensorMatrixReader(self.path)
+                # A live reader maps its shard; Windows cannot overwrite it.
+                path = self.path.with_name(f"matrix-{dtype}.safetensors")
+                write_tensors(path, {"matrix": (dtype, matrix)})
+                reader = weights.SafeTensorMatrixReader(path)
                 chunks = list(reader.iter_matrix_rows("matrix", chunk_rows=2))
                 self.assertEqual([len(chunk) for chunk in chunks], [2, 2, 1])
                 self.assertTrue(all(chunk.dtype == np.float32 for chunk in chunks))
@@ -112,8 +114,9 @@ class Drama3WeightsTest(unittest.TestCase):
         )
         for tensor in tensors:
             with self.subTest(dtype=tensor.dtype):
-                save_file({"matrix": tensor}, str(self.path))
-                reader = weights.SafeTensorMatrixReader(self.path)
+                path = self.path.with_name(f"matrix-{tensor.dtype}.safetensors")
+                save_file({"matrix": tensor}, str(path))
+                reader = weights.SafeTensorMatrixReader(path)
                 storage_dtype = (
                     torch.uint8 if tensor.element_size() == 1 else torch.uint16
                 )

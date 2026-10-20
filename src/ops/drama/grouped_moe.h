@@ -15,8 +15,6 @@ namespace ctranslate2 {
       const float* down_scale;
     };
 #ifdef CT2_WITH_CUDA
-    void moe_topk_gpu(const StorageView& logits, dim_t k, StorageView& indices,
-                      StorageView& weights);
     // Accumulate an expert row, optionally using an on-device shared gate logit.
     void moe_accumulate_gpu(const StorageView& expert, float probability, const float* shared_logit,
                             StorageView& output);

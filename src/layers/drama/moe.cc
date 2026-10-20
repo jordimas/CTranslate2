@@ -338,7 +338,7 @@ namespace ctranslate2 {
       _shared_gate(input, shared_logits);
       StorageView ids(DataType::INT32, Device::CUDA),
           probabilities(DataType::FLOAT32, Device::CUDA);
-      ops::moe_topk_gpu(logits, _k, ids, probabilities);
+      _topk(logits, ids, probabilities);
       // Batch prefill without allowing expert activations to grow with context.
       constexpr dim_t max_rows = 32;
       for (dim_t start = 0; start < input.dim(0); start += max_rows) {

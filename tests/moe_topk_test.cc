@@ -5,7 +5,6 @@
 
 #include "test_utils.h"
 #include "ctranslate2/ops/moe_topk.h"
-#include "ops/drama/grouped_moe.h"
 
 #ifdef CT2_WITH_CUDA
 TEST(MoeTopKGpuTest, ParallelRoutingMatchesCpuAcrossWidthsAndTies) {
@@ -25,7 +24,7 @@ TEST(MoeTopKGpuTest, ParallelRoutingMatchesCpuAcrossWidthsAndTies) {
       ops::MoeTopK{k}(logits, expected_ids, expected_weights);
       auto uploaded = logits.to(Device::CUDA);
       StorageView ids(DataType::INT32, Device::CUDA), weights(DataType::FLOAT32, Device::CUDA);
-      ops::moe_topk_gpu(uploaded, k, ids, weights);
+      ops::MoeTopK{k}(uploaded, ids, weights);
       auto actual_ids = ids.to(Device::CPU);
       auto actual_weights = weights.to(Device::CPU);
       synchronize_stream(Device::CUDA);
@@ -143,3 +142,30 @@ TEST(MoeTopKTest, RetainedCapacityAliasing) {
   EXPECT_THROW(ops::MoeTopK(2)(independent_logits, overlapping_indices, weights),
                std::invalid_argument);
 }
+
+#ifdef CT2_WITH_CUDA
+TEST(MoeTopKGpuTest, ValidationAndEmptyRows) {
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+  for (int device = 0; device < get_device_count(Device::CUDA); ++device) {
+    const ScopedDeviceSetter setter(Device::CUDA, device);
+    StorageView host({1, 3}, 1.f);
+    auto logits = host.to(Device::CUDA);
+    StorageView ids(DataType::INT32, Device::CUDA), weights(DataType::FLOAT32, Device::CUDA);
+    EXPECT_THROW(ops::MoeTopK(4)(logits, ids, weights), std::invalid_argument);
+    EXPECT_THROW(ops::MoeTopK(2)(host, ids, weights), std::invalid_argument);
+    EXPECT_THROW(ops::MoeTopK(2)(logits, ids, logits), std::invalid_argument);
+    for (float value : {std::numeric_limits<float>::infinity(),
+                        -std::numeric_limits<float>::infinity(),
+                        std::numeric_limits<float>::quiet_NaN()}) {
+      host.fill(value);
+      logits = host.to(Device::CUDA);
+      EXPECT_THROW(ops::MoeTopK(2)(logits, ids, weights), std::invalid_argument);
+    }
+    StorageView empty({0, 3}, DataType::FLOAT32, Device::CUDA);
+    ops::MoeTopK(2)(empty, ids, weights);
+    EXPECT_EQ(ids.shape(), (Shape{0, 2}));
+    EXPECT_EQ(weights.shape(), ids.shape());
+  }
+}
+#endif

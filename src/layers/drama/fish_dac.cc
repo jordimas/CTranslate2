@@ -127,7 +127,7 @@ namespace ctranslate2 {
       for (const auto& block : _blocks) {
         StorageView activated(DataType::FLOAT32, Device::CUDA),
             transposed(DataType::FLOAT32, Device::CUDA);
-        ops::fish_snake_gpu(current, parameter(block.alpha), activated);
+        ops::Snake()(current, parameter(block.alpha), activated);
         ops::fish_transpose_gpu(activated, parameter(block.transpose.weight),
                                 parameter(block.transpose.bias), block.stride, transposed);
         current = std::move(transposed);
@@ -135,9 +135,9 @@ namespace ctranslate2 {
         for (const auto& residual : block.residuals) {
           StorageView a(DataType::FLOAT32, Device::CUDA), b(DataType::FLOAT32, Device::CUDA);
           StorageView c(DataType::FLOAT32, Device::CUDA), branch(DataType::FLOAT32, Device::CUDA);
-          ops::fish_snake_gpu(current, parameter(residual.alpha0), a);
+          ops::Snake()(current, parameter(residual.alpha0), a);
           convolution(a, residual.conv0, dilation, b);
-          ops::fish_snake_gpu(b, parameter(residual.alpha1), c);
+          ops::Snake()(b, parameter(residual.alpha1), c);
           convolution(c, residual.conv1, 1, branch);
           ops::Add()(current, branch, current);
           dilation *= 3;
@@ -145,7 +145,7 @@ namespace ctranslate2 {
       }
       StorageView activated(DataType::FLOAT32, Device::CUDA),
           result(DataType::FLOAT32, Device::CUDA);
-      ops::fish_snake_gpu(current, parameter(_final_alpha), activated);
+      ops::Snake()(current, parameter(_final_alpha), activated);
       convolution(activated, _final, 1, result);
       ops::fish_tanh_gpu(result);
       output.copy_from(result);

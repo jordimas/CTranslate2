@@ -98,3 +98,54 @@ TEST(SnakeTest, RejectsAliasingIncludingClearedOutput) {
   y.clear();
   EXPECT_THROW(ops::Snake()(view, alpha, y), std::invalid_argument);
 }
+
+#ifdef CT2_WITH_CUDA
+TEST(SnakeGpuTest, MatchesCpuAcrossBatchesAlphaLayoutsAndEmptyTime) {
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+  for (int device = 0; device < get_device_count(Device::CUDA); ++device) {
+    const ScopedDeviceSetter setter(Device::CUDA, device);
+    for (dim_t time : {0, 11, 10001}) {
+      for (const Shape& shape : {Shape{3}, Shape{1, 3, 1}}) {
+        StorageView x({2, 3, time});
+        for (dim_t i = 0; i < x.size(); ++i)
+          x.data<float>()[i] = float(i % 73 - 36) / 13;
+        StorageView alpha(shape, std::vector<float>{0.f, 1e-9f, -1.5f});
+        StorageView expected, actual(DataType::FLOAT32, Device::CUDA);
+        ops::Snake()(x, alpha, expected);
+        auto gpu_x = x.to(Device::CUDA), gpu_alpha = alpha.to(Device::CUDA);
+        ops::Snake()(gpu_x, gpu_alpha, actual);
+        auto downloaded = actual.to(Device::CPU);
+        synchronize_stream(Device::CUDA);
+        expect_storage_eq(downloaded, expected, 2e-6f);
+      }
+    }
+  }
+}
+
+TEST(SnakeGpuTest, ValidationLeavesOutputUntouched) {
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+  const ScopedDeviceSetter setter(Device::CUDA, 0);
+  StorageView host_x({1, 1, 1}, 1.f), host_alpha({1}, 1.f);
+  auto x = host_x.to(Device::CUDA), alpha = host_alpha.to(Device::CUDA);
+  StorageView y({1}, 42.f, Device::CUDA);
+  EXPECT_THROW(ops::Snake()(x, host_alpha, y), std::invalid_argument);
+  EXPECT_THROW(ops::Snake()(x, alpha, x), std::invalid_argument);
+  StorageView retained({8}, 0.f, Device::CUDA);
+  StorageView alias({1, 1, 1}, retained.data<float>() + 2, Device::CUDA);
+  retained.clear();
+  EXPECT_THROW(ops::Snake()(alias, alpha, retained), std::invalid_argument);
+  for (const auto& values : {std::pair<float, float>{1.f, -1e-9f},
+                            {1.f, std::numeric_limits<float>::infinity()},
+                            {std::numeric_limits<float>::quiet_NaN(), 1.f},
+                            {std::numeric_limits<float>::max(), 2.f}}) {
+    host_x.fill(values.first);
+    host_alpha.fill(values.second);
+    x = host_x.to(Device::CUDA);
+    alpha = host_alpha.to(Device::CUDA);
+    EXPECT_THROW(ops::Snake()(x, alpha, y), std::invalid_argument);
+    expect_storage_eq(y, StorageView({1}, 42.f));
+  }
+}
+#endif

@@ -6,14 +6,6 @@ namespace ctranslate2 {
   namespace ops {
     namespace {
 
-      __global__ void snake(const float* x, const float* alpha, float* out, dim_t n, dim_t time) {
-        const dim_t i = blockIdx.x * blockDim.x + threadIdx.x;
-        if (i < n) {
-          const float a = alpha[i / time], s = sinf(a * x[i]);
-          out[i] = x[i] + (1.f / (a + 1e-9f)) * (s * s);
-        }
-      }
-
       __global__ void causal_columns(const float* x, float* columns, dim_t n, dim_t time,
                                      dim_t channels, dim_t kernel, dim_t dilation, dim_t start) {
         const dim_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -59,13 +51,6 @@ namespace ctranslate2 {
           x[i] = tanhf(x[i]);
       }
 
-    }
-
-    void fish_snake_gpu(const StorageView& x, const StorageView& alpha, StorageView& out) {
-      out.resize_as(x);
-      snake<<<(x.size() + 255) / 256, 256, 0, cuda::get_cuda_stream()>>>(
-          x.data<float>(), alpha.data<float>(), out.data<float>(), x.size(), x.dim(2));
-      CUDA_CHECK(cudaGetLastError());
     }
 
     void fish_causal_gpu(const StorageView& x, const StorageView& weight, const StorageView& b,

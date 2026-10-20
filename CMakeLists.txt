@@ -259,6 +259,8 @@ set(CUDA_SOURCES
   src/ops/conv1d_gpu.cu
   src/ops/dequantize_gpu.cu
   src/ops/dequantize_fp8_gpu.cu
+  src/ops/moe_topk_gpu.cu
+  src/ops/snake_gpu.cu
   src/ops/drama/grouped_moe_gpu.cu
   src/ops/drama/drama_gpu.cu
   src/ops/drama/fish_dac_gpu.cu

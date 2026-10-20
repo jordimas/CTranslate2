@@ -6,7 +6,6 @@ namespace ctranslate2 {
   namespace ops {
 
 #ifdef CT2_WITH_CUDA
-    void fish_snake_gpu(const StorageView&, const StorageView&, StorageView&);
     void fish_causal_gpu(const StorageView&, const StorageView&, const StorageView&, dim_t dilation,
                          StorageView&);
     // Includes Fish's right crop: output length = input length * stride.

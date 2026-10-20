@@ -10,7 +10,7 @@ namespace ctranslate2 {
   namespace models {
 
     // Loads Drama3 checkpoint weights and enforces their inference precision policy.
-    // Resident CPU checkpoint; inference layers refer to unpacked expert weights.
+    // CPU checkpoint with optionally file-backed expert weights.
     class Drama3CheckpointStorage;
 
     class Drama3Model : public Model {

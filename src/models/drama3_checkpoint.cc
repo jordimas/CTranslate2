@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
 #  include <fcntl.h>
 #  include <sys/mman.h>
 #  include <sys/stat.h>
@@ -13,7 +13,7 @@ namespace ctranslate2 {
   namespace models {
 
     Drama3CheckpointStorage::Drama3CheckpointStorage(const std::string& directory) {
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
       const std::string filename = directory + "/model.bin";
       const int fd = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
       if (fd < 0)
@@ -31,7 +31,7 @@ namespace ctranslate2 {
       const auto size = _size;
       _mapping = std::shared_ptr<void>(mapping, [size](void* p) { munmap(p, size); });
 #else
-      throw std::invalid_argument("Drama3 GPU expert-cache mapping is currently supported on Linux only");
+      throw std::invalid_argument("Drama3 mapped expert weights require Linux or macOS");
 #endif
     }
 
@@ -52,7 +52,7 @@ namespace ctranslate2 {
     }
 
     void Drama3CheckpointStorage::release_pages(const StorageView& weight) const {
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
       if (!weight.owns_data()) {
         const size_t page = static_cast<size_t>(sysconf(_SC_PAGESIZE));
         const auto address = reinterpret_cast<uintptr_t>(weight.buffer());

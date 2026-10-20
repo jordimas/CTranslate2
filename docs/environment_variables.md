@@ -64,6 +64,24 @@ Force CTranslate2 to select a specific instruction set architecture (ISA). Possi
 This does not impact backend libraries (such as Intel MKL) which usually have their own environment variables to configure ISA dispatching.
 ```
 
+## `CT2_DRAMA3_CPU_MMAP`
+
+Set to `1` to memory-map Drama3's byte-encoded expert weights from a local
+checkpoint on Linux or macOS when using `device="cpu"`. The default is `0`.
+Requires `compute_type="default"` or `"float32"`; INT8 and other compute types
+are rejected before loading because runtime conversion would allocate resident
+copies of the experts. The FP8 checkpoint keeps its original FP8 encoding and
+decodes one projection at a time during inference.
+Standard quantized checkpoints still follow normal compute-type conversion;
+requesting float32 for standard INT8 weights can allocate resident replacements.
+
+The operating system can reclaim clean mapped pages and read them again from
+the checkpoint, allowing models larger than physical RAM to run without keeping
+all expert bytes in private allocations. Non-expert weights, FP8 scales, decoded
+projection temporaries and generation state still require RAM. This is **not a
+hard memory limit** or a decoded expert cache. Performance depends on disk speed
+and available filesystem cache. Keep the checkpoint unchanged while it is loaded.
+
 ## `CT2_DRAMA3_GPU_EXPERT_CACHE_GB`
 
 Limit Drama3's cached GPU expert weights and their quantization scales in

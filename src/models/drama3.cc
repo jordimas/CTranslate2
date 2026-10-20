@@ -257,12 +257,18 @@ namespace ctranslate2 {
           throw std::invalid_argument("Invalid Drama3 device index: " + std::to_string(device_index));
         const ScopedDeviceSetter setter(options.device, device_index);
         const auto requested = str_to_compute_type(compute);
+        const bool map_cpu_experts = options.device == Device::CPU
+            && read_bool_from_env("CT2_DRAMA3_CPU_MMAP", false);
+        if (map_cpu_experts && requested != ComputeType::DEFAULT
+            && requested != ComputeType::FLOAT32)
+          throw std::invalid_argument("CT2_DRAMA3_CPU_MMAP requires compute_type=default or float32");
         if (options.device == Device::CUDA && requested != ComputeType::DEFAULT)
           resolve_compute_type(requested, ComputeType::FLOAT32, options.device, device_index);
         set_num_threads(count);
         setup.checkpoint = Drama3Model::load_checkpoint(path,
             options.device == Device::CPU ? requested
-            : budget ? ComputeType::DEFAULT : ComputeType::FLOAT32, budget != 0);
+            : budget ? ComputeType::DEFAULT : ComputeType::FLOAT32,
+            budget != 0 || map_cpu_experts);
         if (!dynamic_cast<const Drama3Model*>(setup.checkpoint.get()))
           throw std::invalid_argument("Expected a converted Drama3Spec model");
         options.compute_type = options.device == Device::CPU

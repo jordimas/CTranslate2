@@ -5,6 +5,7 @@
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
 #include "ctranslate2/models/model_reader.h"
+#include "ctranslate2/layers/drama_projection.h"
 #include "models/drama3_memory.h"
 
 namespace {
@@ -126,7 +127,7 @@ TEST(Drama3ModelTest, GpuExpertCacheValidatesBudgetAndDeviceBeforeLoading) {
   EXPECT_NO_THROW(models::Model::load(reader, Device::CPU, 0, ComputeType::FLOAT32));
 }
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
 namespace {
 
   struct MappedDramaFixture {
@@ -149,7 +150,9 @@ namespace {
       append_integer(bytes, 2, 4);
       append_integer(bytes, 1, 1); // INT8
       append_integer(bytes, 4, 4);
-      for (int8_t item : {-7, 2, 4, -1})
+      const std::vector<int8_t> values = fp8 ? std::vector<int8_t>{56, 64, -72, -64}
+                                           : std::vector<int8_t>{-7, 2, 4, -1};
+      for (int8_t item : values)
         bytes.push_back(static_cast<char>(item));
       if (fp8)
         append_tensor(bytes, "backbone/layers_0/mlp/experts_0/gate_proj/weight_scale_inv", {1, 1},
@@ -264,7 +267,7 @@ TEST(Drama3ModelTest, SourceFp8CpuExpertsUseAllocatedStorage) {
   auto model = models::Model::load(files.directory, Device::CPU, 0, ComputeType::FLOAT32);
   const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
   EXPECT_TRUE(weight.owns_data());
-  expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
+  expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{56, 64, -72, -64}));
 }
 
 TEST(Drama3ModelTest, GpuCacheMapsSourceFp8Experts) {
@@ -273,7 +276,41 @@ TEST(Drama3ModelTest, GpuCacheMapsSourceFp8Experts) {
   auto model = models::Drama3Model::load_checkpoint(files.directory, ComputeType::FLOAT32, true);
   const auto& weight = model->get_variable("backbone/layers_0/mlp/experts_0/gate_proj/weight");
   EXPECT_FALSE(weight.owns_data());
-  expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{-7, 2, 4, -1}));
+  expect_storage_eq(weight, StorageView({2, 2}, std::vector<int8_t>{56, 64, -72, -64}));
+}
+
+TEST(Drama3ModelTest, MappedFp8CpuProjectionMatchesResidentWeights) {
+  MappedDramaFixture files(true);
+  auto mapped = models::Drama3Model::load_checkpoint(files.directory, ComputeType::FLOAT32, true);
+  auto resident = models::Drama3Model::load_checkpoint(files.directory, ComputeType::FLOAT32, false);
+  const std::string scope = "backbone/layers_0/mlp/experts_0/gate_proj";
+  const auto& weight = mapped->get_variable(scope + "/weight");
+  ASSERT_FALSE(weight.owns_data());
+  EXPECT_TRUE(resident->get_variable(scope + "/weight").owns_data());
+  EXPECT_TRUE(mapped->get_variable(scope + "/weight_scale_inv").owns_data());
+  EXPECT_EQ(mapped->effective_compute_type(), ComputeType::FLOAT32);
+  layers::DramaProjection mapped_projection(*mapped, scope);
+  layers::DramaProjection resident_projection(*resident, scope);
+  StorageView input({1, 2}, std::vector<float>{3, 4}), actual, expected;
+  for (int i = 0; i < 2; ++i) {
+    mapped_projection(input, actual);
+    resident_projection(input, expected);
+    expect_storage_eq(actual, expected);
+    expect_storage_eq(actual, StorageView({1, 2}, std::vector<float>{11, -11}));
+    EXPECT_FALSE(weight.owns_data());
+  }
+}
+
+TEST(Drama3ModelTest, CpuMappingRejectsEagerConversionBeforeLoading) {
+  ScopedMemoryBudget mapping("1", "CT2_DRAMA3_CPU_MMAP");
+  for (const auto* type : {"int8", "int8_float32", "float16"}) {
+    try {
+      models::Drama3 model("missing", 1, type);
+      FAIL() << "Expected mapped CPU compute type validation";
+    } catch (const std::invalid_argument& e) {
+      EXPECT_NE(std::string(e.what()).find("CT2_DRAMA3_CPU_MMAP requires"), std::string::npos);
+    }
+  }
 }
 
 TEST(Drama3ModelTest, RemovedProcessBudgetFailsExplicitly) {

@@ -250,7 +250,6 @@ namespace ctranslate2 {
         options.device_index = device_index;
         options.resident_backbone = read_bool_from_env("CT2_DRAMA_GPU_RESIDENT_BACKBONE", true);
         options.waveform = read_bool_from_env("CT2_DRAMA_GPU_WAVEFORM", true);
-        options.grouped_moe = read_bool_from_env("CT2_DRAMA_GPU_GROUPED_MOE", false);
         const auto budget = drama3_gpu_expert_cache_budget();
         if (budget && options.device != Device::CUDA)
           throw std::invalid_argument("CT2_DRAMA3_GPU_EXPERT_CACHE_GB requires GPU execution");

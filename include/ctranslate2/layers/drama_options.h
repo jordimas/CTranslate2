@@ -15,7 +15,6 @@ namespace ctranslate2 {
       uint64_t expert_cache_bytes = 0;
       bool resident_backbone = true;
       bool waveform = true;
-      bool grouped_moe = false;
 
       bool resident_gpu() const {
         return device == Device::CUDA && resident_backbone;

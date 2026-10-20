@@ -82,8 +82,7 @@ namespace ctranslate2 {
       _resident_gpu = options.resident_gpu();
       _grouped_gpu = _shared.gpu_device_index >= 0
                      && options.compute_type == ComputeType::INT8_FLOAT32
-                     && (options.grouped_moe || _resident_gpu
-                         || cache_bytes);
+                     && (_resident_gpu || cache_bytes);
       // Requires unpacked /weight variables; the model must disable packing.
       // Dense still handles quantized matrices and their scale metadata.
       auto matrix = [&](const std::string& name) -> const StorageView& {

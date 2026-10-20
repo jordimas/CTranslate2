@@ -111,6 +111,7 @@ namespace ctranslate2 {
       GatedSelfAttention attention;
       bool resident_gpu;
       int gpu_device_index;
+      std::vector<std::shared_ptr<const DramaDeviceWeights>> _shared_gpu_parameters;
       StorageView gpu_attention_norm, gpu_ffn_norm, gpu_final_norm;
       float epsilon;
       dim_t dim;
@@ -162,9 +163,9 @@ namespace ctranslate2 {
         weight(scope + "/transformer_layer/feed_forward/down_proj", dim, gate.output_size());
         if (resident_gpu) {
           const ScopedDeviceSetter setter(Device::CUDA, gpu_device_index);
-          gpu_attention_norm = attention_norm.to(Device::CUDA);
-          gpu_ffn_norm = ffn_norm.to(Device::CUDA);
-          gpu_final_norm = final_norm.to(Device::CUDA);
+          gpu_attention_norm = upload_drama_weight(attention_norm, options, _shared_gpu_parameters);
+          gpu_ffn_norm = upload_drama_weight(ffn_norm, options, _shared_gpu_parameters);
+          gpu_final_norm = upload_drama_weight(final_norm, options, _shared_gpu_parameters);
         }
       }
 

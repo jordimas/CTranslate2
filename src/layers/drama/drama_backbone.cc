@@ -70,7 +70,7 @@ namespace ctranslate2 {
       if (_resident_gpu) {
         _gpu_device_index = options.device_index;
         const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
-        _gpu_norm = _norm.to(Device::CUDA);
+        _gpu_norm = upload_drama_weight(_norm, options, _shared_gpu_parameters);
       }
     }
 

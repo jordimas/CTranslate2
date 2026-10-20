@@ -434,6 +434,7 @@ TEST(DramaTowerGpuTest, ResidentPrefillAndDecodeMatchProjectionReference) {
       }
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
       execution.device = Device::CUDA;
+      execution.device_weights = std::make_shared<layers::DramaDeviceWeightRegistry>();
       execution.compute_type = type;
       execution.device_index = 0;
       execution.resident_backbone = resident;

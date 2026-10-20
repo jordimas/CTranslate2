@@ -24,6 +24,7 @@ namespace ctranslate2 {
                       StorageView& output) const;
 
     private:
+      std::vector<std::shared_ptr<const DramaDeviceWeights>> _shared_gpu_parameters;
       void prepare_recurrent_inputs(const StorageView& mixed, StorageView& query, StorageView& key,
                                     StorageView& value, StorageView& a, StorageView& beta) const;
 

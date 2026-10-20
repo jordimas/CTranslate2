@@ -94,7 +94,8 @@ namespace ctranslate2 {
         _gpu_device_index = options.device_index;
         const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
         for (const auto* parameter : _parameters)
-          _gpu_parameters.emplace(parameter, parameter->to(Device::CUDA));
+          _gpu_parameters.emplace(
+              parameter, upload_drama_weight(*parameter, options, _shared_gpu_parameters));
       }
     }
 

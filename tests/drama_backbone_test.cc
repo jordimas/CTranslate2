@@ -267,6 +267,7 @@ TEST(DramaBackboneTest, ResidentGpuMatchesHybridProjectionReference) {
       matrix("backbone/lm_head", 32, 32);
       set_compute_type(ComputeType::FLOAT32, Device::CPU, 0);
       execution.device = Device::CUDA;
+      execution.device_weights = std::make_shared<layers::DramaDeviceWeightRegistry>();
       execution.compute_type = type;
       execution.device_index = device_index;
       execution.resident_backbone = resident;

@@ -87,8 +87,8 @@ namespace ctranslate2 {
       if (options.resident_gpu()) {
         const ScopedDeviceSetter setter(Device::CUDA,
                                         options.device_index);
-        _gpu_query_norm = _query_norm.to(Device::CUDA);
-        _gpu_key_norm = _key_norm.to(Device::CUDA);
+        _gpu_query_norm = upload_drama_weight(_query_norm, options, _shared_gpu_parameters);
+        _gpu_key_norm = upload_drama_weight(_key_norm, options, _shared_gpu_parameters);
       }
     }
 

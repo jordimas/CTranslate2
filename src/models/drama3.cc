@@ -463,6 +463,7 @@ namespace ctranslate2 {
         throw std::invalid_argument("Drama3 requires positive inter_threads");
       CallingThreadContextGuard context_guard;
       auto setup = Drama3Replica::Impl::prepare(path, threads, compute, device, device_index);
+      setup.options.device_weights = std::make_shared<layers::DramaDeviceWeightRegistry>();
       ReplicaPoolConfig config;
       config.num_threads_per_replica = threads;
       config.max_queued_batches = max_queued_batches;

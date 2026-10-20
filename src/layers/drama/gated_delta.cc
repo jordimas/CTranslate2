@@ -132,12 +132,12 @@ namespace ctranslate2 {
       if (_resident_gpu) {
         const ScopedDeviceSetter setter(Device::CUDA,
                                         options.device_index);
-        _gpu_conv = _conv_weight.to(Device::CUDA);
+        _gpu_conv = upload_drama_weight(_conv_weight, options, _shared_gpu_parameters);
         if (_conv_bias)
-          _gpu_conv_bias = _conv_bias->to(Device::CUDA);
-        _gpu_a_log = _a_log.to(Device::CUDA);
-        _gpu_dt_bias = _dt_bias.to(Device::CUDA);
-        _gpu_norm = _norm_weight.to(Device::CUDA);
+          _gpu_conv_bias = upload_drama_weight(*_conv_bias, options, _shared_gpu_parameters);
+        _gpu_a_log = upload_drama_weight(_a_log, options, _shared_gpu_parameters);
+        _gpu_dt_bias = upload_drama_weight(_dt_bias, options, _shared_gpu_parameters);
+        _gpu_norm = upload_drama_weight(_norm_weight, options, _shared_gpu_parameters);
       }
     }
 

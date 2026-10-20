@@ -197,6 +197,7 @@ TEST(FishDACTest, GpuWaveformMatchesCpuAndIndependentScalarReference) {
     TinyFishDACModel cpu_model, gpu_model;
     layers::DramaExecutionOptions execution;
     execution.device = Device::CUDA;
+    execution.device_weights = std::make_shared<layers::DramaDeviceWeightRegistry>();
     execution.device_index = index;
     layers::FishDACWaveformDecoder cpu(cpu_model, scope, {2}), gpu(gpu_model, scope, {2}, execution);
     for (dim_t time : {1, 7, 37}) {

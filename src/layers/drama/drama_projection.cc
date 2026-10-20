@@ -16,6 +16,10 @@ namespace ctranslate2 {
       , _partial_qscale(_weight.device(), DataType::FLOAT32)
       , _gpu_device_index(options.device == Device::CUDA ? options.device_index : -1)
       , _gpu_compute_type(options.compute_type)
+      , _device_weights(options.device_weights)
+      , _device_weight_key(scope + ":" + std::to_string(reinterpret_cast<uintptr_t>(_weight.buffer()))
+                           + ":" + std::to_string(_gpu_device_index)
+                           + ":" + std::to_string(static_cast<int>(_gpu_compute_type)))
     {
       if (_weight.device() != Device::CPU || model.tensor_parallel()
           || model.get_variable_if_exists(scope + "/weight_packed")
@@ -34,7 +38,10 @@ namespace ctranslate2 {
     void DramaProjection::prepare_gpu_weight(const StorageView& weight, const StorageView* scale) const {
       const auto types = compute_type_to_data_type(_gpu_compute_type);
       const auto weight_type = types.first, float_type = types.second;
-      if (_gpu_weight.empty()) {
+      if (_gpu_weights)
+        return;
+      auto prepare = [&]() {
+        auto prepared = std::make_shared<DramaDeviceWeights>();
         StorageView uploaded;
         if (!_fp8_scale_inv && !is_float_type(weight.dtype())) {
           StorageView decoded;
@@ -44,28 +51,37 @@ namespace ctranslate2 {
           uploaded = weight.to(Device::CUDA);
         }
         if (_fp8_scale_inv) {
-          _gpu_scale_inv = _fp8_scale_inv->to(Device::CUDA);
+          prepared->scale_inv = _fp8_scale_inv->to(Device::CUDA);
           // Prepare half-precision experts once, just like INT8 experts, instead
           // of decoding and synchronizing their FP8 weights on every projection.
           if (weight_type == DataType::INT8 || weight_type == DataType::FLOAT16
               || weight_type == DataType::BFLOAT16) {
             StorageView decoded(DataType::FLOAT32, Device::CUDA);
-            ops::DequantizeFP8()(uploaded, _gpu_scale_inv, decoded);
+            ops::DequantizeFP8()(uploaded, prepared->scale_inv, decoded);
             uploaded = std::move(decoded);
-            _gpu_scale_inv.release();
+            prepared->scale_inv.release();
           }
         }
         if (weight_type == DataType::INT8) {
           StorageView quantized(DataType::INT8, Device::CUDA),
               scales(DataType::FLOAT32, Device::CUDA);
           ops::Quantize(ops::Quantize::ScaleType::PER_LAYER, false)(uploaded, quantized, scales);
-          _gpu_scale = std::move(scales);
+          prepared->scale = std::move(scales);
           uploaded = std::move(quantized);
-        } else if (_gpu_scale_inv.empty() && uploaded.dtype() != float_type) {
+        } else if (prepared->scale_inv.empty() && uploaded.dtype() != float_type) {
           uploaded = uploaded.to(float_type);
         }
-        _gpu_weight = std::move(uploaded);
-      }
+        prepared->weight = std::move(uploaded);
+        const auto* bias = _partial_bias.empty() ? _bias : &_partial_bias;
+        if (bias)
+          prepared->bias = bias->to(Device::CUDA).to(float_type);
+        // Other replicas execute on different streams. Finish preparation before
+        // publishing immutable buffers to them (also covers conversion kernels).
+        synchronize_stream(Device::CUDA);
+        return prepared;
+      };
+      _gpu_weights = _device_weights && _share_selected_weights
+          ? _device_weights->get(_device_weight_key + _selection_key, prepare) : prepare();
     }
 
     void DramaProjection::forward_gpu(const StorageView& input, const StorageView& weight,
@@ -90,9 +106,8 @@ namespace ctranslate2 {
         converted_input = gpu_input->to(float_type);
         gpu_input = &converted_input;
       }
-      StorageView gpu_bias, gpu_residual;
-      if (bias)
-        gpu_bias = bias->to(Device::CUDA).to(float_type);
+      const auto& gpu_bias = _gpu_weights->bias;
+      StorageView gpu_residual;
       if (residual)
         gpu_residual = residual->to(Device::CUDA).to(float_type);
       StorageView result(float_type, Device::CUDA);
@@ -103,16 +118,16 @@ namespace ctranslate2 {
             scales(DataType::FLOAT32, Device::CUDA);
         StorageView accumulator(DataType::INT32, Device::CUDA);
         ops::Quantize(ops::Quantize::ScaleType::PER_LAYER, false)(*gpu_input, quantized, scales);
-        gemm(quantized, _gpu_weight, accumulator);
-        _dequantize_op(accumulator, scales, _gpu_scale, false, true, result,
+        gemm(quantized, _gpu_weights->weight, accumulator);
+        _dequantize_op(accumulator, scales, _gpu_weights->scale, false, true, result,
                        bias ? &gpu_bias : nullptr);
         if (residual)
           ops::Add()(gpu_residual, result, result);
       } else {
         StorageView decoded(DataType::FLOAT32, Device::CUDA);
-        const StorageView* gpu_weight = &_gpu_weight;
-        if (!_gpu_scale_inv.empty()) {
-          ops::DequantizeFP8()(_gpu_weight, _gpu_scale_inv, decoded);
+        const StorageView* gpu_weight = &_gpu_weights->weight;
+        if (!_gpu_weights->scale_inv.empty()) {
+          ops::DequantizeFP8()(_gpu_weights->weight, _gpu_weights->scale_inv, decoded);
           if (decoded.dtype() != float_type)
             decoded = decoded.to(float_type);
           gpu_weight = &decoded;
@@ -140,6 +155,16 @@ namespace ctranslate2 {
 
     void DramaProjection::select_weights(const StorageView* index, const StorageView* extra_bias) {
       release_device_weights();
+      _selection_key.clear();
+      _share_selected_weights = !extra_bias;
+      if (index && _device_weights) {
+        const auto host_index = index->to(Device::CPU);
+        _selection_key = ":selected:";
+        for (const auto dim : index->shape())
+          _selection_key += std::to_string(dim) + ":";
+        _selection_key.append(static_cast<const char*>(host_index.buffer()),
+                              host_index.size() * host_index.item_size());
+      }
       if (index && _fp8_scale_inv)
         throw std::invalid_argument("Selecting block FP8 projection weights is unsupported");
       if (_cpu)
@@ -188,27 +213,26 @@ namespace ctranslate2 {
       const ScopedDeviceSetter setter(Device::CUDA, _gpu_device_index);
       prepare_gpu_weight(_partial_weight.empty() ? _weight : _partial_weight,
                          _partial_qscale.empty() ? _qscale : &_partial_qscale);
-      return {_gpu_weight, _gpu_scale};
+      return {_gpu_weights->weight, _gpu_weights->scale};
     }
 
     void DramaProjection::release_device_weights() const {
-      _gpu_weight.release();
-      _gpu_scale.release();
-      _gpu_scale_inv.release();
+      _gpu_weights.reset();
     }
 
     size_t DramaProjection::device_weight_bytes() const {
-      return _gpu_weight.reserved_memory() + _gpu_scale.reserved_memory()
-             + _gpu_scale_inv.reserved_memory();
+      return _gpu_weights ? _gpu_weights->bytes() : 0;
     }
 
     size_t DramaProjection::estimated_device_weight_bytes() const {
-      const auto type = compute_type_to_data_type(_gpu_compute_type).first;
+      const auto types = compute_type_to_data_type(_gpu_compute_type);
+      const auto type = types.first;
+      const auto bias_bytes = _bias ? _bias->size() * (types.second == DataType::FLOAT32 ? 4 : 2) : 0;
       if (type == DataType::INT8)
-        return _weight.size() + _weight.dim(0) * sizeof(float);
+        return _weight.size() + _weight.dim(0) * sizeof(float) + bias_bytes;
       if (type == DataType::FLOAT32 && _fp8_scale_inv)
-        return _weight.size() + _fp8_scale_inv->size() * sizeof(float);
-      return _weight.size() * (type == DataType::FLOAT32 ? 4 : 2);
+        return _weight.size() + _fp8_scale_inv->size() * sizeof(float) + bias_bytes;
+      return _weight.size() * (type == DataType::FLOAT32 ? 4 : 2) + bias_bytes;
     }
 
   }

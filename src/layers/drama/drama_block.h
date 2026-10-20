@@ -40,6 +40,7 @@ namespace ctranslate2 {
       void operator()(const StorageView& input, DramaBlockState& state, StorageView& output) const;
 
     private:
+      std::vector<std::shared_ptr<const DramaDeviceWeights>> _shared_gpu_parameters;
       void validate_input(const StorageView& input, const DramaBlockState& state,
                           const StorageView& output) const;
 

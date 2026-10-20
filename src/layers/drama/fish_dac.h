@@ -47,6 +47,7 @@ namespace ctranslate2 {
       static void causal(const StorageView& input, const Convolution& conv, dim_t dilation,
                          StorageView& output);
       void forward_gpu(const StorageView&, StorageView&) const;
+      std::vector<std::shared_ptr<const DramaDeviceWeights>> _shared_gpu_parameters;
       int _gpu_device_index = -1;
       std::unordered_map<const StorageView*, StorageView> _gpu_parameters;
       Convolution _initial, _final;

@@ -14,6 +14,7 @@ add_executable(ctranslate2_test
   moe_topk_test.cc
   moe_layer_test.cc
   drama3_serialization_test.cc
+  drama_device_weights_test.cc
   drama3_model_test.cc
   drama3_mixed_precision_test.cc
   dequantize_fp8_test.cc

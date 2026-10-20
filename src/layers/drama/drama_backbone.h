@@ -40,6 +40,7 @@ namespace ctranslate2 {
                       StorageView& logits) const;
 
     private:
+      std::vector<std::shared_ptr<const DramaDeviceWeights>> _shared_gpu_parameters;
       void validate_input(const StorageView& embedded, const DramaBackboneState& state,
                           const StorageView& hidden, const StorageView& logits) const;
 

@@ -2,12 +2,12 @@
 
 #include "ctranslate2/layers/common.h"
 #include "drama_options.h"
+#include "drama_device_weights.h"
 
 namespace ctranslate2 {
   namespace layers {
 
-    // Replica-owned projection over immutable CPU checkpoint weights.
-    // Ordinary CPU projections use Dense; FP8 and GPU storage stay local here.
+    // Replica-owned projection with shared immutable prepared GPU weights.
     class DramaProjection : public Layer {
     public:
       DramaProjection(const models::Model& model, const std::string& scope,
@@ -43,7 +43,11 @@ namespace ctranslate2 {
       StorageView _partial_weight, _partial_bias, _partial_qscale;
       const int _gpu_device_index;
       const ComputeType _gpu_compute_type;
-      mutable StorageView _gpu_weight, _gpu_scale, _gpu_scale_inv;
+      const std::shared_ptr<DramaDeviceWeightRegistry> _device_weights;
+      const std::string _device_weight_key;
+      std::string _selection_key;
+      bool _share_selected_weights = true;
+      mutable std::shared_ptr<const DramaDeviceWeights> _gpu_weights;
       const ops::Dequantize _dequantize_op;
     };
 

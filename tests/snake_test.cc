@@ -4,6 +4,21 @@
 #include "test_utils.h"
 #include "ctranslate2/ops/snake.h"
 
+namespace {
+
+void expect_snake_reference(const StorageView& x, const StorageView& alpha,
+                            const StorageView& y) {
+  ASSERT_EQ(y.shape(), x.shape());
+  for (dim_t i = 0; i < x.size(); ++i) {
+    const double a = alpha.data<float>()[(i / x.dim(2)) % x.dim(1)];
+    const double value = x.data<float>()[i];
+    const double expected = value + std::pow(std::sin(a * value), 2) / (a + 1e-9);
+    EXPECT_NEAR(y.data<float>()[i], expected, 2e-6) << "index=" << i;
+  }
+}
+
+}
+
 TEST(SnakeTest, AnalyticalAndChannelBroadcast) {
   const float pi = std::acos(-1.f);
   StorageView x({2, 2, 2}, std::vector<float>{0, pi / 2, 0, pi / 4, -pi / 2, pi, -pi / 4, pi / 2});
@@ -24,12 +39,7 @@ TEST(SnakeTest, IndependentDoublePrecisionEquation) {
   StorageView alpha({1, 3, 1}, std::vector<float>{.25f, -1.5f, 3.f});
   StorageView y;
   ops::Snake()(x, alpha, y);
-  for (dim_t i = 0; i < x.size(); ++i) {
-    const double a = alpha.data<float>()[(i / 11) % 3];
-    const double value = x.data<float>()[i];
-    const double expected = value + std::pow(std::sin(a * value), 2) / (a + 1e-9);
-    EXPECT_NEAR(y.data<float>()[i], expected, 2e-6);
-  }
+  expect_snake_reference(x, alpha, y);
 }
 
 TEST(SnakeTest, ZeroAndTinyAlpha) {
@@ -47,11 +57,7 @@ TEST(SnakeTest, ParallelChannelBoundaries) {
     x.data<float>()[i] = float(i % 73 - 36) / 13;
   StorageView y;
   ops::Snake()(x, alpha, y);
-  for (dim_t i = 0; i < x.size(); ++i) {
-    const double a = alpha.data<float>()[(i / 10001) % 3];
-    const double value = x.data<float>()[i];
-    EXPECT_NEAR(y.data<float>()[i], value + std::pow(std::sin(a * value), 2) / (a + 1e-9), 2e-6);
-  }
+  expect_snake_reference(x, alpha, y);
 }
 
 TEST(SnakeTest, EmptyTime) {
@@ -115,9 +121,7 @@ TEST(SnakeGpuTest, MatchesCpuAcrossBatchesAlphaLayoutsAndEmptyTime) {
         ops::Snake()(x, alpha, expected);
         auto gpu_x = x.to(Device::CUDA), gpu_alpha = alpha.to(Device::CUDA);
         ops::Snake()(gpu_x, gpu_alpha, actual);
-        auto downloaded = actual.to(Device::CPU);
-        synchronize_stream(Device::CUDA);
-        expect_storage_eq(downloaded, expected, 2e-6f);
+        expect_storage_eq(actual, expected, 2e-6f);
       }
     }
   }

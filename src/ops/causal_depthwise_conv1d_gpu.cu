@@ -5,13 +5,6 @@ namespace ctranslate2 {
   namespace ops {
     namespace {
 
-      __global__ void check_finite(const float* data, dim_t size, int32_t* invalid) {
-        for (dim_t i = dim_t(blockIdx.x) * blockDim.x + threadIdx.x; i < size;
-             i += dim_t(blockDim.x) * gridDim.x)
-          if (!isfinite(data[i]))
-            atomicExch(invalid, 1);
-      }
-
       // Ported from Drama3's channel-wise ring-buffer convolution. Each worker
       // owns one batch/channel, including its chronological history.
       __global__ void conv(const float* x, const float* weight, const float* bias,
@@ -59,19 +52,6 @@ namespace ctranslate2 {
     void CausalDepthwiseConv1D::compute(const StorageView& input, const StorageView& weight,
                                       const StorageView* bias, StorageView& history,
                                       StorageView& output) const {
-      StorageView invalid({1}, int32_t(0), D);
-      for (const auto* tensor : {&input, &weight, bias, static_cast<const StorageView*>(&history)}) {
-        if (tensor && !tensor->empty()) {
-          const dim_t blocks = std::min((tensor->size() + 255) / 256, dim_t(65535));
-          check_finite<<<blocks, 256, 0, cuda::get_cuda_stream()>>>(
-              tensor->data<T>(), tensor->size(), invalid.data<int32_t>());
-          CUDA_CHECK(cudaGetLastError());
-        }
-      }
-      auto status = invalid.to(Device::CPU);
-      synchronize_stream(D);
-      if (status.data<int32_t>()[0])
-        throw std::invalid_argument("CausalDepthwiseConv1D inputs and history must be finite");
       output.resize_as(input);
       if (input.empty())
         return;

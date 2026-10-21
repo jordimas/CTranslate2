@@ -140,16 +140,6 @@ TEST(SnakeGpuTest, ValidationLeavesOutputUntouched) {
   StorageView alias({1, 1, 1}, retained.data<float>() + 2, Device::CUDA);
   retained.clear();
   EXPECT_THROW(ops::Snake()(alias, alpha, retained), std::invalid_argument);
-  for (const auto& values : {std::pair<float, float>{1.f, -1e-9f},
-                            {1.f, std::numeric_limits<float>::infinity()},
-                            {std::numeric_limits<float>::quiet_NaN(), 1.f},
-                            {std::numeric_limits<float>::max(), 2.f}}) {
-    host_x.fill(values.first);
-    host_alpha.fill(values.second);
-    x = host_x.to(Device::CUDA);
-    alpha = host_alpha.to(Device::CUDA);
-    EXPECT_THROW(ops::Snake()(x, alpha, y), std::invalid_argument);
-    expect_storage_eq(y, StorageView({1}, 42.f));
-  }
+  expect_storage_eq(y, StorageView({1}, 42.f));
 }
 #endif

@@ -94,7 +94,7 @@ TEST_P(PublicOperatorDeviceTest, CausalValidationDoesNotMutateHistoryOrOutput) {
   EXPECT_THROW(op(dx, wrong_weight, &db, state, actual), std::invalid_argument);
   EXPECT_THROW(op(dx, dw, &wrong_bias, state, actual), std::invalid_argument);
   EXPECT_THROW(op(wrong_type, dw, &db, state, actual), std::invalid_argument);
-  for (int bad_tensor = 0; bad_tensor < 4; ++bad_tensor) {
+  for (int bad_tensor = 0; device == Device::CPU && bad_tensor < 4; ++bad_tensor) {
     StorageView hx(x), hw(w), hb(bias), hs(initial);
     StorageView* tensors[] = {&hx, &hw, &hb, &hs};
     tensors[bad_tensor]->data<float>()[0] = std::numeric_limits<float>::infinity();

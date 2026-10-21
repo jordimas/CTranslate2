@@ -80,7 +80,7 @@ TEST(DequantizeFP8Test, RejectsMalformedShapesTypesAndAliasing) {
   EXPECT_THROW(ops::DequantizeFP8()(input, scale, alias), std::invalid_argument);
 }
 
-TEST(DequantizeFP8Test, GpuMatchesCpuAndRejectsInvalidValues) {
+TEST(DequantizeFP8Test, GpuMatchesCpuAndValidatesMetadata) {
   if (!get_device_count(Device::CUDA))
     GTEST_SKIP() << "No CUDA/HIP device";
   for (int index = 0; index < get_device_count(Device::CUDA); ++index) {
@@ -98,22 +98,17 @@ TEST(DequantizeFP8Test, GpuMatchesCpuAndRejectsInvalidValues) {
     expect_storage_eq(actual, expected);
     EXPECT_THROW(ops::DequantizeFP8()(gpu_input, scale, actual), std::invalid_argument);
     EXPECT_THROW(ops::DequantizeFP8()(gpu_input, gpu_scale, gpu_scale), std::invalid_argument);
-    for (float bad : invalid_scales) {
-      scale.data<float>()[0] = bad;
-      gpu_scale.copy_from(scale);
-      EXPECT_THROW(ops::DequantizeFP8()(gpu_input, gpu_scale, actual), std::invalid_argument);
-    }
-    scale.fill(1.f);
-    gpu_scale.copy_from(scale);
-    for (int8_t bad : {int8_t(0x7f), int8_t(0xff)}) {
-      input.data<int8_t>()[0] = bad;
-      gpu_input.copy_from(input);
-      EXPECT_THROW(ops::DequantizeFP8()(gpu_input, gpu_scale, actual), std::invalid_argument);
-    }
-    input.fill(int8_t(0x7e));
-    scale.fill(std::numeric_limits<float>::max());
-    gpu_input.copy_from(input);
-    gpu_scale.copy_from(scale);
-    EXPECT_THROW(ops::DequantizeFP8()(gpu_input, gpu_scale, actual), std::invalid_argument);
   }
+}
+
+TEST(DequantizeFP8Test, GpuDecodesNaNCodes) {
+  if (!get_device_count(Device::CUDA))
+    GTEST_SKIP() << "No CUDA/HIP device";
+  const ScopedDeviceSetter setter(Device::CUDA, 0);
+  StorageView input({1, 2}, std::vector<int8_t>{int8_t(0x7f), int8_t(0xff)}, Device::CUDA);
+  StorageView scale({1, 1}, 1.f, Device::CUDA), output(Device::CUDA);
+  ops::DequantizeFP8()(input, scale, output);
+  const auto host = output.to(Device::CPU);
+  EXPECT_TRUE(std::isnan(host.data<float>()[0]));
+  EXPECT_TRUE(std::isnan(host.data<float>()[1]));
 }

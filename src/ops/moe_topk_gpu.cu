@@ -26,7 +26,7 @@ namespace ctranslate2 {
       constexpr int routing_threads = 256;
 
       __global__ void route(const float* logits, int32_t* indices, float* weights, dim_t experts,
-                            dim_t k, int32_t* invalid) {
+                            dim_t k) {
         // Parallel selection preserves the lowest-index tie ordering. Normalization
         // retains the original sequential double-precision arithmetic.
         using Reduction = cub::BlockReduce<RoutingCandidate, routing_threads>;
@@ -43,8 +43,6 @@ namespace ctranslate2 {
                 selected = true;
             if (!selected) {
               const float value = values[e];
-              if (!isfinite(value))
-                atomicExch(invalid, 1);
               best = RoutingMaximum()(best, {isfinite(value) ? value : 0.f, int32_t(e)});
             }
           }
@@ -73,15 +71,9 @@ namespace ctranslate2 {
       weights.resize({logits.dim(0), _k});
       if (logits.empty())
         return;
-      StorageView invalid({1}, int32_t(0), Device::CUDA);
       route<<<logits.dim(0), routing_threads, 0, cuda::get_cuda_stream()>>>(
-          logits.data<T>(), indices.data<int32_t>(), weights.data<T>(), logits.dim(1), _k,
-          invalid.data<int32_t>());
+          logits.data<T>(), indices.data<int32_t>(), weights.data<T>(), logits.dim(1), _k);
       CUDA_CHECK(cudaGetLastError());
-      auto status = invalid.to(Device::CPU);
-      synchronize_stream(Device::CUDA);
-      if (status.data<int32_t>()[0])
-        throw std::invalid_argument("MoeTopK logits must be finite");
     }
 
     template void MoeTopK::compute<Device::CUDA, float>(const StorageView&,

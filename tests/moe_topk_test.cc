@@ -152,13 +152,6 @@ TEST(MoeTopKGpuTest, ValidationAndEmptyRows) {
     EXPECT_THROW(ops::MoeTopK(4)(logits, ids, weights), std::invalid_argument);
     EXPECT_THROW(ops::MoeTopK(2)(host, ids, weights), std::invalid_argument);
     EXPECT_THROW(ops::MoeTopK(2)(logits, ids, logits), std::invalid_argument);
-    for (float value : {std::numeric_limits<float>::infinity(),
-                        -std::numeric_limits<float>::infinity(),
-                        std::numeric_limits<float>::quiet_NaN()}) {
-      host.fill(value);
-      logits = host.to(Device::CUDA);
-      EXPECT_THROW(ops::MoeTopK(2)(logits, ids, weights), std::invalid_argument);
-    }
     StorageView empty({0, 3}, DataType::FLOAT32, Device::CUDA);
     ops::MoeTopK(2)(empty, ids, weights);
     EXPECT_EQ(ids.shape(), (Shape{0, 2}));

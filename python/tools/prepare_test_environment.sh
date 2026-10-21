@@ -3,10 +3,13 @@
 set -e
 set -x
 
-# Install test rquirements
-pip cache purge
-pip --no-cache-dir install -r python/tests/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
-pip uninstall -y ctranslate2
+# Legacy converters keep their old pip pin in their separate CI job.
+# Current Python versions need a compatible, up-to-date pip.
+python -m pip install --upgrade pip
+
+# Install test requirements.
+python -m pip --no-cache-dir install -r python/tests/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+python -m pip uninstall -y ctranslate2
 
 # Download test data
 curl -o transliteration-aren-all.tar.gz https://opennmt-models.s3.amazonaws.com/transliteration-aren-all.tar.gz

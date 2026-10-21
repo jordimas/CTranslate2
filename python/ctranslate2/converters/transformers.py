@@ -158,9 +158,20 @@ class TransformersConverter(Converter):
                 raise ValueError(
                     "output directory must not contain the source checkpoint"
                 )
-        return super().convert(
+        output_dir = super().convert(
             output_dir, vmap=vmap, quantization=quantization, force=force
         )
+        if self.conversion_report is not None:
+            self.conversion_report.update(
+                output=str(output_dir),
+                output_bytes=(Path(output_dir) / "model.bin").stat().st_size,
+            )
+            self.write_report(Path(output_dir) / "conversion.json")
+        return output_dir
+
+    def write_report(self, path):
+        """Write the current inspection or conversion report as JSON."""
+        Path(path).write_text(json.dumps(self.conversion_report, indent=2) + "\n")
 
     def _load(self):
         path = self._get_drama3_path()
@@ -4295,7 +4306,6 @@ def main():
         )
     else:
         converter.convert_from_args(args)
-        report = getattr(converter, "conversion_report", None)
     if args.report:
         converter.write_report(args.report)
 

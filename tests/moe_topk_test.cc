@@ -25,11 +25,8 @@ TEST(MoeTopKGpuTest, ParallelRoutingMatchesCpuAcrossWidthsAndTies) {
       auto uploaded = logits.to(Device::CUDA);
       StorageView ids(DataType::INT32, Device::CUDA), weights(DataType::FLOAT32, Device::CUDA);
       ops::MoeTopK{k}(uploaded, ids, weights);
-      auto actual_ids = ids.to(Device::CPU);
-      auto actual_weights = weights.to(Device::CPU);
-      synchronize_stream(Device::CUDA);
-      expect_storage_eq(actual_ids, expected_ids);
-      expect_storage_eq(actual_weights, expected_weights, 1e-7f);
+      expect_storage_eq(ids, expected_ids);
+      expect_storage_eq(weights, expected_weights, 1e-7f);
     }
   }
 }

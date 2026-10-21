@@ -5,6 +5,13 @@
 #include <cstring>
 #include <limits>
 
+namespace {
+
+const float invalid_scales[] = {0.f, -1.f, std::numeric_limits<float>::infinity(),
+                                std::numeric_limits<float>::quiet_NaN()};
+
+}
+
 TEST(DequantizeFP8Test, EveryFiniteEncodingAndSignedBytes) {
   StorageView input({1, 254}, DataType::INT8), scale({1, 2}, 2.f), output;
   auto* bytes = reinterpret_cast<uint8_t*>(input.data<int8_t>());
@@ -40,8 +47,7 @@ TEST(DequantizeFP8Test, EdgeBlocksAndFloat32ScaleMultiplication) {
 
 TEST(DequantizeFP8Test, RejectsInvalidScalesAndEncodings) {
   StorageView input({1, 1}, int8_t(0x38)), scale({1, 1}, 1.f), output;
-  for (float bad : {0.f, -1.f, std::numeric_limits<float>::infinity(),
-                    std::numeric_limits<float>::quiet_NaN()}) {
+  for (float bad : invalid_scales) {
     scale.data<float>()[0] = bad;
     EXPECT_THROW(ops::DequantizeFP8()(input, scale, output), std::invalid_argument);
   }
@@ -92,8 +98,7 @@ TEST(DequantizeFP8Test, GpuMatchesCpuAndRejectsInvalidValues) {
     expect_storage_eq(actual, expected);
     EXPECT_THROW(ops::DequantizeFP8()(gpu_input, scale, actual), std::invalid_argument);
     EXPECT_THROW(ops::DequantizeFP8()(gpu_input, gpu_scale, gpu_scale), std::invalid_argument);
-    for (float bad : {0.f, -1.f, std::numeric_limits<float>::infinity(),
-                      std::numeric_limits<float>::quiet_NaN()}) {
+    for (float bad : invalid_scales) {
       scale.data<float>()[0] = bad;
       gpu_scale.copy_from(scale);
       EXPECT_THROW(ops::DequantizeFP8()(gpu_input, gpu_scale, actual), std::invalid_argument);

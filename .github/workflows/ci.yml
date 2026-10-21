@@ -409,38 +409,88 @@ jobs:
           pytest -v python/tests/ --ignore=python/tests/test_fairseq.py --ignore=python/tests/test_opennmt_py.py --ignore=python/tests/test_opennmt_tf.py
 
 
-  test-python314-native-finalizer:
+  test-python-native:
+    # Exercise inference without converter dependencies, including Python
+    # versions unsupported by the pinned PyTorch used in the full suite.
     # CPython 3.13+ frees heap-type tp_doc via PyMem_Free. An older pybind11
     # uses PyObject_MALLOC, which can abort during interpreter shutdown.
     needs: [build-python-wheels]
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            python-version: "3.9"
+            abi: cp39
+            artifact: python-wheels-Linux-auto64
+            platform: manylinux*x86_64
+          - os: ubuntu-22.04
+            python-version: "3.10"
+            abi: cp310
+            artifact: python-wheels-Linux-auto64
+            platform: manylinux*x86_64
+          - os: ubuntu-22.04
+            python-version: "3.11"
+            abi: cp311
+            artifact: python-wheels-Linux-auto64
+            platform: manylinux*x86_64
+          - os: ubuntu-22.04
+            python-version: "3.13"
+            abi: cp313
+            artifact: python-wheels-Linux-auto64
+            platform: manylinux*x86_64
+          - os: ubuntu-22.04
+            python-version: "3.14"
+            abi: cp314
+            artifact: python-wheels-Linux-auto64
+            platform: manylinux*x86_64
+          - os: ubuntu-22.04
+            python-version: "3.15"
+            abi: cp315
+            artifact: python-wheels-Linux-auto64
+            platform: manylinux*x86_64
+          - os: windows-2022
+            python-version: "3.15"
+            abi: cp315
+            artifact: python-wheels-Windows-auto64
+            platform: win_amd64
+          - os: macos-15
+            python-version: "3.15"
+            abi: cp315
+            artifact: python-wheels-macOS-arm64
+            platform: macosx*arm64
     steps:
-      - name: Set up Python 3.14
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: ${{ matrix.python-version }}
 
-      - name: Download Linux x86-64 release wheels
+      - uses: actions/checkout@v4
+
+      - name: Download release wheels
         uses: actions/download-artifact@v4
         with:
-          name: python-wheels-Linux-auto64
+          name: ${{ matrix.artifact }}
           path: python/wheelhouse
 
-      - name: Require CPython 3.14 wheel and a clean debug allocator exit
+      - name: Require matching wheel and a clean debug allocator exit
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          wheels=(python/wheelhouse/*-cp314-cp314-manylinux*x86_64.whl)
+          wheels=(python/wheelhouse/*-${{ matrix.abi }}-${{ matrix.abi }}-${{ matrix.platform }}.whl)
           if (( ${#wheels[@]} != 1 )); then
-            echo "Expected exactly one CPython 3.14 Linux x86-64 wheel" >&2
+            echo "Expected exactly one matching release wheel" >&2
             exit 1
           fi
-          python -m pip install "${wheels[0]}"
+          python -m pip install --upgrade pip
+          python -m pip install "${wheels[0]}" pytest
           # Exit status is essential: the affected wheel imports successfully
           # but aborts with exit 134 while Python releases heap types.
           python -X dev -W error::ResourceWarning \
-            -c 'import ctranslate2; print(ctranslate2.__version__)'
+            -c 'import ctranslate2; from ctranslate2 import _ext; print(ctranslate2.__version__)'
+          python -m pytest -v python/tests/test_storage_view.py python/tests/test_misc.py
 
   test-legacy-converters:
     needs: [build-python-wheels]
@@ -520,7 +570,7 @@ jobs:
       - build-and-test-cpp-arm64
       - build-python-wheels
       - test-python-wheels
-      - test-python314-native-finalizer
+      - test-python-native
       - test-legacy-converters
       - check-python-style
     runs-on: ubuntu-22.04

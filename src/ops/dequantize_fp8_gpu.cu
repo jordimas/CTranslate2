@@ -23,8 +23,9 @@ namespace ctranslate2 {
 
     }
 
-    void DequantizeFP8::compute_gpu(const StorageView& input, const StorageView& scale_inv,
-                                    StorageView& output) const {
+    template <Device D>
+    void DequantizeFP8::compute(const StorageView& input, const StorageView& scale_inv,
+                                StorageView& output) const {
       output.resize_as(input);
       StorageView invalid({1}, int32_t(0), Device::CUDA);
       const dim_t threads = 256;
@@ -40,6 +41,10 @@ namespace ctranslate2 {
         throw std::invalid_argument(
             "DequantizeFP8 requires positive finite scales and finite decoded weights");
     }
+
+    template void DequantizeFP8::compute<Device::CUDA>(const StorageView&,
+                                                       const StorageView&,
+                                                       StorageView&) const;
 
   }
 }

@@ -21,8 +21,9 @@ namespace ctranslate2 {
                       StorageView& routing_weights) const;
 
     private:
-      void compute_gpu(const StorageView& router_logits, StorageView& expert_indices,
-                       StorageView& routing_weights) const;
+      template <Device D, typename T>
+      void compute(const StorageView& router_logits, StorageView& expert_indices,
+                   StorageView& routing_weights) const;
 
       dim_t _k;
     };

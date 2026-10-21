@@ -66,15 +66,16 @@ namespace ctranslate2 {
 
     }
 
-    void MoeTopK::compute_gpu(const StorageView& logits, StorageView& indices,
-                              StorageView& weights) const {
+    template <Device D, typename T>
+    void MoeTopK::compute(const StorageView& logits, StorageView& indices,
+                          StorageView& weights) const {
       indices.resize({logits.dim(0), _k});
       weights.resize({logits.dim(0), _k});
       if (logits.empty())
         return;
       StorageView invalid({1}, int32_t(0), Device::CUDA);
       route<<<logits.dim(0), routing_threads, 0, cuda::get_cuda_stream()>>>(
-          logits.data<float>(), indices.data<int32_t>(), weights.data<float>(), logits.dim(1), _k,
+          logits.data<T>(), indices.data<int32_t>(), weights.data<T>(), logits.dim(1), _k,
           invalid.data<int32_t>());
       CUDA_CHECK(cudaGetLastError());
       auto status = invalid.to(Device::CPU);
@@ -82,6 +83,10 @@ namespace ctranslate2 {
       if (status.data<int32_t>()[0])
         throw std::invalid_argument("MoeTopK logits must be finite");
     }
+
+    template void MoeTopK::compute<Device::CUDA, float>(const StorageView&,
+                                                        StorageView&,
+                                                        StorageView&) const;
 
   }
 }

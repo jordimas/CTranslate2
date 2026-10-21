@@ -1,12 +1,9 @@
 #include "ctranslate2/ops/snake.h"
 
-#include <cmath>
-#include <atomic>
-#include <algorithm>
 #include <cstdint>
 #include <stdexcept>
 
-#include "cpu/parallel.h"
+#include "device_dispatch.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -34,56 +31,12 @@ namespace ctranslate2 {
       if (x.rank() != 3 || x.dim(0) <= 0 || x.dim(1) <= 0 || x.dim(2) < 0)
         throw std::invalid_argument("Snake expects [batch, channels, time]");
       const dim_t channels = x.dim(1);
-      const dim_t time = x.dim(2);
       if (alpha.shape() != Shape{channels} && alpha.shape() != Shape{1, channels, 1})
         throw std::invalid_argument("Snake alpha must have shape [channels] or [1, channels, 1]");
       if (&y == &x || &y == &alpha || overlaps_allocation(x, y) || overlaps_allocation(alpha, y))
         throw std::invalid_argument("Snake output must not alias inputs");
-#ifdef CT2_WITH_CUDA
-      if (x.device() == Device::CUDA) {
-        const ScopedDeviceSetter setter(x.device(), x.device_index());
-        compute_gpu(x, alpha, y);
-        return;
-      }
-#endif
-      const auto* data = x.data<float>();
-      const auto* coefficients = alpha.data<float>();
-      constexpr float epsilon = 1e-9f;
-      for (dim_t c = 0; c < channels; ++c) {
-        if (!std::isfinite(coefficients[c]) || coefficients[c] + epsilon == 0.f)
-          throw std::invalid_argument("Snake alpha must be finite with nonzero alpha + 1e-9");
-      }
-      std::atomic<bool> invalid{false};
-      cpu::parallel_for(0, x.size(), cpu::GRAIN_SIZE, [&](dim_t begin, dim_t end) {
-        bool found_invalid = false;
-        for (dim_t start = begin; start < end;) {
-          const dim_t row = start / time;
-          const dim_t stop = std::min(end, (row + 1) * time);
-          const float a = coefficients[row % channels];
-          for (dim_t i = start; i < stop; ++i)
-            found_invalid |= !std::isfinite(data[i]) | !std::isfinite(data[i] * a);
-          start = stop;
-        }
-        if (found_invalid)
-          invalid.store(true, std::memory_order_relaxed);
-      });
-      if (invalid.load(std::memory_order_relaxed))
-        throw std::invalid_argument("Snake input and alpha * input must be finite");
-      y.resize_as(x);
-      auto* output = y.data<float>();
-      cpu::parallel_for(0, x.size(), cpu::GRAIN_SIZE, [&](dim_t begin, dim_t end) {
-        for (dim_t start = begin; start < end;) {
-          const dim_t row = start / time;
-          const dim_t stop = std::min(end, (row + 1) * time);
-          const float a = coefficients[row % channels];
-          const float inverse = 1.f / (a + epsilon);
-          for (dim_t i = start; i < stop; ++i) {
-            const float sine = std::sin(a * data[i]);
-            output[i] = data[i] + inverse * (sine * sine);
-          }
-          start = stop;
-        }
-      });
+      const ScopedDeviceSetter setter(x.device(), x.device_index());
+      DEVICE_DISPATCH(x.device(), (compute<D, float>(x, alpha, y)));
     }
 
   }

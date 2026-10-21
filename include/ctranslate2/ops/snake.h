@@ -16,7 +16,8 @@ namespace ctranslate2 {
       void operator()(const StorageView& x, const StorageView& alpha, StorageView& y) const;
 
     private:
-      void compute_gpu(const StorageView& x, const StorageView& alpha, StorageView& y) const;
+      template <Device D, typename T>
+      void compute(const StorageView& x, const StorageView& alpha, StorageView& y) const;
     };
 
   }

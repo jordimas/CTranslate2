@@ -13,8 +13,9 @@ namespace ctranslate2 {
                       StorageView& output) const;
 
     private:
-      void compute_gpu(const StorageView& input, const StorageView& scale_inv,
-                       StorageView& output) const;
+      template <Device D>
+      void compute(const StorageView& input, const StorageView& scale_inv,
+                   StorageView& output) const;
     };
 
   }

@@ -176,9 +176,12 @@ set(SOURCES
   src/ops/causal_depthwise_conv1d.cc
   src/ops/conv_transpose1d.cc
   src/ops/dequantize_fp8.cc
+  src/ops/dequantize_fp8_cpu.cc
   src/ops/gated_delta_net.cc
   src/ops/moe_topk.cc
+  src/ops/moe_topk_cpu.cc
   src/ops/snake.cc
+  src/ops/snake_cpu.cc
   src/ops/conv1d_cpu.cc
   src/ops/cos.cc
   src/ops/dequantize.cc

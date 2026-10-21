@@ -25,11 +25,12 @@ namespace ctranslate2 {
 
     }
 
-    void Snake::compute_gpu(const StorageView& x, const StorageView& alpha, StorageView& out) const {
+    template <Device D, typename T>
+    void Snake::compute(const StorageView& x, const StorageView& alpha, StorageView& out) const {
       StorageView invalid({1}, int32_t(0), Device::CUDA);
       const dim_t count = std::max(x.size(), alpha.size());
       validate<<<(count + 255) / 256, 256, 0, cuda::get_cuda_stream()>>>(
-          x.data<float>(), alpha.data<float>(), x.size(), x.dim(1), x.dim(2),
+          x.data<T>(), alpha.data<T>(), x.size(), x.dim(1), x.dim(2),
           invalid.data<int32_t>());
       CUDA_CHECK(cudaGetLastError());
       auto status = invalid.to(Device::CPU);
@@ -41,9 +42,13 @@ namespace ctranslate2 {
       if (x.empty())
         return;
       snake<<<(x.size() + 255) / 256, 256, 0, cuda::get_cuda_stream()>>>(
-          x.data<float>(), alpha.data<float>(), out.data<float>(), x.size(), x.dim(2), x.dim(1));
+          x.data<T>(), alpha.data<T>(), out.data<T>(), x.size(), x.dim(2), x.dim(1));
       CUDA_CHECK(cudaGetLastError());
     }
+
+    template void Snake::compute<Device::CUDA, float>(const StorageView&,
+                                                     const StorageView&,
+                                                     StorageView&) const;
 
   }
 }

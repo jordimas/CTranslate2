@@ -5,10 +5,7 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Applies learned one-dimensional transposed convolution for temporal upsampling.
-    // CPU or CUDA/HIP float32 transposed convolution. Input: [B, Cin, T], weights:
-    // [Cin, Cout/groups, K], optional bias: [Cout]. Output must not alias inputs.
-    // Tout = (T-1)*stride - 2*padding + dilation*(K-1) + output_padding + 1.
+    // Applies one-dimensional transposed convolution.
     class ConvTranspose1D : public Op {
     public:
       ConvTranspose1D(dim_t stride = 1, dim_t padding = 0, dim_t output_padding = 0,

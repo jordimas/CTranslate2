@@ -1,25 +1,12 @@
 #include "ctranslate2/ops/gated_delta_net.h"
 
-#include <algorithm>
-#include <cstdint>
 #include <stdexcept>
 
 #include "device_dispatch.h"
+#include "storage_view_overlap.h"
 
 namespace ctranslate2 {
   namespace ops {
-    namespace {
-
-      bool overlaps(const StorageView& a, const StorageView& b) {
-        const dim_t a_bytes = std::max(a.reserved_memory(), a.size() * a.item_size());
-        const dim_t b_bytes = std::max(b.reserved_memory(), b.size() * b.item_size());
-        if (a_bytes == 0 || b_bytes == 0)
-          return false;
-        const auto a_begin = reinterpret_cast<uintptr_t>(a.buffer());
-        const auto b_begin = reinterpret_cast<uintptr_t>(b.buffer());
-        return a_begin < b_begin + b_bytes && b_begin < a_begin + a_bytes;
-      }
-    }
 
     void GatedDeltaNet::validate_input(const StorageView& query, const StorageView& key,
                                        const StorageView& value, const StorageView& log_decay,
@@ -52,10 +39,10 @@ namespace ctranslate2 {
       if (state.shape() != Shape{batch, heads, key_dim, value_dim})
         throw std::invalid_argument(
             "GatedDeltaNet state must have shape [batch, value_heads, key_dim, value_dim]");
-      if (&state == &output || overlaps(state, output))
+      if (&state == &output || storage_views_overlap(state, output))
         throw std::invalid_argument("GatedDeltaNet state and output must not alias");
       for (const auto* input : inputs) {
-        if (&output == input || overlaps(*input, state) || overlaps(*input, output))
+        if (&output == input || storage_views_overlap(*input, state) || storage_views_overlap(*input, output))
           throw std::invalid_argument("GatedDeltaNet inputs must not alias state or output");
       }
     }

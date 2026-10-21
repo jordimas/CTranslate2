@@ -1,25 +1,12 @@
 #include "ctranslate2/ops/snake.h"
 
-#include <cstdint>
 #include <stdexcept>
 
 #include "device_dispatch.h"
+#include "storage_view_overlap.h"
 
 namespace ctranslate2 {
   namespace ops {
-    namespace {
-
-      bool overlaps_allocation(const StorageView& input, const StorageView& output) {
-        if (input.empty() || !output.buffer() || output.reserved_memory() == 0)
-          return false;
-        const auto a = reinterpret_cast<uintptr_t>(input.buffer());
-        const auto b = reinterpret_cast<uintptr_t>(output.buffer());
-        const auto a_size = static_cast<uintptr_t>(input.size() * input.item_size());
-        const auto b_size = static_cast<uintptr_t>(output.reserved_memory());
-        return a <= b ? b - a < a_size : a - b < b_size;
-      }
-
-    }
 
     void Snake::operator()(const StorageView& x, const StorageView& alpha, StorageView& y) const {
       PROFILE("Snake");
@@ -33,7 +20,9 @@ namespace ctranslate2 {
       const dim_t channels = x.dim(1);
       if (alpha.shape() != Shape{channels} && alpha.shape() != Shape{1, channels, 1})
         throw std::invalid_argument("Snake alpha must have shape [channels] or [1, channels, 1]");
-      if (&y == &x || &y == &alpha || overlaps_allocation(x, y) || overlaps_allocation(alpha, y))
+      if (&y == &x || &y == &alpha
+          || storage_views_overlap(x, x.size() * x.item_size(), y, y.reserved_memory())
+          || storage_views_overlap(alpha, alpha.size() * alpha.item_size(), y, y.reserved_memory()))
         throw std::invalid_argument("Snake output must not alias inputs");
       const ScopedDeviceSetter setter(x.device(), x.device_index());
       DEVICE_DISPATCH(x.device(), (compute<D, float>(x, alpha, y)));

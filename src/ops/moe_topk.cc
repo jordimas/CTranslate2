@@ -1,25 +1,13 @@
 #include "ctranslate2/ops/moe_topk.h"
 
-#include <cstdint>
 #include <limits>
 #include <stdexcept>
 
 #include "device_dispatch.h"
+#include "storage_view_overlap.h"
 
 namespace ctranslate2 {
   namespace ops {
-    namespace {
-
-      bool overlaps(const StorageView& a, dim_t a_bytes, const StorageView& b, dim_t b_bytes) {
-        if (a_bytes == 0 || b_bytes == 0 || !a.buffer() || !b.buffer())
-          return false;
-        const auto a_ptr = reinterpret_cast<uintptr_t>(a.buffer());
-        const auto b_ptr = reinterpret_cast<uintptr_t>(b.buffer());
-        return a_ptr <= b_ptr ? b_ptr - a_ptr < static_cast<uintptr_t>(a_bytes)
-                              : a_ptr - b_ptr < static_cast<uintptr_t>(b_bytes);
-      }
-
-    }
 
     MoeTopK::MoeTopK(dim_t k)
       : _k(k) {
@@ -47,12 +35,12 @@ namespace ctranslate2 {
       const auto input_bytes = router_logits.size() * router_logits.item_size();
       for (const auto* output : {&expert_indices, &routing_weights}) {
         if (&router_logits == output
-            || overlaps(router_logits, input_bytes, *output, output->reserved_memory()))
+            || storage_views_overlap(router_logits, input_bytes, *output, output->reserved_memory()))
           throw std::invalid_argument("MoeTopK outputs must not alias logits");
       }
       if (&expert_indices == &routing_weights
-          || overlaps(expert_indices, expert_indices.reserved_memory(), routing_weights,
-                      routing_weights.reserved_memory()))
+          || storage_views_overlap(expert_indices, expert_indices.reserved_memory(), routing_weights,
+                                   routing_weights.reserved_memory()))
         throw std::invalid_argument("MoeTopK outputs must not alias each other");
       const ScopedDeviceSetter device_setter(router_logits.device(), router_logits.device_index());
       DEVICE_DISPATCH(router_logits.device(),

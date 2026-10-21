@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "cpu/parallel.h"
+#include "finite_check.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -66,10 +67,8 @@ namespace ctranslate2 {
       }
 #endif
       const auto* logits = router_logits.data<float>();
-      for (dim_t i = 0; i < router_logits.size(); ++i) {
-        if (!std::isfinite(logits[i]))
-          throw std::invalid_argument("MoeTopK logits must be finite");
-      }
+      if (!all_finite(logits, router_logits.size()))
+        throw std::invalid_argument("MoeTopK logits must be finite");
 
       const dim_t rows = router_logits.dim(0);
       const dim_t experts = router_logits.dim(1);

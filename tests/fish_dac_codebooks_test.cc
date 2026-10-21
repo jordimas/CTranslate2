@@ -1,7 +1,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/fish_dac_codebooks.h"
+#include "layers/drama/fish_dac_codebooks.h"
 
 namespace {
 

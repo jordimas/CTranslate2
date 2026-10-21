@@ -1,12 +1,12 @@
 #pragma once
 
-#include "op.h"
+#include "ctranslate2/ops/op.h"
 
 namespace ctranslate2 {
   namespace ops {
 
     // Adds a learned periodic component to codec activations using a sine-squared function.
-    // CPU float32 Snake activation for contiguous [batch, channels, time].
+    // CPU or CUDA/HIP float32 Snake activation for contiguous [batch, channels, time].
     // Alpha is [channels] or [1, channels, 1], storing actual coefficients
     // (not logarithms). Matches DAC: x + sin(alpha*x)^2 / (alpha + 1e-9).
     // Inputs must be finite; alpha + 1e-9 must be nonzero. Zero alpha is valid.
@@ -14,6 +14,9 @@ namespace ctranslate2 {
     class Snake : public Op {
     public:
       void operator()(const StorageView& x, const StorageView& alpha, StorageView& y) const;
+
+    private:
+      void compute_gpu(const StorageView& x, const StorageView& alpha, StorageView& y) const;
     };
 
   }

@@ -195,67 +195,10 @@ class Drama3WeightsTest(unittest.TestCase):
             [],
         )
 
-    def test_rank_three_experts_cross_shard_scales_and_tails(self):
-        bank = np.full((3, 5, 7), 56, dtype=np.uint8)
-        bank[1] = 64  # second expert's unscaled values are two
-        write_tensors(self.path, {"experts": ("F8_E4M3FN", bank)})
+    def test_cross_shard_matrix_scales(self):
+        write_tensors(self.path, {"matrix": ("F8_E4M3FN", np.full((2, 3), 56))})
         scale_path = self.path.with_name("scales.safetensors")
-        scales = np.stack(
-            [np.ones((3, 3)), np.arange(1, 10).reshape(3, 3), np.ones((3, 3))]
-        )
-        # Other experts can contain invalid scales without touching the selected expert.
-        scales[0] = np.nan
-        write_tensors(scale_path, {"explicit_scale": ("F32", scales)})
-        reader = weights.SafeTensorMatrixReader(self.path)
-        scale_reader = weights.SafeTensorMatrixReader(scale_path)
-        result = np.concatenate(
-            list(
-                reader.iter_matrix_rows(
-                    "experts",
-                    expert_index=1,
-                    chunk_rows=3,
-                    inverse_scale="explicit_scale",
-                    scale_reader=scale_reader,
-                    block_size=(2, 3),
-                )
-            )
-        )
-        expected = np.repeat(np.repeat(scales[1], 2, axis=0), 3, axis=1)[:5, :7] * 2
-        np.testing.assert_array_equal(result, expected)
-
-    def test_rank_three_float_and_invalid_expert_indices(self):
-        bank = np.arange(24).reshape(3, 2, 4)
-        write_tensors(self.path, {"experts": ("F16", bank), "matrix": ("F32", bank[0])})
-        reader = weights.SafeTensorMatrixReader(self.path)
-        for index in range(3):
-            result = np.concatenate(
-                list(
-                    reader.iter_matrix_rows("experts", expert_index=index, chunk_rows=1)
-                )
-            )
-            np.testing.assert_array_equal(result, bank[index])
-        for index in (None, -1, 3, True, 0.5):
-            with self.subTest(index=index), self.assertRaises(ValueError):
-                list(reader.iter_matrix_rows("experts", expert_index=index))
-        with self.assertRaises(ValueError):
-            list(reader.iter_matrix_rows("matrix", expert_index=0))
-
-    def test_cross_shard_rank_two_and_rejects_mismatched_scale_expert_axis(self):
-        write_tensors(
-            self.path,
-            {
-                "experts": ("F8_E4M3FN", np.full((2, 2, 3), 56)),
-                "matrix": ("F8_E4M3FN", np.full((2, 3), 56)),
-            },
-        )
-        scale_path = self.path.with_name("scales.safetensors")
-        write_tensors(
-            scale_path,
-            {
-                "matrix_scale": ("BF16", [[0x4000]]),
-                "wrong_experts": ("F32", np.ones((3, 1, 1))),
-            },
-        )
+        write_tensors(scale_path, {"matrix_scale": ("BF16", [[0x4000]])})
         reader = weights.SafeTensorMatrixReader(self.path)
         scale_reader = weights.SafeTensorMatrixReader(scale_path)
         result = next(
@@ -264,15 +207,6 @@ class Drama3WeightsTest(unittest.TestCase):
             )
         )
         np.testing.assert_array_equal(result, np.full((2, 3), 2))
-        with self.assertRaises(ValueError):
-            list(
-                reader.iter_matrix_rows(
-                    "experts",
-                    expert_index=1,
-                    inverse_scale="wrong_experts",
-                    scale_reader=scale_reader,
-                )
-            )
         with self.assertRaises(ValueError):
             list(reader.iter_matrix_rows("matrix", scale_reader=scale_reader))
         with self.assertRaises(ValueError):

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "test_utils.h"
-#include "ctranslate2/layers/drama_block.h"
+#include "layers/drama/drama_block.h"
 
 namespace drama_test {
 

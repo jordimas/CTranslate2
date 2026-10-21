@@ -1,9 +1,9 @@
 #include "ctranslate2/models/drama3.h"
 #include <regex>
 #include <stdexcept>
-#include "ctranslate2/layers/drama_backbone.h"
-#include "ctranslate2/layers/drama_tower.h"
-#include "ctranslate2/layers/fish_dac_decoder.h"
+#include "layers/drama/drama_backbone.h"
+#include "layers/drama/drama_tower.h"
+#include "layers/drama/fish_dac_decoder.h"
 #include "ctranslate2/utils.h"
 #include "ctranslate2/ops/dequantize_fp8.h"
 #include "drama3_memory.h"
@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <mutex>
 
 namespace ctranslate2 {
   namespace models {
@@ -204,7 +203,7 @@ namespace ctranslate2 {
 
     }
 
-    struct Drama3::Impl : ModelReplica {
+    struct Drama3Replica::Impl : ModelReplica {
       struct Setup {
         std::shared_ptr<const Model> checkpoint;
         layers::DramaExecutionOptions options;
@@ -215,25 +214,18 @@ namespace ctranslate2 {
       std::unique_ptr<layers::DramaBackbone> backbone;
       std::unique_ptr<layers::DramaTower> tower;
       std::unique_ptr<layers::FishDACDecoder> codec;
-      size_t threads;
       dim_t max_context;
       dim_t vocabulary;
       int32_t eos;
-      std::mutex mutex;
 
-      Impl(const std::string& path, size_t count, const std::string& compute,
-           const std::string& device, int device_index)
-        : Impl(prepare(path, count, compute, device, device_index), count)
-      {
-      }
-
-      Impl(Setup setup, size_t count)
+      Impl(Setup setup)
         : ModelReplica(setup.checkpoint)
         , options(setup.options)
-        , threads(count)
       {
         const ScopedDeviceSetter setter(options.device, options.device_index);
         initialize_layers();
+        // Publish initialization uploads before a worker uses its own stream.
+        synchronize_stream(options.device);
       }
 
       static Setup prepare(const std::string& path, size_t count, const std::string& compute,
@@ -439,20 +431,89 @@ namespace ctranslate2 {
       }
     };
 
-    Drama3::Drama3(const std::string& path, size_t threads, const std::string& compute,
-                   const std::string& device, int device_index)
-      : _impl(std::make_unique<Impl>(path, threads, compute, device, device_index)) {
+    Drama3Replica::Drama3Replica(std::unique_ptr<Impl> impl)
+      : ModelReplica(impl->model())
+      , _impl(std::move(impl)) {
     }
 
-    Drama3::~Drama3() = default;
+    Drama3Replica::~Drama3Replica() {
+      const auto device = _impl->options.device;
+      const ScopedDeviceSetter setter(device, _impl->options.device_index);
+      synchronize_stream(device);
+      _impl.reset();
+      if (device != model()->device())
+        destroy_context(device);
+    }
+
+    std::unique_ptr<Drama3Replica> Drama3Replica::create_from_model(const Model& model) {
+      const auto* checkpoint = dynamic_cast<const Drama3Model*>(&model);
+      if (!checkpoint)
+        throw std::invalid_argument("Expected a Drama3 model");
+      Impl::Setup setup;
+      setup.checkpoint = model.shared_from_this();
+      setup.options.compute_type = model.effective_compute_type();
+      return std::unique_ptr<Drama3Replica>(new Drama3Replica(
+          std::make_unique<Impl>(std::move(setup))));
+    }
+
+    Drama3::Drama3(const std::string& path, size_t threads, const std::string& compute,
+                   const std::string& device, int device_index,
+                   size_t inter_threads, long max_queued_batches) {
+      if (!inter_threads)
+        throw std::invalid_argument("Drama3 requires positive inter_threads");
+      CallingThreadContextGuard context_guard;
+      auto setup = Drama3Replica::Impl::prepare(path, threads, compute, device, device_index);
+      setup.options.device_weights = std::make_shared<layers::DramaDeviceWeightRegistry>();
+      ReplicaPoolConfig config;
+      config.num_threads_per_replica = threads;
+      config.max_queued_batches = max_queued_batches;
+      std::vector<std::shared_ptr<const Model>> models(inter_threads, setup.checkpoint);
+      initialize_pool(models, config, [options = setup.options](const Model& model) {
+        const auto* checkpoint = dynamic_cast<const Drama3Model*>(&model);
+        if (!checkpoint)
+          throw std::invalid_argument("Expected a Drama3 model");
+        Drama3Replica::Impl::Setup setup;
+        setup.checkpoint = model.shared_from_this();
+        setup.options = options;
+        return std::unique_ptr<Drama3Replica>(new Drama3Replica(
+            std::make_unique<Drama3Replica::Impl>(std::move(setup))));
+      });
+    }
 
     Drama3Result Drama3::generate(const StorageView& prompt, dim_t max_frames,
                                   dim_t prefill_chunk_size, float temperature, dim_t top_k,
                                   float top_p, uint64_t seed, bool greedy) {
-      std::lock_guard<std::mutex> lock(_impl->mutex);
+      return generate_async(prompt, {max_frames, prefill_chunk_size, temperature,
+                                     top_k, top_p, seed, greedy}).get();
+    }
+
+    std::future<Drama3Result> Drama3::generate_async(const StorageView& prompt,
+                                                    const Drama3Options& options) {
+      // Own the input until the queued job finishes, including borrowed caller views.
+      return post<Drama3Result>([prompt = StorageView(prompt), options](Drama3Replica& replica) {
+        return replica.generate(prompt, options);
+      });
+    }
+
+    std::vector<std::future<Drama3Result>>
+    Drama3::generate_batch(const std::vector<StorageView>& prompts, const Drama3Options& options) {
+      std::vector<std::future<Drama3Result>> results;
+      results.reserve(prompts.size());
+      for (const auto& prompt : prompts)
+        results.emplace_back(generate_async(prompt, options));
+      return results;
+    }
+
+    Drama3Result Drama3Replica::generate(const StorageView& prompt, const Drama3Options& options) {
+      const auto max_frames = options.max_frames;
+      const auto prefill_chunk_size = options.prefill_chunk_size;
+      const auto temperature = options.temperature;
+      const auto top_k = options.top_k;
+      const auto top_p = options.top_p;
+      const auto seed = options.seed;
+      const auto greedy = options.greedy;
       const auto total_start = Clock::now();
       const ScopedDeviceSetter setter(_impl->options.device, _impl->options.device_index);
-      set_num_threads(_impl->threads);
       _impl->validate_generation(prompt, max_frames, prefill_chunk_size, temperature, top_k, top_p);
 
       Impl::GenerationState state;

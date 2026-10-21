@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "drama_test_utils.h"
-#include "ctranslate2/layers/drama_block.h"
+#include "layers/drama/drama_block.h"
 
 namespace {
 

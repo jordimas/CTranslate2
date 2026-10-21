@@ -2,7 +2,7 @@
 #include "test_utils.h"
 #include "ctranslate2/models/drama3.h"
 #include "ctranslate2/models/model_reader.h"
-#include "ctranslate2/layers/drama_projection.h"
+#include "layers/drama/drama_projection.h"
 #include "ctranslate2/ops/dequantize.h"
 
 namespace {
@@ -204,7 +204,10 @@ TEST(Drama3MixedPrecisionTest, GpuProjectionsMatchCpuWithCachedAndSelectedWeight
         execution.device = Device::CUDA;
         execution.device_index = index;
         execution.compute_type = type;
+        execution.device_weights = std::make_shared<layers::DramaDeviceWeightRegistry>();
         layers::DramaProjection dense(*model, scope, execution);
+        layers::DramaProjection second(*model, scope, execution);
+        EXPECT_EQ(dense.device_weights().weight.buffer(), second.device_weights().weight.buffer());
         for (dim_t rows : {1, 4, 1}) { // Repeat after cache creation with another batch shape.
           StorageView input({rows, 16}, .25f), residual({rows, 16}, .5f), output;
           dense(input, output, &residual);

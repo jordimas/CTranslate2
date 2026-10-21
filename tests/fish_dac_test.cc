@@ -3,7 +3,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/fish_dac.h"
+#include "layers/drama/fish_dac.h"
 
 namespace {
 
@@ -197,6 +197,7 @@ TEST(FishDACTest, GpuWaveformMatchesCpuAndIndependentScalarReference) {
     TinyFishDACModel cpu_model, gpu_model;
     layers::DramaExecutionOptions execution;
     execution.device = Device::CUDA;
+    execution.device_weights = std::make_shared<layers::DramaDeviceWeightRegistry>();
     execution.device_index = index;
     layers::FishDACWaveformDecoder cpu(cpu_model, scope, {2}), gpu(gpu_model, scope, {2}, execution);
     for (dim_t time : {1, 7, 37}) {
@@ -216,7 +217,7 @@ TEST(FishDACTest, GpuWaveformMatchesCpuAndIndependentScalarReference) {
 }
 
 #ifdef CT2_WITH_CUDA
-#  include "ctranslate2/ops/fish_dac_gpu.h"
+#  include "ops/drama/fish_dac_gpu.h"
 
 TEST(FishDACTest, GpuCausalConvolutionTilesLongMultichannelInput) {
   if (!get_device_count(Device::CUDA))

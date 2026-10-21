@@ -1,10 +1,8 @@
 import abc
 import argparse
-import json
 import os
 import shutil
 
-from pathlib import Path
 from typing import Optional
 
 from ctranslate2.specs.model_spec import ACCEPTED_MODEL_TYPES, ModelSpec
@@ -82,7 +80,7 @@ class Converter(abc.ABC):
           NotImplementedError: If the converter cannot convert this model to the
             CTranslate2 format.
         """
-        if os.path.lexists(output_dir) and not force:
+        if os.path.exists(output_dir) and not force:
             raise RuntimeError(
                 "output directory %s already exists, use --force to override"
                 % output_dir
@@ -99,23 +97,12 @@ class Converter(abc.ABC):
         model_spec.validate()
         model_spec.optimize(quantization=quantization)
 
-        output = Path(output_dir)
-        if output.exists():
-            shutil.rmtree(output)
-        output.mkdir(parents=True)
-        model_spec.save(str(output))
-        report = getattr(self, "conversion_report", None)
-        if report is not None:
-            report.update(
-                output=str(output_dir),
-                output_bytes=(output / "model.bin").stat().st_size,
-            )
-            self.write_report(output / "conversion.json")
+        # Create model directory.
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
+        model_spec.save(output_dir)
         return output_dir
-
-    def write_report(self, path):
-        """Write the current inspection or conversion report as JSON."""
-        Path(path).write_text(json.dumps(self.conversion_report, indent=2) + "\n")
 
     @abc.abstractmethod
     def _load(self):

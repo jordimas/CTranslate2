@@ -2,7 +2,7 @@
 #include <fstream>
 
 #include "drama_parity_test_utils.h"
-#include "ctranslate2/layers/gated_delta.h"
+#include "layers/drama/gated_delta.h"
 #include "ctranslate2/models/model_factory.h"
 
 namespace {

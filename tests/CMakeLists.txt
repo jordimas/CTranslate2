@@ -5,18 +5,21 @@ option(INSTALL_GTEST "" OFF)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/googletest ${CMAKE_CURRENT_BINARY_DIR}/googletest)
 
 add_executable(ctranslate2_test
+  causal_depthwise_conv1d_test.cc
+  conv_transpose1d_test.cc
+  dequantize_fp8_test.cc
+  gated_delta_net_test.cc
+  moe_topk_test.cc
+  snake_test.cc
   attention_test.cc
   batching_test.cc
   decoding_test.cc
-  gated_delta_net_test.cc
   gated_delta_layer_test.cc
-  snake_test.cc
-  moe_topk_test.cc
   moe_layer_test.cc
   drama3_serialization_test.cc
+  drama_device_weights_test.cc
   drama3_model_test.cc
   drama3_mixed_precision_test.cc
-  dequantize_fp8_test.cc
   drama_attention_test.cc
   drama_block_test.cc
   drama_backbone_test.cc
@@ -29,8 +32,6 @@ add_executable(ctranslate2_test
   fish_dac_codebooks_test.cc
   fish_dac_transformer_test.cc
   fish_dac_upsample_test.cc
-  conv_transpose1d_test.cc
-  causal_depthwise_conv1d_test.cc
   conv1d_dilation_test.cc
   layers_test.cc
   model_test.cc

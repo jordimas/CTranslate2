@@ -1,6 +1,6 @@
 #pragma once
 
-#include "op.h"
+#include "ctranslate2/ops/op.h"
 
 namespace ctranslate2 {
   namespace ops {

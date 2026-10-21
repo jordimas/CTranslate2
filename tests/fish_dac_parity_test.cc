@@ -3,7 +3,7 @@
 #include <cmath>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/fish_dac.h"
+#include "layers/drama/fish_dac.h"
 #include "ctranslate2/models/model_factory.h"
 
 namespace {

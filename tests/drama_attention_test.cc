@@ -3,7 +3,7 @@
 #include <limits>
 
 #include "test_utils.h"
-#include "ctranslate2/layers/attention.h"
+#include "layers/drama/gated_self_attention.h"
 
 namespace {
 

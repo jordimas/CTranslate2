@@ -25,8 +25,9 @@ namespace ctranslate2 {
     void Snake::operator()(const StorageView& x, const StorageView& alpha, StorageView& y) const {
       PROFILE("Snake");
       for (const auto* tensor : {&x, &alpha, static_cast<const StorageView*>(&y)}) {
-        if (tensor->device() != Device::CPU || tensor->dtype() != DataType::FLOAT32)
-          throw std::invalid_argument("Snake requires CPU float32 tensors");
+        if (tensor->device() != x.device() || tensor->device_index() != x.device_index()
+            || tensor->dtype() != DataType::FLOAT32)
+          throw std::invalid_argument("Snake requires float32 tensors on the same device");
       }
       if (x.rank() != 3 || x.dim(0) <= 0 || x.dim(1) <= 0 || x.dim(2) < 0)
         throw std::invalid_argument("Snake expects [batch, channels, time]");
@@ -36,6 +37,13 @@ namespace ctranslate2 {
         throw std::invalid_argument("Snake alpha must have shape [channels] or [1, channels, 1]");
       if (&y == &x || &y == &alpha || overlaps_allocation(x, y) || overlaps_allocation(alpha, y))
         throw std::invalid_argument("Snake output must not alias inputs");
+#ifdef CT2_WITH_CUDA
+      if (x.device() == Device::CUDA) {
+        const ScopedDeviceSetter setter(x.device(), x.device_index());
+        compute_gpu(x, alpha, y);
+        return;
+      }
+#endif
       const auto* data = x.data<float>();
       const auto* coefficients = alpha.data<float>();
       constexpr float epsilon = 1e-9f;

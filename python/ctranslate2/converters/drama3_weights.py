@@ -1,6 +1,6 @@
 """Bounded-memory safetensors matrix reads for an independent Drama 3 converter.
 
-Rank-two matrices and explicitly selected rank-three expert matrices are supported.
+Rank-two matrices are supported.
 No tensor-name conventions or automatic quantization-scale matching are assumed.
 Files must remain immutable throughout reading. Safetensors validates and maps
 shards; PyTorch converts individual FP8/BF16 chunks to float32.
@@ -97,16 +97,12 @@ class SafeTensorMatrixReader:
         self,
         name,
         chunk_rows=128,
-        expert_index=None,
         inverse_scale=None,
         block_size=(128, 128),
         scale_reader=None,
     ):
-        """Yield bounded FP32 row chunks of a matrix or one selected expert.
+        """Yield bounded FP32 row chunks of a rank-two matrix.
 
-        Rank-three banks have [experts, output_rows, input_columns] layout and
-        require expert_index. Their scales must have the same expert axis followed
-        by the two block-grid axes. Only the selected expert's data is decoded.
         scale_reader, when supplied, explicitly locates inverse_scale in another
         safetensors shard; scale names and layouts are never inferred.
         """
@@ -119,19 +115,9 @@ class SafeTensorMatrixReader:
         ):
             raise ValueError("block_size must contain two positive integers")
         tensor = self.tensors[name]
-        rank = len(tensor["shape"])
-        if rank not in (2, 3):
-            raise ValueError(
-                "row conversion requires a matrix or rank-three expert bank"
-            )
-        if rank == 3:
-            if not _is_int(expert_index) or not 0 <= expert_index < tensor["shape"][0]:
-                raise ValueError(
-                    "rank-three bank requires a valid explicit expert_index"
-                )
-        elif expert_index is not None:
-            raise ValueError("expert_index cannot be supplied for a rank-two matrix")
-        rows, cols = tensor["shape"][-2:]
+        if len(tensor["shape"]) != 2:
+            raise ValueError("row conversion requires a rank-two matrix")
+        rows, cols = tensor["shape"]
         if scale_reader is not None and not isinstance(
             scale_reader, SafeTensorMatrixReader
         ):
@@ -149,21 +135,14 @@ class SafeTensorMatrixReader:
                 raise ValueError("inverse_scale is supported only for FP8 matrices")
             scale_meta = scale_source.tensors[inverse_scale]
             expected_shape = ((rows + br - 1) // br, (cols + bc - 1) // bc)
-            if rank == 3:
-                expected_shape = (tensor["shape"][0],) + expected_shape
             if scale_meta["shape"] != expected_shape:
                 raise ValueError("inverse_scale shape does not match block grid")
             if scale_meta["dtype"] not in ("F32", "F16", "BF16"):
                 raise ValueError("inverse_scale must be F32/F16/BF16")
             scales = scale_source._map(inverse_scale)
-            if rank == 3:
-                scales = scales[expert_index]
         for start in range(0, rows, chunk_rows):
             stop = min(start + chunk_rows, rows)
-            index = (
-                (expert_index, slice(start, stop)) if rank == 3 else slice(start, stop)
-            )
-            chunk = _float32(self._map(name, index), tensor["dtype"])
+            chunk = _float32(self._map(name, slice(start, stop)), tensor["dtype"])
             if scales is not None:
                 first_block = start // br
                 scale_rows = _float32(

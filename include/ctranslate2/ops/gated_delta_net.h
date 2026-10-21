@@ -6,7 +6,7 @@ namespace ctranslate2 {
   namespace ops {
 
     // Updates recurrent attention memory and reads it for each query.
-    // CPU float32 recurrent gated-delta update. Inputs are contiguous:
+    // CPU or CUDA/HIP float32 recurrent gated-delta update. Inputs are contiguous:
     //   query, key: [batch, time, key_heads, key_dim]
     //   value: [batch, time, value_heads, value_dim]
     //   log_decay, beta: [batch, time, value_heads]
@@ -23,6 +23,11 @@ namespace ctranslate2 {
                       StorageView& output) const;
 
     private:
+      template <Device D, typename T>
+      void compute(const StorageView& query, const StorageView& key, const StorageView& value,
+                   const StorageView& log_decay, const StorageView& beta, StorageView& state,
+                   StorageView& output) const;
+
       void validate_input(const StorageView& query, const StorageView& key,
                           const StorageView& value, const StorageView& log_decay,
                           const StorageView& beta, const StorageView& state,

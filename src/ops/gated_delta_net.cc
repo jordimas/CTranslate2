@@ -1,12 +1,10 @@
 #include "ctranslate2/ops/gated_delta_net.h"
 
-#include <cmath>
 #include <algorithm>
 #include <cstdint>
 #include <stdexcept>
-#include <vector>
 
-#include "cpu/parallel.h"
+#include "device_dispatch.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -21,7 +19,6 @@ namespace ctranslate2 {
         const auto b_begin = reinterpret_cast<uintptr_t>(b.buffer());
         return a_begin < b_begin + b_bytes && b_begin < a_begin + a_bytes;
       }
-
     }
 
     void GatedDeltaNet::validate_input(const StorageView& query, const StorageView& key,
@@ -32,8 +29,10 @@ namespace ctranslate2 {
       for (const auto* tensor :
            {&query, &key, &value, &log_decay, &beta, static_cast<const StorageView*>(&state),
             static_cast<const StorageView*>(&output)}) {
-        if (tensor->device() != Device::CPU || tensor->dtype() != DataType::FLOAT32)
-          throw std::invalid_argument("GatedDeltaNet currently requires CPU float32 tensors");
+        if (tensor->device() != query.device()
+            || tensor->device_index() != query.device_index()
+            || tensor->dtype() != DataType::FLOAT32)
+          throw std::invalid_argument("GatedDeltaNet requires float32 tensors on the same device");
       }
       if (query.rank() != 4 || key.shape() != query.shape() || value.rank() != 4)
         throw std::invalid_argument(
@@ -67,58 +66,9 @@ namespace ctranslate2 {
                                    StorageView& output) const {
       PROFILE("GatedDeltaNet");
       validate_input(query, key, value, log_decay, beta, state, output);
-      const dim_t batch = query.dim(0), steps = query.dim(1);
-      const dim_t key_heads = query.dim(2), key_dim = query.dim(3);
-      const dim_t heads = value.dim(2), value_dim = value.dim(3);
-      output.resize({batch, steps, heads, value_dim});
-      const auto* q = query.data<float>();
-      const auto* k = key.data<float>();
-      const auto* v = value.data<float>();
-      const auto* g = log_decay.data<float>();
-      const auto* b = beta.data<float>();
-      auto* s = state.data<float>();
-      auto* out = output.data<float>();
-      const float scale = 1.f / std::sqrt(static_cast<float>(key_dim));
-      const dim_t heads_per_key = heads / key_heads;
-
-      cpu::parallel_for(0, batch * heads, 1, [&](dim_t begin, dim_t end) {
-        std::vector<float> residual(value_dim);
-        for (dim_t bh = begin; bh < end; ++bh) {
-          const dim_t batch_index = bh / heads;
-          const dim_t head = bh % heads;
-          auto* memory = s + bh * key_dim * value_dim;
-          for (dim_t t = 0; t < steps; ++t) {
-            const dim_t row = (batch_index * steps + t) * heads + head;
-            const dim_t key_row = (batch_index * steps + t) * key_heads + head / heads_per_key;
-            const auto* qt = q + key_row * key_dim;
-            const auto* kt = k + key_row * key_dim;
-            const auto* vt = v + row * value_dim;
-            auto* ot = out + row * value_dim;
-            const float decay = std::exp(g[row]);
-            for (dim_t i = 0; i < key_dim * value_dim; ++i)
-              memory[i] *= decay;
-            // Accumulate each column in the original key-dimension order while
-            // traversing contiguous state rows, allowing SIMD across values.
-            std::fill(residual.begin(), residual.end(), 0.f);
-            for (dim_t i = 0; i < key_dim; ++i) {
-              const auto* memory_row = memory + i * value_dim;
-              for (dim_t j = 0; j < value_dim; ++j)
-                residual[j] += kt[i] * memory_row[j];
-            }
-            for (dim_t j = 0; j < value_dim; ++j) {
-              residual[j] = b[row] * (vt[j] - residual[j]);
-              ot[j] = 0;
-            }
-            for (dim_t i = 0; i < key_dim; ++i) {
-              for (dim_t j = 0; j < value_dim; ++j) {
-                auto& cell = memory[i * value_dim + j];
-                cell += kt[i] * residual[j];
-                ot[j] += qt[i] * scale * cell;
-              }
-            }
-          }
-        }
-      });
+      const ScopedDeviceSetter setter(query.device(), query.device_index());
+      DEVICE_DISPATCH(query.device(),
+                      (compute<D, float>(query, key, value, log_decay, beta, state, output)));
     }
 
   }

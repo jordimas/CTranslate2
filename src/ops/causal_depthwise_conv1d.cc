@@ -1,26 +1,12 @@
 #include "ctranslate2/ops/causal_depthwise_conv1d.h"
 
-#include <algorithm>
-#include "ctranslate2/primitives.h"
-#include <cstdint>
 #include <stdexcept>
 
 #include "device_dispatch.h"
+#include "storage_view_overlap.h"
 
 namespace ctranslate2 {
   namespace ops {
-    namespace {
-
-      bool overlaps(const StorageView& a, dim_t a_bytes, const StorageView& b, dim_t b_bytes) {
-        if (!a.buffer() || !b.buffer() || a_bytes == 0 || b_bytes == 0)
-          return false;
-        const auto x = reinterpret_cast<uintptr_t>(a.buffer());
-        const auto y = reinterpret_cast<uintptr_t>(b.buffer());
-        return x <= y ? y - x < static_cast<uintptr_t>(a_bytes)
-                      : x - y < static_cast<uintptr_t>(b_bytes);
-      }
-    }
-
     CausalDepthwiseConv1D::CausalDepthwiseConv1D(bool apply_silu)
       : _apply_silu(apply_silu) {
     }
@@ -49,14 +35,14 @@ namespace ctranslate2 {
       if (bias && bias->shape() != Shape{channels})
         throw std::invalid_argument("CausalDepthwiseConv1D bias must be [channels]");
       if (&history == &output
-          || overlaps(history, history.reserved_memory(), output, output.reserved_memory()))
+          || storage_views_overlap(history, history.reserved_memory(), output, output.reserved_memory()))
         throw std::invalid_argument("CausalDepthwiseConv1D history and output must not alias");
       for (const auto* tensor : {&input, &weight, bias}) {
         if (!tensor)
           continue;
         for (const auto* mutable_tensor : {&history, &output}) {
           if (tensor == mutable_tensor
-              || overlaps(*tensor, tensor->size() * tensor->item_size(), *mutable_tensor,
+              || storage_views_overlap(*tensor, tensor->size() * tensor->item_size(), *mutable_tensor,
                           mutable_tensor->reserved_memory()))
             throw std::invalid_argument(
                 "CausalDepthwiseConv1D inputs must not alias history or output");

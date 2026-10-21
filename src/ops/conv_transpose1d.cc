@@ -1,26 +1,14 @@
 #include "ctranslate2/ops/conv_transpose1d.h"
 
-#include <algorithm>
-#include <cstdint>
 #include <limits>
 #include <stdexcept>
 
 #include "device_dispatch.h"
+#include "storage_view_overlap.h"
 
 namespace ctranslate2 {
   namespace ops {
     namespace {
-
-      bool overlaps(const StorageView& a, const StorageView& b) {
-        const auto an = std::max(a.reserved_memory(), a.size() * a.item_size());
-        const auto bn = std::max(b.reserved_memory(), b.size() * b.item_size());
-        if (!an || !bn)
-          return false;
-        const auto ap = reinterpret_cast<uintptr_t>(a.buffer());
-        const auto bp = reinterpret_cast<uintptr_t>(b.buffer());
-        return ap <= bp ? bp - ap < static_cast<uintptr_t>(an)
-                        : ap - bp < static_cast<uintptr_t>(bn);
-      }
 
       dim_t checked_product(dim_t a, dim_t b) {
         if (a && b > std::numeric_limits<dim_t>::max() / a)
@@ -90,7 +78,7 @@ namespace ctranslate2 {
       if (bias && bias->shape() != Shape{cout})
         throw std::invalid_argument("ConvTranspose1D bias must have shape [Cout]");
       for (const auto* tensor : {&input, &weight, bias}) {
-        if (tensor && (tensor == &output || overlaps(*tensor, output)))
+        if (tensor && (tensor == &output || storage_views_overlap(*tensor, output)))
           throw std::invalid_argument("ConvTranspose1D output must not alias inputs");
       }
 

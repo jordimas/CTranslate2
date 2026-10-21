@@ -1,9 +1,9 @@
 #include "ctranslate2/ops/dequantize_fp8.h"
 
-#include <cstdint>
 #include <stdexcept>
 
 #include "device_dispatch.h"
+#include "storage_view_overlap.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -23,12 +23,9 @@ namespace ctranslate2 {
                           input.dim(1) / 128 + (input.dim(1) % 128 != 0)})
         throw std::invalid_argument("DequantizeFP8 requires a matrix and 128x128 block scales");
       for (const auto* source : {&input, &scale_inv}) {
-        const auto a = reinterpret_cast<uintptr_t>(source->buffer());
-        const auto b = reinterpret_cast<uintptr_t>(output.buffer());
         if (source == &output
-            || (a && b && output.reserved_memory()
-                && (a <= b ? b - a < static_cast<uintptr_t>(source->size() * source->item_size())
-                           : a - b < static_cast<uintptr_t>(output.reserved_memory()))))
+            || storage_views_overlap(*source, source->size() * source->item_size(),
+                                     output, output.reserved_memory()))
           throw std::invalid_argument("DequantizeFP8 output must not alias inputs");
       }
       const ScopedDeviceSetter device_setter(input.device(), input.device_index());

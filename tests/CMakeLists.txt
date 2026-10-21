@@ -5,6 +5,7 @@ option(INSTALL_GTEST "" OFF)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/googletest ${CMAKE_CURRENT_BINARY_DIR}/googletest)
 
 add_executable(ctranslate2_test
+  public_operator_device_test.cc
   causal_depthwise_conv1d_test.cc
   conv_transpose1d_test.cc
   dequantize_fp8_test.cc

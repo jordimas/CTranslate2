@@ -196,9 +196,7 @@ class Drama3WeightsTest(unittest.TestCase):
         )
 
     def test_cross_shard_matrix_scales(self):
-        write_tensors(
-            self.path, {"matrix": ("F8_E4M3FN", np.full((2, 3), 56))}
-        )
+        write_tensors(self.path, {"matrix": ("F8_E4M3FN", np.full((2, 3), 56))})
         scale_path = self.path.with_name("scales.safetensors")
         write_tensors(scale_path, {"matrix_scale": ("BF16", [[0x4000]])})
         reader = weights.SafeTensorMatrixReader(self.path)

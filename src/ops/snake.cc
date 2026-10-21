@@ -1,6 +1,8 @@
 #include "ctranslate2/ops/snake.h"
 
 #include <cmath>
+#include <atomic>
+#include <algorithm>
 #include <cstdint>
 #include <stdexcept>
 
@@ -51,18 +53,35 @@ namespace ctranslate2 {
         if (!std::isfinite(coefficients[c]) || coefficients[c] + epsilon == 0.f)
           throw std::invalid_argument("Snake alpha must be finite with nonzero alpha + 1e-9");
       }
-      for (dim_t i = 0; i < x.size(); ++i) {
-        if (!std::isfinite(data[i])
-            || !std::isfinite(data[i] * coefficients[(i / time) % channels]))
-          throw std::invalid_argument("Snake input and alpha * input must be finite");
-      }
+      std::atomic<bool> invalid{false};
+      cpu::parallel_for(0, x.size(), cpu::GRAIN_SIZE, [&](dim_t begin, dim_t end) {
+        bool found_invalid = false;
+        for (dim_t start = begin; start < end;) {
+          const dim_t row = start / time;
+          const dim_t stop = std::min(end, (row + 1) * time);
+          const float a = coefficients[row % channels];
+          for (dim_t i = start; i < stop; ++i)
+            found_invalid |= !std::isfinite(data[i]) | !std::isfinite(data[i] * a);
+          start = stop;
+        }
+        if (found_invalid)
+          invalid.store(true, std::memory_order_relaxed);
+      });
+      if (invalid.load(std::memory_order_relaxed))
+        throw std::invalid_argument("Snake input and alpha * input must be finite");
       y.resize_as(x);
       auto* output = y.data<float>();
       cpu::parallel_for(0, x.size(), cpu::GRAIN_SIZE, [&](dim_t begin, dim_t end) {
-        for (dim_t i = begin; i < end; ++i) {
-          const float a = coefficients[(i / time) % channels];
-          const float sine = std::sin(a * data[i]);
-          output[i] = data[i] + (1.f / (a + epsilon)) * (sine * sine);
+        for (dim_t start = begin; start < end;) {
+          const dim_t row = start / time;
+          const dim_t stop = std::min(end, (row + 1) * time);
+          const float a = coefficients[row % channels];
+          const float inverse = 1.f / (a + epsilon);
+          for (dim_t i = start; i < stop; ++i) {
+            const float sine = std::sin(a * data[i]);
+            output[i] = data[i] + inverse * (sine * sine);
+          }
+          start = stop;
         }
       });
     }

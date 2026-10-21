@@ -46,9 +46,9 @@
 #include "awq/dequantize_awq.h"
 #endif
 #include "sum.h"
-#include "conv_transpose1d.h"
 #include "causal_depthwise_conv1d.h"
-#include "snake.h"
+#include "conv_transpose1d.h"
+#include "dequantize_fp8.h"
 #include "gated_delta_net.h"
 #include "moe_topk.h"
-#include "dequantize_fp8.h"
+#include "snake.h"

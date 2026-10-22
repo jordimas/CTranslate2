@@ -2,11 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <stdexcept>
 #include <vector>
 
 #include "cpu/parallel.h"
-#include "finite_check.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -15,15 +13,6 @@ namespace ctranslate2 {
     void CausalDepthwiseConv1D::compute(const StorageView& input, const StorageView& weight,
                                       const StorageView* bias, StorageView& history,
                                       StorageView& output) const {
-      for (const StorageView* tensor :
-           {&input, &weight, bias, static_cast<const StorageView*>(&history)}) {
-        if (tensor) {
-          const auto* data = tensor->data<T>();
-          if (!all_finite(data, tensor->size()))
-            throw std::invalid_argument(
-                "CausalDepthwiseConv1D inputs and history must be finite");
-        }
-      }
       const dim_t batch = input.dim(0), steps = input.dim(1), channels = input.dim(2);
       const dim_t kernel = weight.dim(1), past = kernel - 1;
       output.resize_as(input);
@@ -34,8 +23,9 @@ namespace ctranslate2 {
       const auto* b = bias ? bias->data<T>() : nullptr;
       auto* state = history.data<T>();
       auto* y = output.data<T>();
-      // The tiled path amortizes its separate vector activation on wide, long chunks.
-      if (kernel > 4 || channels < 1024 || (steps > 1 && steps < 64)) {
+      // The tiled path vectorizes across channels; the ring path wins on narrow
+      // channels or deep kernels where a single-channel inner loop fits in registers.
+      if (kernel > 4 || channels < 1024) {
         const dim_t grain = input.size() <= cpu::GRAIN_SIZE / 8 / kernel ? batch * channels : 1;
         cpu::parallel_for(0, batch * channels, grain, [&](dim_t begin, dim_t end) {
           std::vector<float> ring(past);

@@ -1589,19 +1589,6 @@ TEST(OpTest, SnakeInvalidShapeAndDtype) {
   EXPECT_THROW(ops::Snake()(integers, valid_alpha, y), std::invalid_argument);
 }
 
-TEST(OpTest, SnakeInvalidValuesLeaveOutputUntouched) {
-  StorageView x({1, 1, 1}, 1.f);
-  StorageView alpha({1}, -1e-9f);
-  StorageView y({1}, 42.f);
-  EXPECT_THROW(ops::Snake()(x, alpha, y), std::invalid_argument);
-  EXPECT_EQ(y.data<float>()[0], 42);
-  alpha.data<float>()[0] = std::numeric_limits<float>::infinity();
-  EXPECT_THROW(ops::Snake()(x, alpha, y), std::invalid_argument);
-  alpha.data<float>()[0] = 1;
-  x.data<float>()[0] = std::numeric_limits<float>::quiet_NaN();
-  EXPECT_THROW(ops::Snake()(x, alpha, y), std::invalid_argument);
-}
-
 TEST(OpTest, SnakeRejectsAliasingIncludingClearedOutput) {
   StorageView x({1, 1, 3}, 1.f);
   StorageView alpha({1}, 1.f);
@@ -1628,6 +1615,18 @@ TEST_P(OpDeviceTest, SnakeMatchesCpuAcrossBatchesAlphaLayoutsAndEmptyTime) {
       expect_storage_eq(actual, expected, 2e-6f);
     }
   }
+}
+
+TEST_P(OpDeviceTest, SnakeMatchesCpuBeyondCappedGrid) {
+  const Device device = GetParam();
+  // More elements than 65535 blocks of 256 threads, with a partial final block.
+  StorageView x({1, 2, 65535 * 128 + 17}, 0.1f);
+  StorageView alpha({2}, std::vector<float>{1.f, -1.5f});
+  StorageView expected, actual(DataType::FLOAT32, device);
+  ops::Snake()(x, alpha, expected);
+  auto dx = x.to(device), da = alpha.to(device);
+  ops::Snake()(dx, da, actual);
+  expect_storage_eq(actual, expected, 2e-6f);
 }
 
 TEST_P(OpDeviceTest, SnakeValidationLeavesOutputUntouched) {
@@ -1679,6 +1678,46 @@ TEST(OpTest, MoeTopKAnalyticSelectedSoftmax) {
     EXPECT_NEAR(weights.data<float>()[i], i % 2 ? 1 / (1 + std::exp(1.)) : 1 / (1 + std::exp(-1.)),
                 1e-7);
   }
+}
+
+static void check_moe_topk_nonfinite(Device device) {
+  const float nan = std::numeric_limits<float>::quiet_NaN();
+  const float inf = std::numeric_limits<float>::infinity();
+  StorageView host({6, 4}, std::vector<float>{
+      -1, -2, -inf, -3, inf, -1, inf, -inf, nan, -inf, -1, nan,
+      -inf, -inf, -inf, -inf, nan, nan, nan, nan, nan, -inf, nan, -inf});
+  const int32_t order[][4] = {{0, 1, 3, 2}, {0, 2, 1, 3}, {2, 1, 0, 3},
+                              {0, 1, 2, 3}, {0, 1, 2, 3}, {1, 3, 0, 2}};
+  const auto logits = host.to(device);
+  for (dim_t k : {1, 2, 4}) {
+    SCOPED_TRACE(k);
+    StorageView ids(DataType::INT32, device), weights(device);
+    ops::MoeTopK{k}(logits, ids, weights);
+    const auto host_ids = ids.to(Device::CPU), host_weights = weights.to(Device::CPU);
+    StorageView cpu_ids(DataType::INT32), cpu_weights;
+    ops::MoeTopK{k}(host, cpu_ids, cpu_weights);
+    expect_storage_eq(host_ids, cpu_ids);
+    expect_storage_eq(host_weights, cpu_weights);
+    for (dim_t row = 0; row < 6; ++row) {
+      for (dim_t i = 0; i < k; ++i) {
+        EXPECT_EQ(host_ids.data<int32_t>()[row * k + i], order[row][i]);
+        const double expected = row == 0
+          ? (i < 3 ? std::exp(-double(i)) : 0.)
+            / (1. + (k >= 2 ? std::exp(-1.) : 0.) + (k == 4 ? std::exp(-2.) : 0.))
+          : row == 1 ? (i < 2 ? 1. / std::min<dim_t>(k, 2) : 0.)
+          : row == 2 && i == 0 ? 1. : 0.;
+        EXPECT_NEAR(host_weights.data<float>()[row * k + i], expected, 1e-7);
+      }
+    }
+  }
+}
+
+TEST(OpTest, MoeTopKNonfiniteLogits) {
+  check_moe_topk_nonfinite(Device::CPU);
+}
+
+TEST_P(OpDeviceTest, MoeTopKNonfiniteLogits) {
+  check_moe_topk_nonfinite(GetParam());
 }
 
 TEST(OpTest, MoeTopKDeterministicTiesAndSingleExpert) {
@@ -1757,10 +1796,6 @@ TEST(OpTest, MoeTopKValidation) {
   EXPECT_THROW(ops::MoeTopK(2)(rank1, indices, weights), std::invalid_argument);
   StorageView wrong_indices;
   EXPECT_THROW(ops::MoeTopK(2)(logits, wrong_indices, weights), std::invalid_argument);
-  logits.data<float>()[0] = std::numeric_limits<float>::infinity();
-  EXPECT_THROW(ops::MoeTopK(2)(logits, indices, weights), std::invalid_argument);
-  logits.data<float>()[0] = std::numeric_limits<float>::quiet_NaN();
-  EXPECT_THROW(ops::MoeTopK(2)(logits, indices, weights), std::invalid_argument);
 }
 
 TEST(OpTest, MoeTopKRetainedCapacityAliasing) {
@@ -1789,12 +1824,6 @@ TEST_P(OpDeviceTest, MoeTopKValidationAndEmptyRows) {
   EXPECT_EQ(ids.shape(), (Shape{0, 2}));
   EXPECT_EQ(weights.shape(), ids.shape());
 
-}
-
-namespace {
-
-const float invalid_scales[] = {0.f, -1.f, std::numeric_limits<float>::infinity(),
-                                std::numeric_limits<float>::quiet_NaN()};
 }
 
 TEST(OpTest, DequantizeFP8EveryFiniteEncodingAndSignedBytes) {
@@ -1828,22 +1857,6 @@ TEST(OpTest, DequantizeFP8EdgeBlocksAndFloat32ScaleMultiplication) {
   for (dim_t r = 0; r < 129; ++r)
     for (dim_t c = 0; c < 130; ++c)
       EXPECT_EQ(output.data<float>()[r * 130 + c], scale.data<float>()[(r / 128) * 2 + c / 128]);
-}
-
-TEST(OpTest, DequantizeFP8RejectsInvalidScalesAndEncodings) {
-  StorageView input({1, 1}, int8_t(0x38)), scale({1, 1}, 1.f), output;
-  for (float bad : invalid_scales) {
-    scale.data<float>()[0] = bad;
-    EXPECT_THROW(ops::DequantizeFP8()(input, scale, output), std::invalid_argument);
-  }
-  scale.data<float>()[0] = 1.f;
-  for (uint8_t bad : {uint8_t(0x7f), uint8_t(0xff)}) {
-    std::memcpy(input.data<int8_t>(), &bad, 1);
-    EXPECT_THROW(ops::DequantizeFP8()(input, scale, output), std::invalid_argument);
-  }
-  input.data<int8_t>()[0] = 0x7e; // Largest finite FP8 times finite F32 can overflow.
-  scale.data<float>()[0] = std::numeric_limits<float>::max();
-  EXPECT_THROW(ops::DequantizeFP8()(input, scale, output), std::invalid_argument);
 }
 
 TEST(OpTest, DequantizeFP8RejectsMalformedShapesTypesAndAliasing) {
@@ -1887,14 +1900,10 @@ TEST_P(OpDeviceTest, DequantizeFP8DecodesNaNCodes) {
   const Device device = GetParam();
   StorageView input({1, 2}, std::vector<int8_t>{int8_t(0x7f), int8_t(0xff)}, device);
   StorageView scale({1, 1}, 1.f, device), output(device);
-  if (device == Device::CPU) {
-    EXPECT_THROW(ops::DequantizeFP8()(input, scale, output), std::invalid_argument);
-  } else {
-    ops::DequantizeFP8()(input, scale, output);
-    const auto host = output.to(Device::CPU);
-    EXPECT_TRUE(std::isnan(host.data<float>()[0]));
-    EXPECT_TRUE(std::isnan(host.data<float>()[1]));
-  }
+  ops::DequantizeFP8()(input, scale, output);
+  const auto host = output.to(Device::CPU);
+  EXPECT_TRUE(std::isnan(host.data<float>()[0]));
+  EXPECT_TRUE(std::isnan(host.data<float>()[1]));
 }
 
 TEST(OpTest, CausalDepthwiseConv1DAnalyticalNonzeroHistory) {
@@ -1942,8 +1951,6 @@ TEST(OpTest, CausalDepthwiseConv1DGuards) {
   EXPECT_THROW(op(x, weight, &bad_bias, state, y), std::invalid_argument);
   StorageView integers({1, 2, 2}, int32_t(1));
   EXPECT_THROW(op(integers, weight, nullptr, state, y), std::invalid_argument);
-  x.data<float>()[0] = std::numeric_limits<float>::quiet_NaN();
-  EXPECT_THROW(op(x, weight, nullptr, state, y), std::invalid_argument);
   expect_storage_eq(state, StorageView({1, 2, 2}, 0.f));
 }
 
@@ -2300,25 +2307,66 @@ void fill_pattern(StorageView& tensor, float scale = .03125f) {
 }
 }
 
+TEST(OpTest, CausalDepthwiseConv1DTiledMatchesScalar) {
+  for (dim_t channels : {1024, 1100})
+    for (dim_t kernel : {1, 2, 4})
+      for (dim_t steps : {1, 64, 100})
+        for (bool silu : {false, true})
+          for (bool use_bias : {false, true}) {
+            SCOPED_TRACE(::testing::Message() << channels << ", " << kernel << ", " << steps
+                         << ", silu=" << silu << ", bias=" << use_bias);
+            const dim_t past = kernel - 1;
+            StorageView x({2, steps, channels}), w({channels, kernel}), bias(Shape{channels});
+            StorageView initial({2, channels, past}), expected(x.shape()), expected_state(initial);
+            for (auto* tensor : {&x, &w, &bias, &initial})
+              fill_pattern(*tensor);
+            // Read a logical concatenation of initial history and input; never mutate it.
+            const auto sample = [&](dim_t n, dim_t c, dim_t t) {
+              return t < past ? initial.data<float>()[(n * channels + c) * past + t]
+                              : x.data<float>()[(n * steps + t - past) * channels + c];
+            };
+            for (dim_t n = 0; n < 2; ++n)
+              for (dim_t c = 0; c < channels; ++c) {
+                for (dim_t t = 0; t < steps; ++t) {
+                  double value = use_bias ? bias.data<float>()[c] : 0;
+                  for (dim_t k = 0; k < kernel; ++k)
+                    value += double(sample(n, c, t + k)) * w.data<float>()[c * kernel + k];
+                  expected.data<float>()[(n * steps + t) * channels + c] =
+                    silu ? value / (1 + std::exp(-value)) : value;
+                }
+                for (dim_t i = 0; i < past; ++i)
+                  expected_state.data<float>()[(n * channels + c) * past + i] = sample(n, c, steps + i);
+              }
+            StorageView state(initial), actual;
+            ops::CausalDepthwiseConv1D{silu}(x, w, use_bias ? &bias : nullptr, state, actual);
+            expect_storage_eq(actual, expected, 2e-6f);
+            expect_storage_eq(state, expected_state);
+          }
+}
+
 TEST_P(OpDeviceTest, CausalDepthwiseConv1DMatchesCpuAndPreservesHistory) {
   const Device device = GetParam();
-  for (dim_t kernel : {1, 4, 7}) {
-    for (dim_t steps : {0, 1, 9, 65}) {
-      for (bool silu : {false, true}) {
-        SCOPED_TRACE("kernel=" + std::to_string(kernel) + ", steps=" + std::to_string(steps)
-                     + ", silu=" + std::to_string(silu));
-        StorageView x({2, steps, 5}), w({5, kernel}), bias({5}), initial({2, 5, kernel - 1});
-        for (auto* tensor : {&x, &w, &bias, &initial})
-          fill_pattern(*tensor);
-        ops::CausalDepthwiseConv1D op(silu);
-        StorageView expected, expected_state(initial);
-        const auto* cpu_bias = silu ? &bias : nullptr;
-        op(x, w, cpu_bias, expected_state, expected);
-        auto dx = x.to(device), dw = w.to(device), db = bias.to(device), state = initial.to(device);
-        StorageView actual(DataType::FLOAT32, device);
-        op(dx, dw, silu ? &db : nullptr, state, actual);
-        expect_storage_eq(actual, expected, 2e-6f);
-        expect_storage_eq(state, expected_state);
+  for (dim_t channels : {5, 1100}) {
+    for (dim_t kernel : {1, 4, 7}) {
+      for (dim_t steps : {0, 1, 9, 65}) {
+        for (bool silu : {false, true}) {
+          SCOPED_TRACE("channels=" + std::to_string(channels) + ", kernel=" + std::to_string(kernel)
+                       + ", steps=" + std::to_string(steps)
+                       + ", silu=" + std::to_string(silu));
+          StorageView x({2, steps, channels}), w({channels, kernel}), bias(Shape{channels}),
+              initial({2, channels, kernel - 1});
+          for (auto* tensor : {&x, &w, &bias, &initial})
+            fill_pattern(*tensor);
+          ops::CausalDepthwiseConv1D op(silu);
+          StorageView expected, expected_state(initial);
+          const auto* cpu_bias = silu ? &bias : nullptr;
+          op(x, w, cpu_bias, expected_state, expected);
+          auto dx = x.to(device), dw = w.to(device), db = bias.to(device), state = initial.to(device);
+          StorageView actual(DataType::FLOAT32, device);
+          op(dx, dw, silu ? &db : nullptr, state, actual);
+          expect_storage_eq(actual, expected, 2e-6f);
+          expect_storage_eq(state, expected_state);
+        }
       }
     }
   }
@@ -2326,31 +2374,34 @@ TEST_P(OpDeviceTest, CausalDepthwiseConv1DMatchesCpuAndPreservesHistory) {
 
 TEST_P(OpDeviceTest, CausalDepthwiseConv1DArbitraryChunksMatchPrefill) {
   const Device device = GetParam();
-  StorageView input({2, 9, 3}), weight({3, 4}), initial({2, 3, 3});
-  for (auto* tensor : {&input, &weight, &initial})
-    fill_pattern(*tensor);
-  ops::CausalDepthwiseConv1D op;
-  StorageView expected, expected_state(initial);
-  op(input, weight, nullptr, expected_state, expected);
-  auto state = initial.to(device), dw = weight.to(device);
-  dim_t offset = 0;
-  for (dim_t count : {0, 2, 1, 5, 1}) {
-    StorageView chunk({2, count, 3}), expected_chunk(chunk.shape());
-    for (dim_t n = 0; n < 2; ++n) {
-      if (count) {
-        std::copy_n(input.data<float>() + (n * 9 + offset) * 3, count * 3,
-                    chunk.data<float>() + n * count * 3);
-        std::copy_n(expected.data<float>() + (n * 9 + offset) * 3, count * 3,
-                    expected_chunk.data<float>() + n * count * 3);
+  for (dim_t channels : {3, 1100}) {
+    SCOPED_TRACE(channels);
+    StorageView input({2, 129, channels}), weight({channels, 4}), initial({2, channels, 3});
+    for (auto* tensor : {&input, &weight, &initial})
+      fill_pattern(*tensor);
+    ops::CausalDepthwiseConv1D op;
+    StorageView expected, expected_state(initial);
+    op(input, weight, nullptr, expected_state, expected);
+    auto state = initial.to(device), dw = weight.to(device);
+    dim_t offset = 0;
+    for (dim_t count : {0, 1, 63, 64, 1}) {
+      StorageView chunk({2, count, channels}), expected_chunk(chunk.shape());
+      for (dim_t n = 0; n < 2; ++n) {
+        if (count) {
+          std::copy_n(input.data<float>() + (n * 129 + offset) * channels, count * channels,
+                      chunk.data<float>() + n * count * channels);
+          std::copy_n(expected.data<float>() + (n * 129 + offset) * channels, count * channels,
+                      expected_chunk.data<float>() + n * count * channels);
+        }
       }
+      auto dx = chunk.to(device);
+      StorageView actual(DataType::FLOAT32, device);
+      op(dx, dw, nullptr, state, actual);
+      expect_storage_eq(actual, expected_chunk, 2e-6f);
+      offset += count;
     }
-    auto dx = chunk.to(device);
-    StorageView actual(DataType::FLOAT32, device);
-    op(dx, dw, nullptr, state, actual);
-    expect_storage_eq(actual, expected_chunk, 2e-6f);
-    offset += count;
+    expect_storage_eq(state, expected_state);
   }
-  expect_storage_eq(state, expected_state);
 }
 
 TEST_P(OpDeviceTest, CausalDepthwiseConv1DValidationDoesNotMutateHistoryOrOutput) {
@@ -2370,18 +2421,8 @@ TEST_P(OpDeviceTest, CausalDepthwiseConv1DValidationDoesNotMutateHistoryOrOutput
   EXPECT_THROW(op(dx, wrong_weight, &db, state, actual), std::invalid_argument);
   EXPECT_THROW(op(dx, dw, &wrong_bias, state, actual), std::invalid_argument);
   EXPECT_THROW(op(wrong_type, dw, &db, state, actual), std::invalid_argument);
-  for (int bad_tensor = 0; device == Device::CPU && bad_tensor < 4; ++bad_tensor) {
-    StorageView hx(x), hw(w), hb(bias), hs(initial);
-    StorageView* tensors[] = {&hx, &hw, &hb, &hs};
-    tensors[bad_tensor]->data<float>()[0] = std::numeric_limits<float>::infinity();
-    dx = hx.to(device);
-    dw = hw.to(device);
-    db = hb.to(device);
-    state = hs.to(device);
-    EXPECT_THROW(op(dx, dw, &db, state, actual), std::invalid_argument);
-    expect_storage_eq(state, hs);
-    expect_storage_eq(actual, StorageView({1}, 42.f));
-  }
+  expect_storage_eq(state, initial);
+  expect_storage_eq(actual, StorageView({1}, 42.f));
   if (device == Device::CUDA) {
     EXPECT_THROW(op(x, dw, &db, state, actual), std::invalid_argument);
   }

@@ -1,0 +1,25 @@
+name: release-gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install orchestrator deps
+        run: pip install pyyaml
+
+      - name: Run release gate
+        run: |
+          python release-gates/run_gate.py \
+            --limit 20 \
+            --device cpu

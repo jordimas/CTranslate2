@@ -1,177 +1,103 @@
-"""Release gate orchestrator.
+"""Release gate: compare candidate ctranslate2 against latest PyPI release.
 
-Creates two venvs (baseline = latest PyPI release of ctranslate2,
-candidate = either an installed wheel or the already-installed version),
-runs each task in both, diffs the resulting metrics against
-`thresholds.yaml`, and exits non-zero on hard-severity regressions.
+Creates two venvs, runs the same tasks in each, exits non-zero on hard
+regressions.
 """
 
 import argparse
 import json
 import os
 import pathlib
-import shutil
 import subprocess
 import sys
 import tempfile
 import urllib.request
 import venv
 
-import yaml
-
 ROOT = pathlib.Path(__file__).resolve().parent
-TASKS = ["whisper_wer", "opus_bleu"]
-TASK_DEPS = {
-    "whisper_wer": [
-        "transformers", "torch", "jiwer", "datasets", "soundfile", "librosa",
-    ],
-    "opus_bleu": [
-        "transformers", "torch", "sacrebleu", "sentencepiece", "sacremoses",
-    ],
+DEPS = ["faster-whisper==1.0.2", "jiwer", "datasets", "soundfile", "librosa",
+        "transformers", "torch", "sacrebleu", "sentencepiece", "sacremoses"]
+
+# (threshold, higher_is_better, severity). Severity: "hard" exits non-zero.
+RULES = {
+    "whisper_wer": {
+        "wer":         (0.003, False, "hard"),   # +0.3 WER points
+        "rtf_inverse": (0.10,  True,  "soft"),   # 10% slower
+    },
+    "opus_bleu": {
+        "bleu":           (0.3,  True, "hard"),  # -0.3 BLEU points
+        "tokens_per_sec": (0.10, True, "soft"),
+    },
 }
-COMMON_DEPS = ["pyyaml"]
 
 
-def latest_pypi_version(pkg="ctranslate2"):
-    url = f"https://pypi.org/pypi/{pkg}/json"
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        data = json.load(resp)
-    return data["info"]["version"]
+def latest_version(pkg="ctranslate2"):
+    with urllib.request.urlopen(f"https://pypi.org/pypi/{pkg}/json", timeout=30) as r:
+        return json.load(r)["info"]["version"]
 
 
-def make_venv(path, ctranslate2_spec, extras):
-    builder = venv.EnvBuilder(with_pip=True, clear=True)
-    builder.create(path)
+def make_venv(path, ct2_spec):
+    venv.EnvBuilder(with_pip=True, clear=True).create(path)
     py = os.path.join(path, "bin", "python")
-    pip = [py, "-m", "pip", "install", "--quiet", "--upgrade", "pip"]
-    subprocess.check_call(pip)
-    install = [py, "-m", "pip", "install", "--quiet", ctranslate2_spec] + extras
-    subprocess.check_call(install)
+    subprocess.check_call([py, "-m", "pip", "install", "-q", "-U", "pip"])
+    subprocess.check_call([py, "-m", "pip", "install", "-q", ct2_spec, *DEPS])
     return py
 
 
 def run_task(py, task, limit, device):
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(ROOT)
-    cmd = [py, str(ROOT / "harness.py"), task, "--device", device]
+    cmd = [py, str(ROOT / "tasks.py"), task, "--device", device]
     if limit is not None:
         cmd += ["--limit", str(limit)]
-    out = subprocess.check_output(cmd, env=env)
-    # harness prints a single JSON line; take the last non-empty line to
-    # tolerate any logging noise from models.
-    last = [l for l in out.decode().splitlines() if l.strip()][-1]
-    return json.loads(last)
+    out = subprocess.check_output(cmd).decode()
+    return json.loads([l for l in out.splitlines() if l.strip()][-1])
 
 
-def judge(task, baseline, candidate, thresholds):
-    results = []
-    for metric, rule in thresholds["metrics"].items():
-        if metric not in baseline or metric not in candidate:
+def judge(task, base, cand):
+    rows, failed = [], False
+    for metric, (threshold, higher_is_better, severity) in RULES[task].items():
+        if metric not in base or metric not in cand:
             continue
-        b, c = baseline[metric], candidate[metric]
-        direction = rule["direction"]
-        regressed = False
-        delta = c - b
-        if direction == "lower_is_better":
-            abs_delta = max(0.0, delta)
-            rel_delta = (delta / b) if b else 0.0
-        else:
-            abs_delta = max(0.0, -delta)
-            rel_delta = (-delta / b) if b else 0.0
-        if "max_abs_delta" in rule and abs_delta > rule["max_abs_delta"]:
-            regressed = True
-        if "max_rel_delta" in rule and rel_delta > rule["max_rel_delta"]:
-            regressed = True
-        results.append({
-            "metric": metric,
-            "baseline": b,
-            "candidate": c,
-            "delta": delta,
-            "severity": rule["severity"],
-            "regressed": regressed,
-        })
-    return results
-
-
-def format_table(all_results):
-    lines = ["| task | metric | baseline | candidate | delta | severity | status |",
-             "|---|---|---|---|---|---|---|"]
-    for task, rows in all_results.items():
-        for r in rows:
-            status = "FAIL" if r["regressed"] else "ok"
-            lines.append(
-                f"| {task} | {r['metric']} | {r['baseline']:.4f} | "
-                f"{r['candidate']:.4f} | {r['delta']:+.4f} | "
-                f"{r['severity']} | {status} |"
-            )
-    return "\n".join(lines)
+        b, c = base[metric], cand[metric]
+        regression = (b - c) if higher_is_better else (c - b)
+        # For soft rules the threshold is a relative fraction.
+        limit = threshold * abs(b) if severity == "soft" else threshold
+        bad = regression > limit
+        if bad and severity == "hard":
+            failed = True
+        rows.append((metric, b, c, c - b, severity, "FAIL" if bad else "ok"))
+    return rows, failed
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--candidate-wheel", default=None,
-                        help="path or pip spec for the candidate build; "
-                             "defaults to 'ctranslate2' (installed from PyPI, same as baseline — "
-                             "useful only for smoke-testing the gate itself)")
-    parser.add_argument("--tasks", nargs="+", default=TASKS, choices=TASKS)
-    parser.add_argument("--limit", type=int, default=50,
-                        help="cap samples per task (default 50 for CI speed; "
-                             "set higher or 0 for a full run)")
-    parser.add_argument("--device", default="cpu")
-    parser.add_argument("--work-dir", default=None)
-    args = parser.parse_args()
-
+    p = argparse.ArgumentParser()
+    p.add_argument("--candidate-wheel", default="ctranslate2",
+                   help="pip spec or wheel path (defaults to PyPI = self-test)")
+    p.add_argument("--limit", type=int, default=50, help="0 = full task set")
+    p.add_argument("--device", default="cpu")
+    args = p.parse_args()
     limit = None if args.limit == 0 else args.limit
-    baseline_version = latest_pypi_version()
-    baseline_spec = f"ctranslate2=={baseline_version}"
-    candidate_spec = args.candidate_wheel or "ctranslate2"
 
-    tmp = args.work_dir or tempfile.mkdtemp(prefix="release-gate-")
-    print(f"[gate] work dir: {tmp}", flush=True)
-    print(f"[gate] baseline: {baseline_spec}", flush=True)
-    print(f"[gate] candidate: {candidate_spec}", flush=True)
+    baseline_spec = f"ctranslate2=={latest_version()}"
+    print(f"[gate] baseline={baseline_spec} candidate={args.candidate_wheel}")
 
-    all_deps = sorted({d for t in args.tasks for d in TASK_DEPS[t]} | set(COMMON_DEPS))
+    with tempfile.TemporaryDirectory(prefix="release-gate-") as tmp:
+        print("[gate] creating baseline venv")
+        base_py = make_venv(os.path.join(tmp, "baseline"), baseline_spec)
+        print("[gate] creating candidate venv")
+        cand_py = make_venv(os.path.join(tmp, "candidate"), args.candidate_wheel)
 
-    print("[gate] creating baseline venv...", flush=True)
-    baseline_py = make_venv(os.path.join(tmp, "baseline"), baseline_spec, all_deps)
-    print("[gate] creating candidate venv...", flush=True)
-    candidate_py = make_venv(os.path.join(tmp, "candidate"), candidate_spec, all_deps)
-
-    with open(ROOT / "thresholds.yaml") as f:
-        thresholds = yaml.safe_load(f)["tasks"]
-
-    all_results = {}
-    hard_fail = False
-    for task in args.tasks:
-        print(f"[gate] running task={task} on baseline...", flush=True)
-        baseline_metrics = run_task(baseline_py, task, limit, args.device)
-        print(f"[gate]   baseline metrics: {baseline_metrics}", flush=True)
-        print(f"[gate] running task={task} on candidate...", flush=True)
-        candidate_metrics = run_task(candidate_py, task, limit, args.device)
-        print(f"[gate]   candidate metrics: {candidate_metrics}", flush=True)
-
-        rows = judge(task, baseline_metrics, candidate_metrics, thresholds[task])
-        all_results[task] = rows
-        for r in rows:
-            if r["regressed"] and r["severity"] == "hard":
-                hard_fail = True
-
-    print()
-    print(format_table(all_results))
-    print()
-
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary_path:
-        with open(summary_path, "a") as f:
-            f.write("## Release gate results\n\n")
-            f.write(f"- baseline: `{baseline_spec}`\n")
-            f.write(f"- candidate: `{candidate_spec}`\n\n")
-            f.write(format_table(all_results))
-            f.write("\n")
-
-    if not args.work_dir:
-        shutil.rmtree(tmp, ignore_errors=True)
+        hard_fail = False
+        for task in RULES:
+            print(f"[gate] {task}: baseline")
+            b = run_task(base_py, task, limit, args.device)
+            print(f"       {b}")
+            print(f"[gate] {task}: candidate")
+            c = run_task(cand_py, task, limit, args.device)
+            print(f"       {c}")
+            rows, failed = judge(task, b, c)
+            for m, bv, cv, d, sev, st in rows:
+                print(f"  {task}.{m}: {bv:.4f} -> {cv:.4f} ({d:+.4f}) [{sev}] {st}")
+            hard_fail |= failed
 
     sys.exit(1 if hard_fail else 0)
 

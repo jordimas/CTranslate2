@@ -15,9 +15,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install orchestrator deps
-        run: pip install pyyaml
-
       - name: Run release gate
         run: |
           python release-gates/run_gate.py \

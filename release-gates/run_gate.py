@@ -38,7 +38,10 @@ def latest_version(pkg="ctranslate2"):
 
 def make_venv(path, ct2_spec):
     venv.EnvBuilder(with_pip=True, clear=True).create(path)
-    py = os.path.join(path, "bin", "python")
+    if sys.platform == "win32":
+        py = os.path.join(path, "Scripts", "python.exe")
+    else:
+        py = os.path.join(path, "bin", "python")
     subprocess.check_call([py, "-m", "pip", "install", "-q", "-U", "pip"])
     subprocess.check_call([py, "-m", "pip", "install", "-q", ct2_spec, *DEPS])
     return py

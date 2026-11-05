@@ -6,8 +6,10 @@ import time
 
 def _load_librispeech(limit):
     from datasets import load_dataset
-    ds = load_dataset("librispeech_asr", "clean", split="test",
-                      streaming=True, trust_remote_code=True)
+    # Parquet-backed mirror maintained by HF for CI; the canonical
+    # `librispeech_asr` loading script was removed from the Hub.
+    ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean",
+                      split="validation", streaming=True)
     return [(x["audio"]["array"], x["audio"]["sampling_rate"], x["text"])
             for x in list(ds.take(limit))]
 

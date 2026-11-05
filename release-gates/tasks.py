@@ -5,13 +5,21 @@ import time
 
 
 def _load_librispeech(limit):
-    from datasets import load_dataset
+    import io
+    import soundfile
+    from datasets import Audio, load_dataset
     # Parquet-backed mirror maintained by HF for CI; the canonical
     # `librispeech_asr` loading script was removed from the Hub.
+    # decode=False avoids pulling torchcodec/ffmpeg system libs; we decode
+    # the raw FLAC bytes with soundfile instead.
     ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean",
                       split="validation", streaming=True)
-    return [(x["audio"]["array"], x["audio"]["sampling_rate"], x["text"])
-            for x in list(ds.take(limit))]
+    ds = ds.cast_column("audio", Audio(decode=False))
+    out = []
+    for x in list(ds.take(limit)):
+        audio, sr = soundfile.read(io.BytesIO(x["audio"]["bytes"]))
+        out.append((audio, sr, x["text"]))
+    return out
 
 
 def run_whisper_wer(limit=300, device="cpu"):

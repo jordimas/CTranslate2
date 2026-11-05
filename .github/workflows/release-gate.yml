@@ -20,7 +20,4 @@ jobs:
           python-version: "3.11"
 
       - name: Run release gate
-        run: |
-          python release-gates/run_gate.py \
-            --limit 20 \
-            --device cpu
+        run: python release-gates/run_gate.py --limit 20 --device cpu

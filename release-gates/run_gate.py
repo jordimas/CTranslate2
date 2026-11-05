@@ -15,7 +15,7 @@ import urllib.request
 import venv
 
 ROOT = pathlib.Path(__file__).resolve().parent
-DEPS = ["faster-whisper==1.0.2", "jiwer", "datasets", "soundfile",
+DEPS = ["faster-whisper==1.0.2", "requests", "jiwer", "datasets", "soundfile",
         "transformers", "torch", "sacrebleu", "sentencepiece", "sacremoses"]
 
 # (threshold, higher_is_better, severity). Severity: "hard" exits non-zero.

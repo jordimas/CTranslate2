@@ -52,5 +52,5 @@ jobs:
           subprocess.check_call([
               sys.executable, "release-gates/run_gate.py",
               "--candidate-wheel", str(wheels[0].resolve()),
-              "--limit", "20", "--device", "cpu",
+              "--limit", "20", "--bleu-limit", "500", "--device", "cpu",
           ])

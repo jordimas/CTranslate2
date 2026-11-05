@@ -28,6 +28,9 @@ RULES = {
         "bleu":           (0.3,  True, "hard"),  # -0.3 BLEU points
         "tokens_per_sec": (0.10, True, "soft"),
     },
+    "t5gemma_generation": {
+        "tokens_per_sec": (0.10, True, "soft"),
+    },
 }
 
 
@@ -71,13 +74,29 @@ def judge(task, base, cand):
     return rows, failed
 
 
+def compare_completions(base, cand):
+    baseline, candidate = base["outputs"], cand["outputs"]
+    if (not baseline or len(baseline) != len(candidate)
+            or any(not isinstance(s, str) or not s.strip() for s in baseline + candidate)):
+        raise ValueError("Expected equal, nonempty sets of nonempty completions")
+    changed = [(i, b, c) for i, (b, c) in enumerate(zip(baseline, candidate), 1) if b != c]
+    print(f"[gate] changed completions: {len(changed)}/{len(baseline)} [informational]")
+    for i, b, c in changed:
+        print(f"  prompt {i}: baseline={b!r} candidate={c!r}")
+    return len(changed)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--candidate-wheel", default="ctranslate2",
                    help="pip spec or wheel path (defaults to PyPI = self-test)")
     p.add_argument("--limit", type=int, default=50, help="0 = full task set")
+    p.add_argument("--bleu-limit", type=int, default=500,
+                   help="number of translation sentences (default: 500; overrides --limit)")
     p.add_argument("--device", default="cpu")
     args = p.parse_args()
+    if args.bleu_limit < 1:
+        p.error("--bleu-limit must be positive")
     limit = None if args.limit == 0 else args.limit
 
     baseline_spec = f"ctranslate2=={latest_version()}"
@@ -91,12 +110,17 @@ def main():
 
         hard_fail = False
         for task in RULES:
+            task_limit = args.bleu_limit if task == "opus_bleu" else limit
+            if task == "t5gemma_generation":
+                task_limit = 50
             print(f"[gate] {task}: baseline")
-            b = run_task(base_py, task, limit, args.device)
+            b = run_task(base_py, task, task_limit, args.device)
             print(f"       {b}")
             print(f"[gate] {task}: candidate")
-            c = run_task(cand_py, task, limit, args.device)
+            c = run_task(cand_py, task, task_limit, args.device)
             print(f"       {c}")
+            if task == "t5gemma_generation":
+                compare_completions(b, c)
             rows, failed = judge(task, b, c)
             for m, bv, cv, d, sev, st in rows:
                 print(f"  {task}.{m}: {bv:.4f} -> {cv:.4f} ({d:+.4f}) [{sev}] {st}")

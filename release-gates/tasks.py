@@ -1,5 +1,7 @@
-"""Release-gate tasks. Each `run_*` returns a flat dict of metrics."""
+"""Release-gate tasks returning metrics and optional generated outputs."""
 
+import json
+import pathlib
 import tempfile
 import time
 
@@ -78,7 +80,37 @@ def run_opus_bleu(limit=500, device="cpu"):
             "num_sentences": len(sources)}
 
 
-TASKS = {"whisper_wer": run_whisper_wer, "opus_bleu": run_opus_bleu}
+def run_t5gemma_generation(limit=50, device="cpu"):
+    import ctranslate2
+    import transformers
+    from ctranslate2.converters.transformers import TransformersConverter
+
+    model_name = "jordimas/t5gemma-2-270m-270m"
+    revision = "dfb6d0d619d8e6d42f279a6197abb90dec0137c1"
+    prompts = json.loads(pathlib.Path(__file__).with_name("generation_prompts.json").read_text())[:limit]
+    if not prompts:
+        raise ValueError("Generation requires at least one prompt")
+    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, revision=revision)
+    inputs = [tokenizer.convert_ids_to_tokens(tokenizer.encode(p)) for p in prompts]
+    with tempfile.TemporaryDirectory() as tmp:
+        TransformersConverter(model_name, revision=revision).convert(
+            tmp, force=True, quantization="float32")
+        translator = ctranslate2.Translator(tmp, device=device, compute_type="float32")
+        start = time.perf_counter()
+        results = translator.translate_batch(
+            inputs, beam_size=1, sampling_topk=1, max_decoding_length=64,
+            max_batch_size=8)
+        elapsed = time.perf_counter() - start
+    outputs = [tokenizer.decode(tokenizer.convert_tokens_to_ids(r.hypotheses[0]),
+                                skip_special_tokens=True).strip() for r in results]
+    if len(outputs) != len(prompts) or any(not output for output in outputs):
+        raise ValueError("Generation returned missing or empty completions")
+    return {"outputs": outputs, "num_prompts": len(prompts),
+            "tokens_per_sec": sum(len(r.hypotheses[0]) for r in results) / elapsed}
+
+
+TASKS = {"whisper_wer": run_whisper_wer, "opus_bleu": run_opus_bleu,
+         "t5gemma_generation": run_t5gemma_generation}
 
 
 if __name__ == "__main__":

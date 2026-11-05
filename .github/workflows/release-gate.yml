@@ -1,23 +1,56 @@
 name: release-gate
 
 on:
-  push:
-  pull_request:
+  workflow_call:
 
 jobs:
   release-gate:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-22.04
+            artifact: python-wheels-Linux-auto64
+            wheel: "*-cp314-cp314-manylinux*x86_64.whl"
+          - os: ubuntu-22.04-arm
+            artifact: python-wheels-Linux-aarch64
+            wheel: "*-cp314-cp314-manylinux*aarch64.whl"
+          - os: macos-15
+            artifact: python-wheels-macOS-arm64
+            wheel: "*-cp314-cp314-macosx*arm64.whl"
+          - os: windows-2022
+            artifact: python-wheels-Windows-auto64
+            wheel: "*-cp314-cp314-win_amd64.whl"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
 
+      - name: Download candidate wheels
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.artifact }}
+          path: candidate-wheels
+
       - name: Run release gate
-        run: python release-gates/run_gate.py --limit 20 --device cpu
+        shell: python
+        env:
+          CANDIDATE_WHEEL_PATTERN: ${{ matrix.wheel }}
+        run: |
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          wheels = list(pathlib.Path("candidate-wheels").glob(os.environ["CANDIDATE_WHEEL_PATTERN"]))
+          if len(wheels) != 1:
+              sys.exit(f"Expected exactly one CPython 3.14 candidate wheel, found {len(wheels)}: {wheels}")
+          subprocess.check_call([
+              sys.executable, "release-gates/run_gate.py",
+              "--candidate-wheel", str(wheels[0].resolve()),
+              "--limit", "20", "--device", "cpu",
+          ])

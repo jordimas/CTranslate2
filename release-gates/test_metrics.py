@@ -6,32 +6,24 @@ import unittest
 from unittest.mock import patch
 
 import run_gate
-
 from run_gate import judge
 
 
 class MetricValidationTest(unittest.TestCase):
-    def test_invalid_metrics_fail_on_either_side(self):
+    def test_invalid_or_missing_metrics_fail_on_either_side(self):
+        missing = object()
         valid = {"bleu": 30.0, "tokens_per_sec": 100.0}
         for label in ("baseline", "candidate"):
             for metric in valid:
-                for value in (None, "30", True, False, float("nan"),
+                for value in (missing, None, "30", True, False, float("nan"),
                               float("inf"), float("-inf")):
                     with self.subTest(label=label, metric=metric, value=value):
                         invalid = dict(valid, **{metric: value})
+                        if value is missing:
+                            del invalid[metric]
                         base, cand = (invalid, valid) if label == "baseline" else (valid, invalid)
                         with self.assertRaisesRegex(ValueError, f"opus_bleu: {label} metric '{metric}'"):
                             judge("opus_bleu", base, cand)
-
-    def test_missing_metrics_fail_on_either_side(self):
-        valid = {"bleu": 30.0, "tokens_per_sec": 100.0}
-        for label in ("baseline", "candidate"):
-            for metric in valid:
-                with self.subTest(label=label, metric=metric):
-                    invalid = {k: v for k, v in valid.items() if k != metric}
-                    base, cand = (invalid, valid) if label == "baseline" else (valid, invalid)
-                    with self.assertRaisesRegex(ValueError, f"opus_bleu: {label} metric '{metric}'"):
-                        judge("opus_bleu", base, cand)
 
     def test_zero_values_are_valid(self):
         results = judge("whisper_wer", {"wer": 0, "rtf_inverse": 0.0},
@@ -98,31 +90,27 @@ class MetricValidationTest(unittest.TestCase):
                                  expected)
                 self.assertEqual(measure.call_count, len(rounds))
 
-    def test_median_ignores_outlier_and_alternates_order(self):
-        values = iter((100, 100, 1))
-        order = []
+    def test_measurements_preserve_quality_and_ignore_performance_outliers(self):
+        for metric, values, expected_quality in (
+            ("tokens_per_sec", (100, 100, 1), False),
+            ("bleu", (30, 29, 30), True),
+        ):
+            with self.subTest(metric=metric):
+                values = iter(values)
 
-        def result(py, *args):
-            order.append(py)
-            return {"bleu": 30, "tokens_per_sec": next(values) if py == "c" else 100}
+                def result(py, *args):
+                    metrics = {"bleu": 30, "tokens_per_sec": 100}
+                    if py == "c":
+                        metrics[metric] = next(values)
+                    return metrics
 
-        with patch.object(run_gate, "run_task", side_effect=result), \
-             contextlib.redirect_stdout(io.StringIO()):
-            quality, performance = run_gate.measure_round("b", "c", "opus_bleu", 20, "cpu")
-        self.assertFalse(quality)
-        self.assertEqual(performance, set())
-        self.assertEqual(order, ["b", "c", "c", "b", "b", "c"])
-
-    def test_quality_failure_in_one_measurement_is_retained(self):
-        values = iter((30, 29, 30))
-
-        def result(py, *args):
-            return {"bleu": next(values) if py == "c" else 30, "tokens_per_sec": 100}
-
-        with patch.object(run_gate, "run_task", side_effect=result), \
-             contextlib.redirect_stdout(io.StringIO()):
-            quality, _ = run_gate.measure_round("b", "c", "opus_bleu", 20, "cpu")
-        self.assertTrue(quality)
+                with patch.object(run_gate, "run_task", side_effect=result) as task, \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    quality, performance = run_gate.measure_round("b", "c", "opus_bleu", 20, "cpu")
+                self.assertEqual(quality, expected_quality)
+                self.assertEqual(performance, set())
+                self.assertEqual([call.args[0] for call in task.call_args_list],
+                                 ["b", "c", "c", "b", "b", "c"])
 
     def test_threshold_equality_is_not_a_regression(self):
         results = judge("whisper_wer", {"wer": 0, "rtf_inverse": 100},

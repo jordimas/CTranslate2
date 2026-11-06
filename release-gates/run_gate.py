@@ -6,6 +6,7 @@ regressions.
 
 import argparse
 import json
+import math
 import os
 import pathlib
 import subprocess
@@ -58,11 +59,22 @@ def run_task(py, task, limit, device):
     return json.loads([l for l in out.splitlines() if l.strip()][-1])
 
 
+def validate_metrics(task, result, label):
+    for metric in RULES[task]:
+        value = result.get(metric)
+        if (isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)):
+            raise ValueError(
+                f"{task}: {label} metric {metric!r} "
+                f"is missing or invalid: {value!r}")
+
+
 def judge(task, base, cand):
+    validate_metrics(task, base, "baseline")
+    validate_metrics(task, cand, "candidate")
     rows, failed = [], False
     for metric, (threshold, higher_is_better, severity) in RULES[task].items():
-        if metric not in base or metric not in cand:
-            continue
         b, c = base[metric], cand[metric]
         regression = (b - c) if higher_is_better else (c - b)
         # For soft rules the threshold is a relative fraction.

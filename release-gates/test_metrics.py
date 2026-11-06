@@ -39,7 +39,7 @@ class MetricValidationTest(unittest.TestCase):
         self.assertFalse(failed)
         self.assertTrue(all(row[-1] == "ok" for row in rows))
 
-    def test_hard_regression_fails(self):
+    def test_quality_regression_fails(self):
         _, failed = judge("opus_bleu", {"bleu": 30, "tokens_per_sec": 100},
                           {"bleu": 29, "tokens_per_sec": 100})
         self.assertTrue(failed)
@@ -59,7 +59,6 @@ class MetricValidationTest(unittest.TestCase):
                             dict(quality, **{metric: baseline * ratio}))
                         self.assertEqual(failed, expected_failure)
                         row = next(row for row in rows if row[0] == metric)
-                        self.assertEqual(row[-2], "hard")
                         self.assertEqual(row[-1], "FAIL" if expected_failure else "ok")
 
     def test_main_exit_status_for_performance_regressions(self):

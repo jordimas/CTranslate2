@@ -1,7 +1,7 @@
 # Release gate
 
 Compares the candidate ctranslate2 build against the latest version published
-on PyPI. Fails on hard-severity regressions in WER (whisper-tiny on
+on PyPI. Fails on quality regressions in WER (whisper-tiny on
 the LibriSpeech dummy clean validation set) or BLEU (opus-mt-en-de on
 sacrebleu wmt14). Throughput drops greater than 10% relative to the baseline
 also fail the gate for any of the three tasks when confirmed by a second round.

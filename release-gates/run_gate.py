@@ -1,7 +1,7 @@
 """Release gate: compare candidate ctranslate2 against latest PyPI release.
 
-Creates two venvs, runs the same tasks in each, exits non-zero on hard
-regressions.
+Creates two venvs, runs the same tasks in each, exits non-zero on quality
+regressions or confirmed performance regressions.
 """
 
 import argparse
@@ -20,19 +20,19 @@ ROOT = pathlib.Path(__file__).resolve().parent
 DEPS = ["faster-whisper==1.0.2", "requests", "jiwer", "datasets", "soundfile",
         "transformers", "torch", "sacrebleu", "sentencepiece", "sacremoses"]
 
-# (threshold, higher_is_better, severity, relative). "hard" exits non-zero.
+# (threshold, higher_is_better, relative).
 # Relative thresholds are fractions of the baseline; others are absolute deltas.
 RULES = {
     "whisper_wer": {
-        "wer":         (0.003, False, "hard", False),   # +0.3 WER points
-        "rtf_inverse": (0.10,  True,  "hard", True),   # >10% throughput drop
+        "wer":         (0.003, False, False),   # +0.3 WER points
+        "rtf_inverse": (0.10,  True,  True),   # >10% throughput drop
     },
     "opus_bleu": {
-        "bleu":           (0.3,  True, "hard", False),  # -0.3 BLEU points
-        "tokens_per_sec": (0.10, True, "hard", True),
+        "bleu":           (0.3,  True, False),  # -0.3 BLEU points
+        "tokens_per_sec": (0.10, True, True),
     },
     "t5gemma_generation": {
-        "tokens_per_sec": (0.10, True, "hard", True),
+        "tokens_per_sec": (0.10, True, True),
     },
 }
 
@@ -79,14 +79,13 @@ def judge(task, base, cand):
     validate_metrics(task, base, "baseline")
     validate_metrics(task, cand, "candidate")
     rows, failed = [], False
-    for metric, (threshold, higher_is_better, severity, relative) in RULES[task].items():
+    for metric, (threshold, higher_is_better, relative) in RULES[task].items():
         b, c = base[metric], cand[metric]
         regression = (b - c) if higher_is_better else (c - b)
         limit = threshold * abs(b) if relative else threshold
         bad = regression > limit
-        if bad and severity == "hard":
-            failed = True
-        rows.append((metric, b, c, c - b, severity, "FAIL" if bad else "ok"))
+        failed |= bad
+        rows.append((metric, b, c, c - b, "FAIL" if bad else "ok"))
     return rows, failed
 
 
@@ -120,7 +119,7 @@ def measure_round(base_py, cand_py, task, limit, device, confirmation=False):
         if task == "t5gemma_generation":
             compare_completions(base, cand)
         rows, _ = judge(task, base, cand)
-        quality_failed |= any(row[-1] == "FAIL" and not RULES[task][row[0]][3]
+        quality_failed |= any(row[-1] == "FAIL" and not RULES[task][row[0]][2]
                               for row in rows)
 
     medians = {}
@@ -131,11 +130,11 @@ def measure_round(base_py, cand_py, task, limit, device, confirmation=False):
         }
         print(f"[gate] {task}: {label} measurements={results}")
     rows, _ = judge(task, medians["baseline"], medians["candidate"])
-    for metric, base, cand, delta, severity, status in rows:
+    for metric, base, cand, delta, status in rows:
         print(f"  {task}.{metric} median: {base:.4f} -> {cand:.4f} "
-              f"({delta:+.4f}) [{severity}] {status}")
+              f"({delta:+.4f}) {status}")
     performance_failures = {row[0] for row in rows
-                            if row[-1] == "FAIL" and RULES[task][row[0]][3]}
+                            if row[-1] == "FAIL" and RULES[task][row[0]][2]}
     return quality_failed, performance_failures
 
 
@@ -175,14 +174,14 @@ def main():
         print("[gate] creating candidate venv")
         cand_py = make_venv(os.path.join(tmp, "candidate"), args.candidate_wheel)
 
-        hard_fail = False
+        failed = False
         for task in RULES:
             task_limit = args.bleu_limit if task == "opus_bleu" else limit
             if task == "t5gemma_generation":
                 task_limit = 50
-            hard_fail |= evaluate_task(base_py, cand_py, task, task_limit, args.device)
+            failed |= evaluate_task(base_py, cand_py, task, task_limit, args.device)
 
-    sys.exit(1 if hard_fail else 0)
+    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":

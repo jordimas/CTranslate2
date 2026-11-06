@@ -9,6 +9,7 @@ import json
 import math
 import os
 import pathlib
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -19,18 +20,19 @@ ROOT = pathlib.Path(__file__).resolve().parent
 DEPS = ["faster-whisper==1.0.2", "requests", "jiwer", "datasets", "soundfile",
         "transformers", "torch", "sacrebleu", "sentencepiece", "sacremoses"]
 
-# (threshold, higher_is_better, severity). Severity: "hard" exits non-zero.
+# (threshold, higher_is_better, severity, relative). "hard" exits non-zero.
+# Relative thresholds are fractions of the baseline; others are absolute deltas.
 RULES = {
     "whisper_wer": {
-        "wer":         (0.003, False, "hard"),   # +0.3 WER points
-        "rtf_inverse": (0.10,  True,  "soft"),   # 10% slower
+        "wer":         (0.003, False, "hard", False),   # +0.3 WER points
+        "rtf_inverse": (0.10,  True,  "hard", True),   # >10% throughput drop
     },
     "opus_bleu": {
-        "bleu":           (0.3,  True, "hard"),  # -0.3 BLEU points
-        "tokens_per_sec": (0.10, True, "soft"),
+        "bleu":           (0.3,  True, "hard", False),  # -0.3 BLEU points
+        "tokens_per_sec": (0.10, True, "hard", True),
     },
     "t5gemma_generation": {
-        "tokens_per_sec": (0.10, True, "soft"),
+        "tokens_per_sec": (0.10, True, "hard", True),
     },
 }
 
@@ -55,7 +57,10 @@ def run_task(py, task, limit, device):
     cmd = [py, str(ROOT / "tasks.py"), task, "--device", device]
     if limit is not None:
         cmd += ["--limit", str(limit)]
-    out = subprocess.check_output(cmd).decode()
+    env = dict(os.environ, OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
+               OPENBLAS_NUM_THREADS="2", VECLIB_MAXIMUM_THREADS="2",
+               TOKENIZERS_PARALLELISM="false")
+    out = subprocess.check_output(cmd, env=env).decode()
     return json.loads([l for l in out.splitlines() if l.strip()][-1])
 
 
@@ -74,11 +79,10 @@ def judge(task, base, cand):
     validate_metrics(task, base, "baseline")
     validate_metrics(task, cand, "candidate")
     rows, failed = [], False
-    for metric, (threshold, higher_is_better, severity) in RULES[task].items():
+    for metric, (threshold, higher_is_better, severity, relative) in RULES[task].items():
         b, c = base[metric], cand[metric]
         regression = (b - c) if higher_is_better else (c - b)
-        # For soft rules the threshold is a relative fraction.
-        limit = threshold * abs(b) if severity == "soft" else threshold
+        limit = threshold * abs(b) if relative else threshold
         bad = regression > limit
         if bad and severity == "hard":
             failed = True
@@ -96,6 +100,57 @@ def compare_completions(base, cand):
     for i, b, c in changed:
         print(f"  prompt {i}: baseline={b!r} candidate={c!r}")
     return len(changed)
+
+
+def measure_round(base_py, cand_py, task, limit, device, confirmation=False):
+    """Compare three sequential pairs; retain every quality failure."""
+    samples = {"baseline": [], "candidate": []}
+    quality_failed = False
+    for repeat in range(3):
+        order = ("baseline", "candidate")
+        if (repeat + int(confirmation)) % 2:
+            order = tuple(reversed(order))
+        for label in order:
+            print(f"[gate] {task}: {label} measurement {repeat + 1}/3", flush=True)
+            result = run_task(base_py if label == "baseline" else cand_py,
+                              task, limit, device)
+            validate_metrics(task, result, label)
+            samples[label].append(result)
+        base, cand = samples["baseline"][-1], samples["candidate"][-1]
+        if task == "t5gemma_generation":
+            compare_completions(base, cand)
+        rows, _ = judge(task, base, cand)
+        quality_failed |= any(row[-1] == "FAIL" and not RULES[task][row[0]][3]
+                              for row in rows)
+
+    medians = {}
+    for label, results in samples.items():
+        medians[label] = {
+            metric: statistics.median(result[metric] for result in results)
+            for metric in RULES[task]
+        }
+        print(f"[gate] {task}: {label} measurements={results}")
+    rows, _ = judge(task, medians["baseline"], medians["candidate"])
+    for metric, base, cand, delta, severity, status in rows:
+        print(f"  {task}.{metric} median: {base:.4f} -> {cand:.4f} "
+              f"({delta:+.4f}) [{severity}] {status}")
+    performance_failures = {row[0] for row in rows
+                            if row[-1] == "FAIL" and RULES[task][row[0]][3]}
+    return quality_failed, performance_failures
+
+
+def evaluate_task(base_py, cand_py, task, limit, device):
+    quality_failed, performance_failures = measure_round(
+        base_py, cand_py, task, limit, device)
+    if performance_failures:
+        print(f"[gate] {task}: confirming performance regression", flush=True)
+        confirmation_quality_failed, confirmed = measure_round(
+            base_py, cand_py, task, limit, device, confirmation=True)
+        quality_failed |= confirmation_quality_failed
+        performance_failures &= confirmed
+        print(f"[gate] {task}: performance regression "
+              f"{'confirmed' if performance_failures else 'not confirmed'}")
+    return quality_failed or bool(performance_failures)
 
 
 def main():
@@ -125,18 +180,7 @@ def main():
             task_limit = args.bleu_limit if task == "opus_bleu" else limit
             if task == "t5gemma_generation":
                 task_limit = 50
-            print(f"[gate] {task}: baseline")
-            b = run_task(base_py, task, task_limit, args.device)
-            print(f"       {b}")
-            print(f"[gate] {task}: candidate")
-            c = run_task(cand_py, task, task_limit, args.device)
-            print(f"       {c}")
-            if task == "t5gemma_generation":
-                compare_completions(b, c)
-            rows, failed = judge(task, b, c)
-            for m, bv, cv, d, sev, st in rows:
-                print(f"  {task}.{m}: {bv:.4f} -> {cv:.4f} ({d:+.4f}) [{sev}] {st}")
-            hard_fail |= failed
+            hard_fail |= evaluate_task(base_py, cand_py, task, task_limit, args.device)
 
     sys.exit(1 if hard_fail else 0)
 

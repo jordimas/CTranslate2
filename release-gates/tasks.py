@@ -5,6 +5,8 @@ import pathlib
 import tempfile
 import time
 
+CPU_THREADS = 2
+
 
 def _load_librispeech(limit):
     import io
@@ -29,7 +31,12 @@ def run_whisper_wer(limit=300, device="cpu"):
     from faster_whisper import WhisperModel
 
     samples = _load_librispeech(limit)
-    model = WhisperModel("tiny", device=device, compute_type="int8")
+    model = WhisperModel("tiny", device=device, compute_type="int8",
+                         cpu_threads=CPU_THREADS, num_workers=1)
+    # Transcription is lazy: consume the generator to complete warm-up.
+    warmup, _ = model.transcribe(samples[0][0], language="en", beam_size=1,
+                                vad_filter=False)
+    list(warmup)
 
     refs, hyps, audio_sec = [], [], 0.0
     start = time.perf_counter()
@@ -63,10 +70,12 @@ def run_opus_bleu(limit=500, device="cpu"):
 
     with tempfile.TemporaryDirectory() as tmp:
         TransformersConverter(model_name).convert(tmp, force=True)
-        translator = ctranslate2.Translator(tmp, device=device)
+        translator = ctranslate2.Translator(tmp, device=device,
+                                             intra_threads=CPU_THREADS, inter_threads=1)
         tokenized = [tokenizer.convert_ids_to_tokens(tokenizer.encode(s))
                      for s in sources]
         total_tokens = sum(len(t) for t in tokenized)
+        translator.translate_batch(tokenized[:16], beam_size=4, max_batch_size=16)
         start = time.perf_counter()
         results = translator.translate_batch(tokenized, beam_size=4,
                                              max_batch_size=16)
@@ -95,7 +104,11 @@ def run_t5gemma_generation(limit=50, device="cpu"):
     with tempfile.TemporaryDirectory() as tmp:
         TransformersConverter(model_name, revision=revision).convert(
             tmp, force=True, quantization="float32")
-        translator = ctranslate2.Translator(tmp, device=device, compute_type="float32")
+        translator = ctranslate2.Translator(tmp, device=device, compute_type="float32",
+                                             intra_threads=CPU_THREADS, inter_threads=1)
+        translator.translate_batch(
+            inputs[:8], beam_size=1, sampling_topk=1, max_decoding_length=64,
+            max_batch_size=8)
         start = time.perf_counter()
         results = translator.translate_batch(
             inputs, beam_size=1, sampling_topk=1, max_decoding_length=64,

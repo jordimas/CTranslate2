@@ -9,7 +9,7 @@ sacrebleu wmt14).
 
 The CI workflow builds wheels, then calls the reusable `release-gate.yml`
 workflow. The gate downloads artifacts from that same run and requires exactly
-one matching CPython 3.14 wheel per platform (Linux x86-64 and ARM64, macOS
+one matching CPython 3.12 wheel per platform (Linux x86-64 and ARM64, macOS
 ARM64, and Windows x86-64). It compares that wheel against the latest PyPI
 release using 500 translation sentences for BLEU and 20 audio samples for WER.
 It also converts and runs `jordimas/t5gemma-2-270m-270m` at a pinned revision

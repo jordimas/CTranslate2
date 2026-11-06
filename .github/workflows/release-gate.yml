@@ -45,20 +45,10 @@ jobs:
           path: candidate-wheels
 
       - name: Run release gate
-        shell: python
+        shell: bash
         env:
           CANDIDATE_WHEEL_PATTERN: ${{ matrix.wheel }}
-        run: |
-          import os
-          import pathlib
-          import subprocess
-          import sys
-
-          wheels = list(pathlib.Path("candidate-wheels").glob(os.environ["CANDIDATE_WHEEL_PATTERN"]))
-          if len(wheels) != 1:
-              sys.exit(f"Expected exactly one CPython 3.12 candidate wheel, found {len(wheels)}: {wheels}")
-          subprocess.check_call([
-              sys.executable, "release-gates/run_gate.py",
-              "--candidate-wheel", str(wheels[0].resolve()),
-              "--limit", "20", "--bleu-limit", "500", "--device", "cpu",
-          ])
+        run: >-
+          python release-gates/run_gate.py
+          --candidate-wheel-pattern "candidate-wheels/$CANDIDATE_WHEEL_PATTERN"
+          --limit 20 --bleu-limit 500 --device cpu

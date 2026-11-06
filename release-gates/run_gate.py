@@ -6,6 +6,7 @@ regressions or confirmed performance regressions.
 
 import argparse
 from collections import namedtuple
+import glob
 import json
 import math
 import os
@@ -154,8 +155,11 @@ def evaluate_task(base_py, cand_py, task, limit, device):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--candidate-wheel", default="ctranslate2",
+    candidate = p.add_mutually_exclusive_group()
+    candidate.add_argument("--candidate-wheel", default="ctranslate2",
                    help="pip spec or wheel path (defaults to PyPI = self-test)")
+    candidate.add_argument("--candidate-wheel-pattern",
+                           help="glob matching exactly one candidate wheel")
     p.add_argument("--limit", type=int, default=50, help="0 = full task set")
     p.add_argument("--bleu-limit", type=int, default=500,
                    help="number of translation sentences (default: 500; overrides --limit)")
@@ -163,6 +167,11 @@ def main():
     args = p.parse_args()
     if args.bleu_limit < 1:
         p.error("--bleu-limit must be positive")
+    if args.candidate_wheel_pattern:
+        wheels = glob.glob(args.candidate_wheel_pattern)
+        if len(wheels) != 1:
+            p.error(f"Expected exactly one candidate wheel, found {len(wheels)}: {wheels}")
+        args.candidate_wheel = str(pathlib.Path(wheels[0]).resolve())
     limit = None if args.limit == 0 else args.limit
 
     baseline_spec = f"ctranslate2=={latest_version()}"

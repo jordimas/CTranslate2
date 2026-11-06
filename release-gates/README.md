@@ -36,6 +36,7 @@ fresh wheels without publishing.
 python release-gates/run_gate.py --candidate-wheel dist/ctranslate2-*.whl
 ```
 
+Use `--candidate-wheel-pattern "dist/*.whl"` to require exactly one matching wheel.
 Omit `--candidate-wheel` to compare PyPI against itself. `--bleu-limit` sets
 translation coverage (default 500), independently of `--limit`.
 Task implementations are in `tasks.py`; fixed prompts are in `generation_prompts.json`.

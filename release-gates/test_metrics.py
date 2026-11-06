@@ -74,6 +74,26 @@ class MetricValidationTest(unittest.TestCase):
                     run_gate.main()
                 self.assertEqual(exited.exception.code, 1 if degraded_task else 0)
 
+    def test_candidate_wheel_pattern_requires_one_match(self):
+        for wheels in ([], ["candidate.whl"], ["a.whl", "b.whl"]):
+            with self.subTest(wheels=wheels), \
+                 patch("sys.argv", ["run_gate.py", "--candidate-wheel-pattern", "*.whl"]), \
+                 patch.object(run_gate.glob, "glob", return_value=wheels), \
+                 patch.object(run_gate, "latest_version", return_value="4.8.5") as latest, \
+                 patch.object(run_gate, "make_venv") as make_venv, \
+                 patch.object(run_gate, "evaluate_task", return_value=False), \
+                 contextlib.redirect_stdout(io.StringIO()), \
+                 contextlib.redirect_stderr(io.StringIO()), \
+                 self.assertRaises(SystemExit) as exited:
+                run_gate.main()
+            self.assertEqual(exited.exception.code, 0 if len(wheels) == 1 else 2)
+            if len(wheels) == 1:
+                self.assertEqual(make_venv.call_args.args[1],
+                                 str(run_gate.pathlib.Path(wheels[0]).resolve()))
+            else:
+                latest.assert_not_called()
+                make_venv.assert_not_called()
+
     def test_confirmation_cannot_hide_quality_failures(self):
         for rounds, expected in (
             ([(False, {"tokens_per_sec"}), (False, set())], False),

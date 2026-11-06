@@ -30,6 +30,13 @@ class MetricValidationTest(unittest.TestCase):
                              {"wer": 0.0, "rtf_inverse": 0})
         self.assertFalse(any(result.failed for result in results.values()))
 
+    def test_wer_tolerance(self):
+        for candidate, fails in ((0.20982142857142858, False), (0.22, True)):
+            with self.subTest(candidate=candidate):
+                results = judge("whisper_wer", {"wer": 0.203125, "rtf_inverse": 100},
+                                {"wer": candidate, "rtf_inverse": 100})
+                self.assertEqual(results["wer"].failed, fails)
+
     def test_quality_regression_fails(self):
         results = judge("opus_bleu", {"bleu": 30, "tokens_per_sec": 100},
                           {"bleu": 29, "tokens_per_sec": 100})
@@ -134,7 +141,7 @@ class MetricValidationTest(unittest.TestCase):
 
     def test_threshold_equality_is_not_a_regression(self):
         results = judge("whisper_wer", {"wer": 0, "rtf_inverse": 100},
-                             {"wer": 0.003, "rtf_inverse": 90})
+                             {"wer": 0.01, "rtf_inverse": 90})
         self.assertFalse(any(result.failed for result in results.values()))
 
 

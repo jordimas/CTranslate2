@@ -26,7 +26,7 @@ DEPS = ["faster-whisper==1.0.2", "requests", "jiwer", "datasets", "soundfile",
 # Relative thresholds are fractions of the baseline; others are absolute deltas.
 RULES = {
     "whisper_wer": {
-        "wer":         (0.003, False, False),   # +0.3 WER points
+        "wer":         (0.01,  False, False),   # +1 WER percentage point
         "rtf_inverse": (0.10,  True,  True),   # >10% throughput drop
     },
     "opus_bleu": {

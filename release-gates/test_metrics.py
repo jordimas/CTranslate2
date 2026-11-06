@@ -34,15 +34,14 @@ class MetricValidationTest(unittest.TestCase):
                         judge("opus_bleu", base, cand)
 
     def test_zero_values_are_valid(self):
-        rows, failed = judge("whisper_wer", {"wer": 0, "rtf_inverse": 0.0},
+        results = judge("whisper_wer", {"wer": 0, "rtf_inverse": 0.0},
                              {"wer": 0.0, "rtf_inverse": 0})
-        self.assertFalse(failed)
-        self.assertTrue(all(row[-1] == "ok" for row in rows))
+        self.assertFalse(any(result.failed for result in results.values()))
 
     def test_quality_regression_fails(self):
-        _, failed = judge("opus_bleu", {"bleu": 30, "tokens_per_sec": 100},
+        results = judge("opus_bleu", {"bleu": 30, "tokens_per_sec": 100},
                           {"bleu": 29, "tokens_per_sec": 100})
-        self.assertTrue(failed)
+        self.assertTrue(results["bleu"].failed)
 
     def test_performance_thresholds_are_relative_and_fail_gate(self):
         for task, metric, quality in (
@@ -54,12 +53,11 @@ class MetricValidationTest(unittest.TestCase):
                 for ratio, expected_failure in ((0.8, True), (0.9, False),
                                                 (0.95, False), (1.2, False)):
                     with self.subTest(task=task, baseline=baseline, ratio=ratio):
-                        rows, failed = judge(
+                        results = judge(
                             task, dict(quality, **{metric: baseline}),
                             dict(quality, **{metric: baseline * ratio}))
-                        self.assertEqual(failed, expected_failure)
-                        row = next(row for row in rows if row[0] == metric)
-                        self.assertEqual(row[-1], "FAIL" if expected_failure else "ok")
+                        self.assertEqual(results[metric].failed, expected_failure)
+                        self.assertTrue(results[metric].performance)
 
     def test_main_exit_status_for_performance_regressions(self):
         baseline = {
@@ -127,10 +125,9 @@ class MetricValidationTest(unittest.TestCase):
         self.assertTrue(quality)
 
     def test_threshold_equality_is_not_a_regression(self):
-        rows, failed = judge("whisper_wer", {"wer": 0, "rtf_inverse": 100},
+        results = judge("whisper_wer", {"wer": 0, "rtf_inverse": 100},
                              {"wer": 0.003, "rtf_inverse": 90})
-        self.assertFalse(failed)
-        self.assertTrue(all(row[-1] == "ok" for row in rows))
+        self.assertFalse(any(result.failed for result in results.values()))
 
 
 if __name__ == "__main__":

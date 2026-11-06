@@ -5,6 +5,7 @@ regressions or confirmed performance regressions.
 """
 
 import argparse
+from collections import namedtuple
 import json
 import math
 import os
@@ -36,6 +37,8 @@ RULES = {
     },
 }
 
+
+MetricResult = namedtuple("MetricResult", "baseline candidate failed performance")
 
 def latest_version(pkg="ctranslate2"):
     with urllib.request.urlopen(f"https://pypi.org/pypi/{pkg}/json", timeout=30) as r:
@@ -78,15 +81,13 @@ def validate_metrics(task, result, label):
 def judge(task, base, cand):
     validate_metrics(task, base, "baseline")
     validate_metrics(task, cand, "candidate")
-    rows, failed = [], False
+    results = {}
     for metric, (threshold, higher_is_better, relative) in RULES[task].items():
         b, c = base[metric], cand[metric]
         regression = (b - c) if higher_is_better else (c - b)
         limit = threshold * abs(b) if relative else threshold
-        bad = regression > limit
-        failed |= bad
-        rows.append((metric, b, c, c - b, "FAIL" if bad else "ok"))
-    return rows, failed
+        results[metric] = MetricResult(b, c, regression > limit, relative)
+    return results
 
 
 def compare_completions(base, cand):
@@ -118,9 +119,8 @@ def measure_round(base_py, cand_py, task, limit, device, confirmation=False):
         base, cand = samples["baseline"][-1], samples["candidate"][-1]
         if task == "t5gemma_generation":
             compare_completions(base, cand)
-        rows, _ = judge(task, base, cand)
-        quality_failed |= any(row[-1] == "FAIL" and not RULES[task][row[0]][2]
-                              for row in rows)
+        quality_failed |= any(result.failed for result in judge(task, base, cand).values()
+                              if not result.performance)
 
     medians = {}
     for label, results in samples.items():
@@ -129,12 +129,12 @@ def measure_round(base_py, cand_py, task, limit, device, confirmation=False):
             for metric in RULES[task]
         }
         print(f"[gate] {task}: {label} measurements={results}")
-    rows, _ = judge(task, medians["baseline"], medians["candidate"])
-    for metric, base, cand, delta, status in rows:
-        print(f"  {task}.{metric} median: {base:.4f} -> {cand:.4f} "
-              f"({delta:+.4f}) {status}")
-    performance_failures = {row[0] for row in rows
-                            if row[-1] == "FAIL" and RULES[task][row[0]][2]}
+    results = judge(task, medians["baseline"], medians["candidate"])
+    for metric, result in results.items():
+        print(f"  {task}.{metric} median: {result.baseline:.4f} -> {result.candidate:.4f} "
+              f"({result.candidate - result.baseline:+.4f}) {'FAIL' if result.failed else 'ok'}")
+    performance_failures = {metric for metric, result in results.items()
+                            if result.performance and result.failed}
     return quality_failed, performance_failures
 
 

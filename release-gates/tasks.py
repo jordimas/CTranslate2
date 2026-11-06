@@ -8,6 +8,14 @@ import time
 CPU_THREADS = 2
 
 
+def run_and_measure(infer, inputs, warmup_size=1, **kwargs):
+    """Consume warm-up and measured outputs, including lazy generators."""
+    list(infer(inputs[:warmup_size], **kwargs))
+    start = time.perf_counter()
+    results = list(infer(inputs, **kwargs))
+    return results, time.perf_counter() - start
+
+
 def _load_librispeech(limit):
     import io
     import soundfile
@@ -33,20 +41,16 @@ def run_whisper_wer(limit=300, device="cpu"):
     samples = _load_librispeech(limit)
     model = WhisperModel("tiny", device=device, compute_type="int8",
                          cpu_threads=CPU_THREADS, num_workers=1)
-    # Transcription is lazy: consume the generator to complete warm-up.
-    warmup, _ = model.transcribe(samples[0][0], language="en", beam_size=1,
-                                vad_filter=False)
-    list(warmup)
 
-    refs, hyps, audio_sec = [], [], 0.0
-    start = time.perf_counter()
-    for audio, sr, text in samples:
-        audio_sec += len(audio) / sr
-        segments, _ = model.transcribe(audio, language="en", beam_size=1,
-                                       vad_filter=False)
-        hyps.append(" ".join(s.text for s in segments).strip().lower())
-        refs.append(text.strip().lower())
-    elapsed = time.perf_counter() - start
+    def transcribe(batch):
+        for audio, _, _ in batch:
+            segments, _ = model.transcribe(audio, language="en", beam_size=1,
+                                           vad_filter=False)
+            yield " ".join(s.text for s in segments).strip().lower()
+
+    hyps, elapsed = run_and_measure(transcribe, samples)
+    refs = [text.strip().lower() for _, _, text in samples]
+    audio_sec = sum(len(audio) / sr for audio, sr, _ in samples)
 
     return {"wer": jiwer.wer(refs, hyps),
             "rtf_inverse": audio_sec / elapsed,
@@ -75,11 +79,9 @@ def run_opus_bleu(limit=500, device="cpu"):
         tokenized = [tokenizer.convert_ids_to_tokens(tokenizer.encode(s))
                      for s in sources]
         total_tokens = sum(len(t) for t in tokenized)
-        translator.translate_batch(tokenized[:16], beam_size=4, max_batch_size=16)
-        start = time.perf_counter()
-        results = translator.translate_batch(tokenized, beam_size=4,
-                                             max_batch_size=16)
-        elapsed = time.perf_counter() - start
+        results, elapsed = run_and_measure(
+            translator.translate_batch, tokenized, warmup_size=16,
+            beam_size=4, max_batch_size=16)
 
     hyps = [tokenizer.decode(tokenizer.convert_tokens_to_ids(r.hypotheses[0]),
                              skip_special_tokens=True)
@@ -106,14 +108,9 @@ def run_t5gemma_generation(limit=50, device="cpu"):
             tmp, force=True, quantization="float32")
         translator = ctranslate2.Translator(tmp, device=device, compute_type="float32",
                                              intra_threads=CPU_THREADS, inter_threads=1)
-        translator.translate_batch(
-            inputs[:8], beam_size=1, sampling_topk=1, max_decoding_length=64,
-            max_batch_size=8)
-        start = time.perf_counter()
-        results = translator.translate_batch(
-            inputs, beam_size=1, sampling_topk=1, max_decoding_length=64,
-            max_batch_size=8)
-        elapsed = time.perf_counter() - start
+        results, elapsed = run_and_measure(
+            translator.translate_batch, inputs, warmup_size=8,
+            beam_size=1, sampling_topk=1, max_decoding_length=64, max_batch_size=8)
     outputs = [tokenizer.decode(tokenizer.convert_tokens_to_ids(r.hypotheses[0]),
                                 skip_special_tokens=True).strip() for r in results]
     if len(outputs) != len(prompts) or any(not output for output in outputs):

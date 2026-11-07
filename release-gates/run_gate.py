@@ -159,6 +159,8 @@ def main():
                    help="pip spec or wheel path (defaults to PyPI = self-test)")
     candidate.add_argument("--candidate-wheel-pattern",
                            help="glob matching exactly one candidate wheel")
+    p.add_argument("--baseline-wheel", help="baseline pip spec (defaults to latest PyPI release)")
+    p.add_argument("--tasks", nargs="+", choices=RULES, default=list(RULES))
     p.add_argument("--limit", type=int, default=50, help="0 = full task set")
     p.add_argument("--bleu-limit", type=int, default=500,
                    help="number of translation sentences (default: 500; overrides --limit)")
@@ -173,7 +175,7 @@ def main():
         args.candidate_wheel = str(pathlib.Path(wheels[0]).resolve())
     limit = None if args.limit == 0 else args.limit
 
-    baseline_spec = f"ctranslate2=={latest_version()}"
+    baseline_spec = args.baseline_wheel or f"ctranslate2=={latest_version()}"
     print(f"[gate] baseline={baseline_spec} candidate={args.candidate_wheel}")
 
     with tempfile.TemporaryDirectory(prefix="release-gate-") as tmp:
@@ -183,7 +185,7 @@ def main():
         cand_py = make_venv(os.path.join(tmp, "candidate"), args.candidate_wheel)
 
         failed = False
-        for task in RULES:
+        for task in args.tasks:
             task_limit = args.bleu_limit if task == "opus_bleu" else limit
             if task == "t5gemma_generation":
                 task_limit = 50

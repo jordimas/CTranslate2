@@ -1,11 +1,10 @@
 """Release-gate tasks returning metrics and optional generated outputs."""
 
-import json
-import pathlib
 import tempfile
 import time
 
 CPU_THREADS = 2
+SQUAD_REVISION = "7b6d24c440a36b6815f21b70d25016731768db1f"
 
 
 def run_and_measure(infer, inputs, warmup_size=1, **kwargs):
@@ -94,15 +93,20 @@ def run_opus_bleu(limit=500, device="cpu"):
 def run_t5gemma_generation(limit=50, device="cpu"):
     import ctranslate2
     import transformers
+    from datasets import load_dataset
     from ctranslate2.converters.transformers import TransformersConverter
 
     model_name = "jordimas/t5gemma-2-270m-270m"
     revision = "dfb6d0d619d8e6d42f279a6197abb90dec0137c1"
-    prompts = json.loads(pathlib.Path(__file__).with_name("generation_prompts.json").read_text())[:limit]
+    samples = load_dataset("rajpurkar/squad", split="validation",
+                           revision=SQUAD_REVISION).shuffle(seed=42)[:limit]
+    prompts = [f"Context: {context} Question: {question} Answer:"
+               for context, question in zip(samples["context"], samples["question"])]
     if not prompts:
         raise ValueError("Generation requires at least one prompt")
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, revision=revision)
-    inputs = [tokenizer.convert_ids_to_tokens(tokenizer.encode(p)) for p in prompts]
+    inputs = [tokenizer.convert_ids_to_tokens(tokenizer.encode(p, truncation=True, max_length=512))
+              for p in prompts]
     with tempfile.TemporaryDirectory() as tmp:
         TransformersConverter(model_name, revision=revision).convert(
             tmp, force=True, quantization="float32")

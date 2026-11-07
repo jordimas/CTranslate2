@@ -7,11 +7,13 @@ passing the gate. Thresholds are in `run_gate.py` (`RULES`).
 | --- | --- | --- |
 | Whisper tiny | 20 LibriSpeech dummy clean samples | WER increase >0.01 (1 percentage point) |
 | opus-mt-en-de | 500 WMT14 sentences | BLEU decrease >0.3 |
-| T5Gemma 2 270M | 50 fixed prompts, FP32 greedy, up to 64 output tokens | Missing or empty completions |
+| T5Gemma 2 270M | 50 SQuAD validation prompts, FP32 greedy, up to 64 output tokens | Missing or empty completions |
 | All tasks | Median throughput | Confirmed drop >10% |
 
 T5Gemma uses `jordimas/t5gemma-2-270m-270m` at a pinned revision through
 `Translator`. Changed text is informational, not an answer-quality check.
+Prompts use `rajpurkar/squad` at revision `7b6d24c440a36b6815f21b70d25016731768db1f`,
+shuffled with seed 42 and capped at 512 input tokens.
 Invalid metrics and runtime errors fail immediately.
 
 ## Performance
@@ -39,4 +41,4 @@ python release-gates/run_gate.py --candidate-wheel dist/ctranslate2-*.whl
 Use `--candidate-wheel-pattern "dist/*.whl"` to require exactly one matching wheel.
 Omit `--candidate-wheel` to compare PyPI against itself. `--bleu-limit` sets
 translation coverage (default 500), independently of `--limit`.
-Task implementations are in `tasks.py`; fixed prompts are in `generation_prompts.json`.
+Task implementations are in `tasks.py`.

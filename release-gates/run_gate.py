@@ -19,8 +19,6 @@ import urllib.request
 import venv
 
 ROOT = pathlib.Path(__file__).resolve().parent
-DEPS = ["faster-whisper==1.0.2", "requests", "jiwer", "datasets", "soundfile",
-        "transformers", "torch", "sacrebleu", "sentencepiece", "sacremoses"]
 
 # (threshold, higher_is_better, relative).
 # Relative thresholds are fractions of the baseline; others are absolute deltas.
@@ -53,7 +51,8 @@ def make_venv(path, ct2_spec):
     else:
         py = os.path.join(path, "bin", "python")
     subprocess.check_call([py, "-m", "pip", "install", "-q", "-U", "pip"])
-    subprocess.check_call([py, "-m", "pip", "install", "-q", ct2_spec, *DEPS])
+    subprocess.check_call([py, "-m", "pip", "install", "-q", ct2_spec,
+                           "-r", str(ROOT / "requirements.txt")])
     return py
 
 

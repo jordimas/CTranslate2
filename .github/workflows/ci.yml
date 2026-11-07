@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays at 06:00 UTC
   push:
     branches:
       - "**"
@@ -285,6 +288,10 @@ jobs:
           name: python-wheels-${{ runner.os }}-${{ matrix.arch }}
           path: python/wheelhouse
 
+  release-gate:
+    needs: [build-python-wheels]
+    uses: ./.github/workflows/release-gate.yml
+
   build-python-wheels-rocm:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -527,6 +534,7 @@ jobs:
       - test-python314-native-finalizer
       - test-legacy-converters
       - check-python-style
+      - release-gate
     runs-on: ubuntu-22.04
 
     steps:

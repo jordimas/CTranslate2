@@ -44,7 +44,7 @@ def run_whisper_wer(limit=300, device="cpu"):
     def transcribe(batch):
         for audio, _, _ in batch:
             segments, _ = model.transcribe(audio, language="en", beam_size=1,
-                                           vad_filter=False)
+                                           temperature=0.0, vad_filter=False)
             yield " ".join(s.text for s in segments).strip().lower()
 
     hyps, elapsed = run_and_measure(transcribe, samples)

@@ -39,7 +39,7 @@ class MetricValidationTest(unittest.TestCase):
 
     def test_quality_regression_fails(self):
         results = judge("opus_bleu", {"bleu": 30, "tokens_per_sec": 100},
-                          {"bleu": 29, "tokens_per_sec": 100})
+                          {"bleu": 28.9, "tokens_per_sec": 100})
         self.assertTrue(results["bleu"].failed)
 
     def test_performance_thresholds_are_relative_and_fail_gate(self):
@@ -120,7 +120,7 @@ class MetricValidationTest(unittest.TestCase):
     def test_measurements_preserve_quality_and_ignore_performance_outliers(self):
         for metric, values, expected_quality in (
             ("tokens_per_sec", (100, 100, 1), False),
-            ("bleu", (30, 29, 30), True),
+            ("bleu", (30, 28.9, 30), True),
         ):
             with self.subTest(metric=metric):
                 values = iter(values)

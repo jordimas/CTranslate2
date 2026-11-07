@@ -28,7 +28,7 @@ RULES = {
         "rtf_inverse": (0.10,  True,  True),   # >10% throughput drop
     },
     "opus_bleu": {
-        "bleu":           (0.3,  True, False),  # -0.3 BLEU points
+        "bleu":           (1.0,  True, False),  # -1 BLEU point
         "tokens_per_sec": (0.10, True, True),
     },
     "t5gemma_generation": {

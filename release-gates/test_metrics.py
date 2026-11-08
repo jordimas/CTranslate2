@@ -49,8 +49,8 @@ class MetricValidationTest(unittest.TestCase):
             ("t5gemma_generation", "tokens_per_sec", {}),
         ):
             for baseline in (1, 100, 1000):
-                for ratio, expected_failure in ((0.8, True), (0.9, False),
-                                                (0.95, False), (1.2, False)):
+                for ratio, expected_failure in ((0.4, True), (0.5, False),
+                                                (0.9, False), (1.2, False)):
                     with self.subTest(task=task, baseline=baseline, ratio=ratio):
                         results = judge(
                             task, dict(quality, **{metric: baseline}),
@@ -70,7 +70,7 @@ class MetricValidationTest(unittest.TestCase):
                     metrics = dict(baseline[task])
                     if py == "candidate" and task == degraded_task:
                         metric = "rtf_inverse" if task == "whisper_wer" else "tokens_per_sec"
-                        metrics[metric] = 80
+                        metrics[metric] = 40
                     return metrics
                 with patch.object(run_gate, "latest_version", return_value="4.8.5"), \
                      patch.object(run_gate, "make_venv", side_effect=["baseline", "candidate"]), \

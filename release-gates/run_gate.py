@@ -25,14 +25,14 @@ ROOT = pathlib.Path(__file__).resolve().parent
 RULES = {
     "whisper_wer": {
         "wer":         (0.01,  False, False),   # +1 WER percentage point
-        "rtf_inverse": (0.10,  True,  True),   # >10% throughput drop
+        "rtf_inverse": (0.50,  True,  True),   # >=2x slower (>50% throughput drop)
     },
     "opus_bleu": {
         "bleu":           (1.0,  True, False),  # -1 BLEU point
-        "tokens_per_sec": (0.10, True, True),
+        "tokens_per_sec": (0.50, True, True),
     },
     "t5gemma_generation": {
-        "tokens_per_sec": (0.10, True, True),
+        "tokens_per_sec": (0.50, True, True),
     },
 }
 

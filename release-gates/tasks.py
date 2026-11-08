@@ -9,6 +9,7 @@ SQUAD_REVISION = "7b6d24c440a36b6815f21b70d25016731768db1f"
 
 def run_and_measure(infer, inputs, warmup_size=1, **kwargs):
     """Consume warm-up and measured outputs, including lazy generators."""
+    warmup_size = min(warmup_size, max(1, len(inputs) // 2))
     list(infer(inputs[:warmup_size], **kwargs))
     start = time.perf_counter()
     results = list(infer(inputs, **kwargs))

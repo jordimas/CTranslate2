@@ -20,7 +20,19 @@ class TimingTest(unittest.TestCase):
             return len(events)
 
         with patch("tasks.time.perf_counter", side_effect=clock):
-            results, elapsed = run_and_measure(infer, [1, 2, 3], warmup_size=2, scale=10)
-        self.assertEqual(events, [1, 2, "clock", 1, 2, 3, "clock"])
-        self.assertEqual(results, [10, 20, 30])
-        self.assertEqual(elapsed, 4)
+            results, elapsed = run_and_measure(infer, [1, 2, 3, 4], warmup_size=2, scale=10)
+        self.assertEqual(events, [1, 2, "clock", 1, 2, 3, 4, "clock"])
+        self.assertEqual(results, [10, 20, 30, 40])
+        self.assertEqual(elapsed, 5)
+
+    def test_warmup_is_capped_so_measured_pass_sees_fresh_inputs(self):
+        seen = []
+
+        def infer(batch):
+            for value in batch:
+                seen.append(value)
+                yield value
+
+        with patch("tasks.time.perf_counter", side_effect=[0.0, 1.0]):
+            run_and_measure(infer, [1, 2, 3], warmup_size=8)
+        self.assertEqual(seen, [1, 1, 2, 3])

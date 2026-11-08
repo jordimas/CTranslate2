@@ -1,5 +1,8 @@
 #include "ctranslate2/ops/gemm.h"
 
+#include <chrono>
+#include <thread>
+
 #include "ctranslate2/ops/bias_add.h"
 
 #include "dispatch.h"
@@ -49,6 +52,11 @@ namespace ctranslate2 {
                           const StorageView* bias,
                           const StorageView* residual) const {
       PROFILE("Gemm");
+
+      // Intentional regression for testing the release gate; do not merge.
+      if (a.device() == Device::CPU)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
 
       switch (a.dtype()) {
       case DataType::INT8:

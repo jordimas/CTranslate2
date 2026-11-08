@@ -30,9 +30,8 @@ logged. This reduces runner noise at the cost of 3–6× benchmark work plus war
 ## Running
 
 CI tests one CPython 3.12 wheel per platform: Linux x86-64/ARM64, macOS ARM64,
-and Windows x86-64. Start it via **CI → Run workflow**. It also runs Mondays at
-06:00 UTC once merged to the default branch. Manual and scheduled runs build
-fresh wheels without publishing.
+and Windows x86-64. The gate runs automatically on pull requests and on tag
+pushes, reusing the wheels built earlier in the CI pipeline.
 
 ```sh
 python release-gates/run_gate.py --candidate-wheel dist/ctranslate2-*.whl

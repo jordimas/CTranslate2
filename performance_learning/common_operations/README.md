@@ -13,15 +13,19 @@ resume metadata is rejected. Preserve build metadata and the CMake cache too.
 To regenerate the original report with only Python's standard library:
 
 ```sh
-python3 summarize.py --results results --out report.html --json-out summary.json
+python3 summarize.py --results results --cpu-id apple_m4_pro --json-out summary.json
 ```
+
+New reports default to `reports_<cpu_id>.html`, using the CPU identifier saved
+on the benchmark machine. Use `--cpu-id` for historical results without that
+metadata, or `--out` for an explicit filename.
 
 Profiles are resolved in the supplied results directory, regardless of original
 absolute paths. Missing or unsupported profiles fail explicitly.
 
 ## Historical baseline
 
-`results/`, `report.html`, and `summary.json` preserve the original Mac baseline.
+`results/`, `reports_apple_m4_pro.html`, and `summary.json` preserve the original Mac baseline.
 The saved summary/report differs from current raw data for at least
 `whisper-large-v3__mps__int8_bfloat16`; regeneration can change those numbers.
 The old wall timer included warm-up, and Whisper warm-up was not fully consumed.

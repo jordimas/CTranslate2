@@ -37,8 +37,11 @@ Python, architecture, or backend. Preserve these metadata files with results.
   --devices cpu --tasks opus --compute-types float32 --opus-limit 2 \
   --out-dir results-linux-smoke
 .build/profiling/venv/bin/python summarize.py --results results-linux-smoke \
-  --out report-linux-smoke.html --json-out summary-linux-smoke.json
+  --json-out summary-linux-smoke.json
 ```
+
+The report is named `reports_<cpu_id>.html` using the CPU recorded in the run
+metadata, even when it is generated on another machine.
 
 Use the newly built environment, not the historical `venv-prof`. The smoke run
 must produce positive `calls` and Gemm shapes in the profile and a populated

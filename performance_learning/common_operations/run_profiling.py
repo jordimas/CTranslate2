@@ -22,6 +22,8 @@ import traceback
 
 import ctranslate2
 
+from machine_info import detect_cpu_id
+
 ROOT = pathlib.Path(__file__).resolve().parent
 
 WHISPER_MODELS = {
@@ -115,7 +117,7 @@ def main():
               "whisper-medium": args.whisper_limit, "whisper-large-v3": args.whisper_limit}
     if any(n <= 0 for n in limits.values()):
         p.error("Sample limits must be positive")
-    metadata = {"hostname": socket.gethostname(), "platform": platform.platform(),
+    metadata = {"cpu_id": detect_cpu_id(), "hostname": socket.gethostname(), "platform": platform.platform(),
                 "machine": platform.machine(), "python": sys.version,
                 "ctranslate2": ctranslate2.__version__, "methodology_version": 2,
                 "limits": limits, "cpu_threads": 2,

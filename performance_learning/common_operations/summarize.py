@@ -1,11 +1,11 @@
-"""Parse .prof dumps + manifest.json, emit a single sortable report.html.
+"""Parse .prof dumps + manifest.json, emit a sortable reports_<cpu_id>.html.
 
 Structure:
   1. Global summary (across all tasks & compute types) — by op, by (op, shape)
   2. Summary per compute_type (across tasks) — by op, by (op, shape)
   3. Per (task, compute_type) breakdown — raw profiler rows
 
-Usage: python summarize.py --results results --out report.html
+Usage: python summarize.py --results results --cpu-id apple_m4_pro
 """
 
 import argparse
@@ -16,6 +16,8 @@ import os
 import pathlib
 import re
 import sys
+
+from machine_info import cpu_id
 
 ROW_RE = re.compile(
     r"^\s*(\d+\.\d+)%\s+(\d+\.\d+)%\s+(\d+\.\d+)%\s+"
@@ -226,11 +228,19 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--results",
                    default=str(pathlib.Path(__file__).parent / "results"))
-    p.add_argument("--out",
-                   default=str(pathlib.Path(__file__).parent / "report.html"))
+    p.add_argument("--out", help="Override the reports_<cpu_id>.html output path")
+    p.add_argument("--cpu-id", help="Benchmark CPU identifier (overrides run metadata)")
     p.add_argument("--json-out",
                    default=str(pathlib.Path(__file__).parent / "summary.json"))
     a = p.parse_args()
+    if not a.out:
+        identifier = a.cpu_id
+        metadata_path = pathlib.Path(a.results) / "run-metadata.json"
+        if not identifier and metadata_path.is_file():
+            identifier = json.loads(metadata_path.read_text()).get("cpu_id")
+        if not identifier:
+            p.error("Results lack cpu_id; supply --cpu-id for the benchmark machine or --out")
+        a.out = str(pathlib.Path(__file__).parent / f"reports_{cpu_id(identifier)}.html")
 
     # Re-build manifest from .json files on disk (resume-safe).
     manifest = []

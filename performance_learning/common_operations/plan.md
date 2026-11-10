@@ -10,18 +10,25 @@ reproducible and directly comparable to what we already gate on in CI.
 Output: a per-workload table of `(op_name, input_shapes, call_count, total_time,
 mean_time)` plus a cross-workload summary of the heaviest ops.
 
-## Current status and Linux prerequisite
+## Current implementation and validation
 
 The historical macOS report used a custom wheel whose source changes were not
 present in the checkout. Profiling bindings, call counters, and shape annotations
 have now been reconstructed in source, with a portable build recipe in `build.md`.
-Build separately on Linux; the preserved Apple wheel is not portable.
+The source changes and build workflow were committed in `08883514`. Build the
+same revision separately on each target; the preserved Apple wheel is not portable.
 
 Implemented: source instrumentation, profiling tests, build workflow, warm-up
 measurement fixes, sample-limit forwarding, and run metadata/resume checks.
 Pending: target Linux/CUDA execution, quality validation, repeated unprofiled
 benchmarks, and broader shape coverage. The reconstructed profiler is not claimed
 to be binary-identical to the old wheel.
+
+Validated on macOS CPU: a fresh C++ library and Python wheel, two enabled
+profiler tests, one separately compiled disabled-profiler test, three harness
+tests, and a two-sentence OPUS run through report generation. The validation
+build used Accelerate with MPS and Ruy disabled; this does not establish that
+the Linux OpenBLAS/Ruy or GPU configurations pass.
 
 Current defaults are 100 OPUS sentences, 20 T5Gemma prompts, and 20 Whisper
 samples. The release-gate-sized workload below remains a planned extension;
@@ -40,8 +47,10 @@ Reuse the release-gate task definitions in `release-gates/tasks.py`:
 3. **t5gemma_generation** — jordimas/t5gemma-2-270m-270m, SQuAD prompts,
    `beam_size=1`, `sampling_topk=1`, `max_batch_size=8`, 50 prompts.
 
-Same sample counts as `release-gate.yml` (`--limit 20 --bleu-limit 500`) so one
-run reflects the same work CI already does.
+The intended release-gate comparison uses 500 OPUS sentences and 50 T5Gemma
+prompts. Request these explicitly with `--opus-limit 500 --t5gemma-limit 50`;
+the current defaults remain 100 and 20. The harness does not yet compute
+WER/BLEU or establish full release-gate equivalence.
 
 ## Compute-type matrix
 
@@ -92,40 +101,64 @@ Source instrumentation implemented in the main repository:
 - Document which operations have shape coverage and the profile format version.
   Missing annotations must remain distinguishable from measured scalar shapes.
 
-## Linux port and acceptance criteria
+## C++ build and Python wheel workflow
 
-1. Recover the original instrumentation if available; otherwise implement the
-   source changes above. Test nested scopes, repeated calls, reset behavior,
-   multithread aggregation, and a build with profiling disabled. Do not claim
-   the reconstructed profiler is identical to the preserved binary without
-   verification.
-2. Add a Linux build recipe in `build.md` or a dedicated script. Use an isolated
-   build directory and virtual environment, `-DENABLE_PROFILING=ON`, and
-   `-DWITH_MPS=OFF`. Select and document a CPU math backend appropriate to the
-   target architecture; add CUDA only when requested and available. Remove
-   Homebrew, Accelerate, Apple M4 compiler flags, macOS wheel repair, and local
-   venv assumptions from the Linux recipe. Record compiler, CMake options,
-   Python/dependency versions, source revision/dirty state, and hardware.
-3. Build and install the Linux wheel from that source. Confirm both Python
-   profiling functions exist, then run a small CPU float32 OPUS workload. Require
-   a nonempty profile with positive call counts and annotated Gemm shapes, and
-   a nonempty generated report. An empty init/dump smoke check alone is not enough.
-4. Fix measurement boundaries before cross-machine benchmarking: fully consume
-   Whisper warm-up segments, finish warm-up before both timer and profiler reset,
-   and forward sample-limit arguments to the worker. Record the methodology
-   version; do not silently compare corrected timing to the original wall times.
-5. Run repeated unprofiled measurements separately from synchronized operation
-   profiles. Validate WER/BLEU and T5Gemma outputs/EOS behavior before treating
-   precision variants as equivalent workloads.
-6. Run the supported compute-type matrix into a fresh machine-specific results
-   directory. Record unsupported combinations explicitly. Never resume from
-   the old machine's results; the current runner skips successful cached runs.
-7. Verify report regeneration from a relocated results directory. Preserve the
-   original macOS report and raw data, documenting their known snapshot mismatch.
+The build is now source-based. `build.sh` configures CMake, builds and installs
+`libctranslate2`, builds the C++ test executable, runs `ProfilerTest.*`, and then
+builds the Python wheel against that library using `CTRANSLATE2_ROOT`.
+See [build.md](build.md) for prerequisites and installation commands.
+
+- Enable instrumentation with `-DENABLE_PROFILING=ON`; CMake defines
+  `CT2_ENABLE_PROFILING` for C++. A normal build compiles scope instrumentation
+  out, and its Python `init_profiling` call reports that profiling is disabled.
+- Linux defaults: OpenBLAS + Ruy, compiler OpenMP, CPU only, MPS disabled.
+- macOS defaults: Accelerate + Ruy, no OpenMP, CPU only. MPS is opt-in.
+- CUDA is opt-in with `WITH_CUDA=ON` and requires CUDA/cuDNN prerequisites.
+- Outputs live under `.build/profiling`: `cmake/`, `install/`, `venv/`, staged
+  Python sources, and `wheels/`. Use a fresh `BUILD_ROOT` when changing the
+  architecture, Python ABI, or backend. Existing directories are not deleted.
+- Keep `install/` in place: the wheel references this local native library.
+  Rebuild on every target OS/architecture/Python ABI; these wheels are not
+  standalone distributable artifacts.
+- Preserve `build-metadata.json`, `requirements-build.txt`, and the CMake cache
+  with each run. They record source state, platform/Python, build dependencies,
+  compiler and backend configuration. Run metadata also records the extension
+  checksum and installed package versions.
+
+The committed `tests/profiler_test.cc` checks nested/repeated scopes, reset,
+thread aggregation, shape formatting, and disabled macros. The build script
+runs the enabled tests; the disabled test needs a separate non-profiling build.
+`test_harness.py` checks warm-up ordering, sample-limit forwarding, and report
+regeneration after relocation.
+
+## Linux acceptance and remaining work
+
+1. On a clean Linux checkout of the same revision, initialize submodules and
+   install the prerequisites from `build.md`. Run `PYTHON=python3 bash build.sh`.
+   Verify the C++ profiling tests pass and install the locally produced wheel
+   and workload requirements into its new virtual environment.
+2. Run the two-sentence CPU float32 OPUS smoke test from `build.md` into a fresh
+   directory. Require positive call counts, annotated Gemm shapes, two measured
+   sentences, methodology version 2, and a nonempty generated report. An empty
+   init/dump smoke check is insufficient.
+3. Run the supported CPU compute-type matrix into a new machine-specific results
+   directory. Check logged unsupported types and failures. The runner rejects
+   incompatible resume metadata; do not reuse the original Mac results directory.
+4. Validate a non-profiling Linux build and its disabled instrumentation test.
+   Run repeated unprofiled measurements separately from synchronized profiles.
+5. Validate WER/BLEU and T5Gemma output/EOS behavior before treating precision
+   variants as equivalent workloads. Expand shape coverage where useful.
+6. Validate CUDA separately on a suitable GPU host. Do not infer CUDA readiness
+   from successful CPU compilation or the macOS smoke run.
 
 Linux acceptance: a clean checkout plus documented prerequisites must build the
-instrumented wheel, run the CPU smoke workload, and generate the report without
-any files from the original Mac. CUDA validation is a separate follow-on step.
+instrumented native library and wheel, run the CPU workload, and generate the
+report without any binaries from the original Mac.
+
+Measurement fixes are already implemented as methodology 2: warm-up completes
+before both measurements, Whisper's segment generator is consumed, and sample
+limits reach the worker. Preserve the historical Mac baseline and its documented
+report/raw-data mismatch; do not silently compare old and new timing methods.
 
 ## Harness
 
@@ -136,7 +169,7 @@ Script: `performance_learning/common_operations/run_profiling.py`.
          `--compute-types float32,float16,int8,...`
          `--whisper-limit 20 --opus-limit 100 --t5gemma-limit 20`
          `--devices cpu`
-         `--out-dir results/`.
+         `--out-dir results-linux-cpu/`.
 - For each `(task, compute_type)`:
   1. Convert model if cache miss.
   2. Set env: `OMP_NUM_THREADS=2` etc. (same as release-gate).
@@ -149,7 +182,7 @@ Script: `performance_learning/common_operations/run_profiling.py`.
 Script: `performance_learning/common_operations/summarize.py`.
 - Parse the `*.prof` dumps (format defined in `src/profiler.cc`
   `dump_profiling`).
-- Primary output: a single static **`report.html`** with sortable tables.
+- Primary output: a single static **`reports_<cpu_id>.html`** with sortable tables.
   - Per-run section for each `(task, compute_type)`:
     `op | shape | calls | total ms | mean ms | % of run`, sorted by total ms.
   - Cross-workload roll-up table: top-N ops by cumulative time across all
@@ -159,6 +192,8 @@ Script: `performance_learning/common_operations/summarize.py`.
   - Implementation: self-contained HTML — plain `<table>` markup plus a small
     inline JS click-to-sort snippet (no external CDN, no build step). Opens
     directly in a browser; easy to share as a single file.
+- Derive `<cpu_id>` from benchmark run metadata, not the report-rendering host.
+  Historical runs can supply `--cpu-id`; `--out` still overrides the filename.
 - Also emit `summary.json` (same data, machine-readable) so other tools can
   consume it.
 
@@ -166,13 +201,17 @@ Script: `performance_learning/common_operations/summarize.py`.
 
 Checked into `performance_learning/common_operations/`:
 - `plan.md` (this file)
-- `build.md` — how to build the profiling-enabled wheel
+- `build.sh` and `build.md` — native library, tests, and per-platform wheel build
+- `requirements.txt` — workload dependencies
 - `run_profiling.py` — orchestrator
 - `summarize.py` — analyzer
 - `results/` — raw `*.prof` dumps (one per `(task, compute_type)`)
-- `report.html` and `summary.json` — report and machine-readable data
+- `reports_<cpu_id>.html` and `summary.json` — report and machine-readable data
 - Main-repository C++/Python binding changes — required source instrumentation
-- Linux build instructions and instrumentation tests — clean-checkout validation
+- `tests/profiler_test.cc` and `test_harness.py` — profiling and harness checks
+
+Native libraries, wheels, models, and virtual environments remain local ignored
+artifacts. Target Linux/CUDA validation results are still outstanding.
 
 ## Open questions
 

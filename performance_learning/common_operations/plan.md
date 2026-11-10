@@ -12,16 +12,20 @@ mean_time)` plus a cross-workload summary of the heaviest ops.
 
 ## Current status and Linux prerequisite
 
-The existing macOS report was generated using a custom profiling wheel. Its
-Python bindings, call counts, and shape annotations are missing from the current
-source checkout. The preserved Apple Silicon wheel cannot run on Linux.
-**Recover or reimplement and commit this instrumentation before the Linux build.**
-The current scripts and saved report alone are not a reproducible build.
+The historical macOS report used a custom wheel whose source changes were not
+present in the checkout. Profiling bindings, call counters, and shape annotations
+have now been reconstructed in source, with a portable build recipe in `build.md`.
+Build separately on Linux; the preserved Apple wheel is not portable.
 
-This plan describes intended work, not completed functionality. The current
-harness uses 100 OPUS sentences, 20 T5Gemma prompts, and 20 Whisper samples;
-its sample-limit CLI arguments are not forwarded to the worker. Preserve these
-counts for a baseline comparison, or explicitly version a changed workload.
+Implemented: source instrumentation, profiling tests, build workflow, warm-up
+measurement fixes, sample-limit forwarding, and run metadata/resume checks.
+Pending: target Linux/CUDA execution, quality validation, repeated unprofiled
+benchmarks, and broader shape coverage. The reconstructed profiler is not claimed
+to be binary-identical to the old wheel.
+
+Current defaults are 100 OPUS sentences, 20 T5Gemma prompts, and 20 Whisper
+samples. The release-gate-sized workload below remains a planned extension;
+changing counts or methodology must be explicit in comparisons.
 
 ## Workload set
 
@@ -58,24 +62,23 @@ follow-on runs — same harness, different device flag.
 ## Profiling mechanism
 
 CTranslate2 has a built-in scope profiler (`include/ctranslate2/profiler.h`)
-that is **compiled out unless `CT2_ENABLE_PROFILING` is defined**. It is not
-exposed to Python.
+that is **compiled out unless `CT2_ENABLE_PROFILING` is defined**. It is exposed
+through private Python profiling bindings.
 
-Required steps:
+Build and use:
 1. Build a dedicated profiling wheel with `-DENABLE_PROFILING=ON` (document
    the exact CMake invocation in `build.md` alongside this plan).
-2. Add a thin Python binding (or a small C++ CLI shim) that calls
-   `init_profiling(device, num_threads)` before the workload and
-   `dump_profiling(ostream)` after, writing to a file.
+2. Use the Python bindings `init_profiling(device, num_threads)` before the
+   workload and `dump_profiling(path)` afterward.
 3. Each workload wrapper writes
-   `performance_learning/common_operations/results/<task>_<compute_type>.prof`.
+   `performance_learning/common_operations/results/<task>__<device>__<compute_type>.prof`.
 
-The checked-out profiler aggregates self and inclusive time by scope name
-across threads, but does not emit the call counts required by `summarize.py`.
+The profiler aggregates self and inclusive time and call counts by scope name
+across threads; its output is consumed by `summarize.py`.
 The CMake option is `ENABLE_PROFILING`; `CT2_ENABLE_PROFILING` is the C++
 preprocessor definition it enables.
 
-Source instrumentation to commit in the main repository:
+Source instrumentation implemented in the main repository:
 - `src/profiler.cc`: initialize and increment a per-scope call counter and append
   `calls=N` to each timing row. Preserve self/inclusive timing semantics and
   thread-safe aggregation; reset counters when profiling is initialized again.
@@ -126,13 +129,13 @@ any files from the original Mac. CUDA validation is a separate follow-on step.
 
 ## Harness
 
-New script: `performance_learning/common_operations/run_profiling.py`.
+Script: `performance_learning/common_operations/run_profiling.py`.
 - Mirrors `release-gates/run_gate.py`'s structure but single-venv (profiling
   build only, no PyPI baseline).
-- CLI: `--tasks whisper_wer,opus_bleu,t5gemma_generation`
+- CLI: `--tasks whisper-medium,whisper-large-v3,opus,t5gemma`
          `--compute-types float32,float16,int8,...`
-         `--whisper-models medium,large-v3`
-         `--device cpu`
+         `--whisper-limit 20 --opus-limit 100 --t5gemma-limit 20`
+         `--devices cpu`
          `--out-dir results/`.
 - For each `(task, compute_type)`:
   1. Convert model if cache miss.

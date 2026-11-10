@@ -1,0 +1,12 @@
+{
+  "task": "opus",
+  "device": "mps",
+  "compute_type": "int8_float16",
+  "prof": "/Users/masj/dev/CTranslate2/performance_learning/common_operations/results/opus__mps__int8_float16.prof",
+  "metrics": {
+    "num_sentences": 100,
+    "total_tokens": 2694,
+    "wall_sec": 7.456678541999281
+  },
+  "status": "ok"
+}

@@ -12,7 +12,7 @@ namespace ctranslate2 {
     }
 
     void MatMul::operator()(const StorageView& a, const StorageView& b, StorageView& c) const {
-      PROFILE("MatMul");
+      PROFILE_WITH_SHAPES("MatMul", a.shape(), b.shape());
       DEVICE_AND_FLOAT_DISPATCH("MatMul", a.device(), a.dtype(), (compute<D, T>(a, b, c)));
     }
 

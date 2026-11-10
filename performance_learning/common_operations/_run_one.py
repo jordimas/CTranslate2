@@ -1,5 +1,5 @@
 """Executes exactly one (task, compute_type, device) and prints JSON metrics.
-Argv: task compute_type device model_dir prof_path
+Argv: task compute_type device model_dir prof_path limit
 """
 import json
 import pathlib
@@ -9,15 +9,16 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import workloads
 
 task, compute_type, device, model_dir, prof_path = sys.argv[1:6]
+limit = int(sys.argv[6])
 
 if task == "opus":
-    m = workloads.run_opus(compute_type, device, prof_path, model_dir=model_dir)
+    m = workloads.run_opus(compute_type, device, prof_path, model_dir=model_dir, limit=limit)
 elif task == "t5gemma":
-    m = workloads.run_t5gemma(compute_type, device, prof_path, model_dir=model_dir)
+    m = workloads.run_t5gemma(compute_type, device, prof_path, model_dir=model_dir, limit=limit)
 elif task in ("whisper-medium", "whisper-large-v3"):
     m = workloads.run_whisper(workloads.OPUS_MODEL,  # unused if model_dir set
                                 compute_type, device, prof_path,
-                                model_dir=model_dir)
+                                model_dir=model_dir, limit=limit)
 else:
     raise SystemExit(f"unknown task {task}")
 

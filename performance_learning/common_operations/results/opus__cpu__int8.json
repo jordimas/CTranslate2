@@ -1,0 +1,12 @@
+{
+  "task": "opus",
+  "device": "cpu",
+  "compute_type": "int8",
+  "prof": "/Users/masj/dev/CTranslate2/performance_learning/common_operations/results/opus__cpu__int8.prof",
+  "metrics": {
+    "num_sentences": 100,
+    "total_tokens": 2714,
+    "wall_sec": 7.190110375000586
+  },
+  "status": "ok"
+}

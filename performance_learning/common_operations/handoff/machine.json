@@ -1,0 +1,8 @@
+{
+  "source_head": "a22ba1c63ee35d1a0d25db149aa2a66d36a6a732",
+  "platform": "macOS-15.7.7-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "wheel": "ctranslate2-4.9.0-cp312-cp312-macosx_15_0_arm64.whl",
+  "wheel_sha256": "ca491595edc97aec69e6df9e311aa68fb8d9fdbf2ec71a13a039802da18613c7",
+  "warning": "Installed profiling instrumentation is missing from current source. HEAD is not verified as the wheel build revision."
+}

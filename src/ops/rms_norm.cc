@@ -14,7 +14,7 @@ namespace ctranslate2 {
     void RMSNorm::operator()(const StorageView& gamma,
                              const StorageView& input,
                              StorageView& output) const {
-      PROFILE("RMSNorm");
+      PROFILE_WITH_SHAPES("RMSNorm", input.shape());
 
       output.resize_as(input);
 

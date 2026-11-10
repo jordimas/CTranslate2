@@ -1,4 +1,6 @@
 #include <pybind11/pybind11.h>
+#include <fstream>
+#include <ctranslate2/profiler.h>
 
 #include <ctranslate2/devices.h>
 #include <ctranslate2/models/model.h>
@@ -47,6 +49,20 @@ get_supported_compute_types(const std::string& device_str, const int device_inde
 
 PYBIND11_MODULE(_ext, m)
 {
+  m.def("init_profiling", [](const std::string& device, size_t num_threads) {
+    ctranslate2::init_profiling(ctranslate2::str_to_device(device), num_threads);
+  }, py::arg("device"), py::arg("num_threads") = 1,
+     "Start/reset global profiling. Call only while inference is idle.");
+  m.def("dump_profiling", [](const std::string& path) {
+    std::ofstream out(path);
+    if (!out)
+      throw std::runtime_error("Cannot open profiling output: " + path);
+    ctranslate2::dump_profiling(out);
+    out.close();
+    if (!out)
+      throw std::runtime_error("Cannot write profiling output: " + path);
+  }, py::arg("path"), "Write and stop global profiling while inference is idle.");
+
   py::options options;
   options.disable_enum_members_docstring();
 

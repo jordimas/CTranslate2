@@ -83,7 +83,7 @@ namespace ctranslate2 {
                                const StorageView* gamma,
                                const StorageView& input,
                                StorageView& output) const {
-      PROFILE("LayerNorm");
+      PROFILE_WITH_SHAPES("LayerNorm", input.shape());
       output.resize_as(input);
 
       const dim_t axis = _axis < 0 ? input.rank() + _axis : _axis;

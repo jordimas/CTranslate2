@@ -1,0 +1,9 @@
+models/
+venv*/
+__pycache__/
+handoff/*.whl
+.build/
+results-*/
+report-*.html
+summary-*.json
+matrix.log

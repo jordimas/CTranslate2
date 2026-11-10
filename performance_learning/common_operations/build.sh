@@ -1,64 +1,49 @@
 #!/usr/bin/env bash
-# Build a profiling-enabled CTranslate2 wheel for CPU+MPS on Apple Silicon.
-# Reuses the host venv-mps for Python (Python 3.13). Produces a wheel in
-# python/dist/ and installs it into a dedicated profiling venv.
+# Build locally on each OS/architecture. Never deletes existing directories.
 set -euo pipefail
-set -x
-
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$ROOT"
-
-LIBOMP_PREFIX=$(brew --prefix libomp)
-export LDFLAGS="-L${LIBOMP_PREFIX}/lib"
-export CPPFLAGS="-I${LIBOMP_PREFIX}/include"
-export CMAKE_PREFIX_PATH="${LIBOMP_PREFIX}"
-export OpenMP_C_FLAGS="-Xpreprocessor;-fopenmp;-I${LIBOMP_PREFIX}/include"
-export OpenMP_C_LIB_NAMES="omp"
-export OpenMP_CXX_FLAGS="-Xpreprocessor;-fopenmp;-I${LIBOMP_PREFIX}/include"
-export OpenMP_CXX_LIB_NAMES="omp"
-export OpenMP_omp_LIBRARY="${LIBOMP_PREFIX}/lib/libomp.dylib"
-
-BUILD_DIR="$ROOT/build-profiling"
-INSTALL_DIR="$ROOT/install-profiling"
-rm -rf "$BUILD_DIR" "$INSTALL_DIR"
-mkdir -p "$BUILD_DIR"
-
-cmake -S "$ROOT" -B "$BUILD_DIR" \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-  -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_CLI=OFF \
-  -DENABLE_PROFILING=ON \
-  -DCMAKE_CXX_FLAGS="-O3 -mcpu=apple-m4" \
-  -DCMAKE_C_FLAGS="-O3 -mcpu=apple-m4" \
-  -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
-  -DCMAKE_OSX_ARCHITECTURES=arm64 \
-  -DWITH_ACCELERATE=ON -DWITH_MKL=OFF -DOPENMP_RUNTIME=NONE \
-  -DWITH_RUY=ON -DWITH_MPS=ON \
-  -DOpenMP_C_FLAGS="${OpenMP_C_FLAGS}" \
-  -DOpenMP_CXX_FLAGS="${OpenMP_CXX_FLAGS}" \
-  -DOpenMP_omp_LIBRARY="${OpenMP_omp_LIBRARY}"
-
-cmake --build "$BUILD_DIR" --target install -- -j"$(sysctl -n hw.physicalcpu_max)"
-
-# Prepare profiling venv using same Python as venv-mps.
-PROF_VENV="$ROOT/performance_learning/common_operations/venv-prof"
-PY="$ROOT/venv-mps/bin/python"
-rm -rf "$PROF_VENV"
-"$PY" -m venv "$PROF_VENV"
-PROF_PY="$PROF_VENV/bin/python"
-"$PROF_PY" -m pip install -q -U pip wheel build delocate
-
-cd "$ROOT/python"
-rm -rf dist build *.egg-info
-"$PROF_PY" -m pip install -q -r install_requirements.txt
-CTRANSLATE2_ROOT="$INSTALL_DIR" "$PROF_PY" -m build --wheel --outdir dist
-DYLD_LIBRARY_PATH="$INSTALL_DIR/lib:${DYLD_LIBRARY_PATH:-}" delocate-wheel -w dist dist/*.whl
-
-"$PROF_PY" -m pip install --force-reinstall dist/*.whl
-"$PROF_PY" -m pip install -q \
-  faster-whisper transformers sentencepiece sacrebleu jiwer \
-  soundfile datasets accelerate
-
-"$PROF_PY" -c "import ctranslate2; ctranslate2._ext.init_profiling('cpu'); print('profiling OK:', ctranslate2._ext.dump_profiling())"
-echo "wheel ready: $PROF_VENV"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PYTHON="${PYTHON:-python3}"
+BUILD_ROOT="${BUILD_ROOT:-$SCRIPT_DIR/.build/profiling}"
+JOBS="${JOBS:-4}"
+WITH_CUDA="${WITH_CUDA:-OFF}"
+WITH_MPS="${WITH_MPS:-OFF}"
+mkdir -p "$BUILD_ROOT"
+BUILD_ROOT="$(cd "$BUILD_ROOT" && pwd)"
+case "$(uname -s)" in
+  Linux) BACKEND=(-DWITH_ACCELERATE=OFF -DWITH_OPENBLAS=ON -DOPENMP_RUNTIME=COMP) ;;
+  Darwin) BACKEND=(-DWITH_ACCELERATE=ON -DWITH_OPENBLAS=OFF -DOPENMP_RUNTIME=NONE) ;;
+  *) echo "Supported build hosts: Linux and macOS" >&2; exit 1 ;;
+esac
+"$PYTHON" -m venv "$BUILD_ROOT/venv"
+PY="$BUILD_ROOT/venv/bin/python"
+"$PY" -m pip install -r "$ROOT/python/install_requirements.txt" build
+cmake -S "$ROOT" -B "$BUILD_ROOT/cmake" \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$BUILD_ROOT/install" \
+  -DBUILD_CLI=OFF -DBUILD_TESTS=ON -DENABLE_PROFILING=ON \
+  -DWITH_MKL=OFF -DWITH_RUY=ON \
+  -DWITH_CUDA="$WITH_CUDA" -DWITH_CUDNN="$WITH_CUDA" -DWITH_MPS="$WITH_MPS" \
+  "${BACKEND[@]}" "$@"
+cmake --build "$BUILD_ROOT/cmake" --target install ctranslate2_test --parallel "$JOBS"
+"$BUILD_ROOT/cmake/tests/ctranslate2_test" "$ROOT/tests/data" --gtest_filter='ProfilerTest.*'
+# Stage the Python sources so setuptools does not modify the source checkout.
+"$PY" - "$ROOT/python" "$BUILD_ROOT/python" <<'PY'
+import shutil, sys
+shutil.copytree(sys.argv[1], sys.argv[2], dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns('build', 'dist', '*.egg-info', '*.so', '__pycache__'))
+PY
+CTRANSLATE2_ROOT="$BUILD_ROOT/install" CMAKE_BUILD_PARALLEL_LEVEL="$JOBS" \
+  "$PY" -m build --wheel --no-isolation --outdir "$BUILD_ROOT/wheels" "$BUILD_ROOT/python"
+"$PY" - "$BUILD_ROOT" "$ROOT" <<'PY'
+import json, pathlib, platform, subprocess, sys
+out, root = map(pathlib.Path, sys.argv[1:])
+info = {'platform': platform.platform(), 'machine': platform.machine(),
+        'python': sys.version,
+        'source_commit': subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip(),
+        'source_status': subprocess.check_output(['git', '-C', str(root), 'status', '--short'], text=True),
+        'profile_format': 1}
+(out / 'build-metadata.json').write_text(json.dumps(info, indent=2) + '\n')
+(out / 'requirements-build.txt').write_text(subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'], text=True))
+PY
+printf 'Wheel: %s/wheels\nKeep this local library install: %s/install\n' "$BUILD_ROOT" "$BUILD_ROOT"

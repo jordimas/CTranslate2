@@ -1,0 +1,9 @@
+# Workload dependencies. CTranslate2 must come from the local profiling build.
+faster-whisper==1.2.1
+transformers==5.22.2
+sentencepiece==0.2.3
+sacrebleu==2.6.0
+jiwer==4.0.0
+soundfile==0.14.0
+datasets==5.2.0
+accelerate==1.15.0

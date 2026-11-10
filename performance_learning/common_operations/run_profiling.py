@@ -9,9 +9,13 @@ Usage:
 """
 
 import argparse
+import hashlib
+import importlib.metadata
 import json
 import os
 import pathlib
+import platform
+import socket
 import subprocess
 import sys
 import traceback
@@ -79,10 +83,10 @@ def filter_compute_types(requested, device):
     return [c for c in requested if c in supported]
 
 
-def run_one(task, compute_type, device, model_dir, prof_path):
+def run_one(task, compute_type, device, model_dir, prof_path, limit):
     """Shell out so a failure in one combo doesn't poison later runs."""
     cmd = [sys.executable, str(ROOT / "_run_one.py"),
-           task, compute_type, device, model_dir, prof_path]
+           task, compute_type, device, model_dir, prof_path, str(limit)]
     env = dict(os.environ, OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
                OPENBLAS_NUM_THREADS="2", VECLIB_MAXIMUM_THREADS="2",
                TOKENIZERS_PARALLELISM="false")
@@ -99,7 +103,7 @@ def main():
     p.add_argument("--tasks", default="opus,whisper-medium,whisper-large-v3,t5gemma")
     p.add_argument("--compute-types",
                    default="float32,float16,bfloat16,int8,int8_float32,int8_float16,int8_bfloat16,int16")
-    p.add_argument("--devices", default="cpu,mps")
+    p.add_argument("--devices", default="cpu")
     p.add_argument("--out-dir", default=str(ROOT / "results"))
     p.add_argument("--cache-dir", default=str(ROOT / "models"))
     p.add_argument("--whisper-limit", type=int, default=20)
@@ -107,16 +111,42 @@ def main():
     p.add_argument("--t5gemma-limit", type=int, default=20)
     args = p.parse_args()
 
+    limits = {"opus": args.opus_limit, "t5gemma": args.t5gemma_limit,
+              "whisper-medium": args.whisper_limit, "whisper-large-v3": args.whisper_limit}
+    if any(n <= 0 for n in limits.values()):
+        p.error("Sample limits must be positive")
+    metadata = {"hostname": socket.gethostname(), "platform": platform.platform(),
+                "machine": platform.machine(), "python": sys.version,
+                "ctranslate2": ctranslate2.__version__, "methodology_version": 2,
+                "limits": limits, "cpu_threads": 2,
+                "source_commit": subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()}
+    build_meta = pathlib.Path(sys.prefix).parent / "build-metadata.json"
+    metadata["build"] = json.loads(build_meta.read_text()) if build_meta.is_file() else None
+    metadata["extension_sha256"] = hashlib.sha256(pathlib.Path(ctranslate2._ext.__file__).read_bytes()).hexdigest()
+    metadata["packages"] = {d.metadata["Name"]: d.version for d in importlib.metadata.distributions()}
     tasks = args.tasks.split(",")
+    if any(task not in limits for task in tasks):
+        p.error("Unknown task; choose opus,t5gemma,whisper-medium,whisper-large-v3")
     requested_types = args.compute_types.split(",")
     devices = args.devices.split(",")
     os.makedirs(args.out_dir, exist_ok=True)
     os.makedirs(args.cache_dir, exist_ok=True)
 
+    # Reject resume across machines/methodologies/settings rather than mixing results.
+    meta_path = pathlib.Path(args.out_dir) / "run-metadata.json"
+    if meta_path.exists():
+        if json.loads(meta_path.read_text()) != metadata:
+            p.error("Run metadata differs; use a fresh --out-dir")
+    elif list(pathlib.Path(args.out_dir).glob("*.json")):
+        p.error("Existing results lack run metadata; use a fresh --out-dir")
+    meta_path.write_text(json.dumps(metadata, indent=2) + "\n")
     manifest = []
     for device in devices:
         compute_types = filter_compute_types(requested_types, device)
         print(f"[matrix] device={device} compute_types={compute_types}", flush=True)
+        for ct in requested_types:
+            if ct not in compute_types:
+                print(f"[unsupported] {device}/{ct}", flush=True)
         for task in tasks:
             for ct in compute_types:
                 tag = f"{task}__{device}__{ct}"
@@ -132,7 +162,7 @@ def main():
                 print(f"[run] {tag}", flush=True)
                 try:
                     model_dir = ensure_model(task, ct, args.cache_dir)
-                    metrics = run_one(task, ct, device, model_dir, prof_path)
+                    metrics = run_one(task, ct, device, model_dir, prof_path, limits[task])
                     entry = {"task": task, "device": device,
                              "compute_type": ct, "prof": prof_path,
                              "metrics": metrics, "status": "ok"}
@@ -149,6 +179,8 @@ def main():
     with open(os.path.join(args.out_dir, "manifest.json"), "w") as f:
         json.dump(manifest, f, indent=2)
     print("[matrix] done", flush=True)
+    if not manifest or any(e.get("status") != "ok" for e in manifest):
+        raise SystemExit("No successful matrix, or one or more runs failed; inspect manifest.json")
 
 
 if __name__ == "__main__":

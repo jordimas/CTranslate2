@@ -235,7 +235,7 @@ def main():
     # Re-build manifest from .json files on disk (resume-safe).
     manifest = []
     for fname in sorted(os.listdir(a.results)):
-        if not fname.endswith(".json") or fname == "manifest.json":
+        if not fname.endswith(".json") or fname in ("manifest.json", "run-metadata.json"):
             continue
         with open(os.path.join(a.results, fname)) as f:
             manifest.append(json.load(f))

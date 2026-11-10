@@ -19,6 +19,7 @@ namespace ctranslate2 {
 #else
 
 #include <algorithm>
+#include <stdexcept>
 #include <iomanip>
 #include <memory>
 #include <mutex>
@@ -35,8 +36,9 @@ namespace ctranslate2 {
 
   class ScopeProfile {
   public:
-    std::chrono::microseconds time_in_scope;
-    std::chrono::microseconds time_in_scope_and_callees;
+    std::chrono::microseconds time_in_scope{0};
+    std::chrono::microseconds time_in_scope_and_callees{0};
+    size_t calls = 0;
   };
 
   class Profiler {
@@ -70,6 +72,7 @@ namespace ctranslate2 {
                         const std::string* parent_name) {
       std::lock_guard<std::mutex> lock(_mutex);
       auto& scope_profile = get_scope_profile(name);
+      ++scope_profile.calls;
       scope_profile.time_in_scope += elapsed;
       scope_profile.time_in_scope_and_callees += elapsed;
       if (parent_name) {
@@ -100,7 +103,8 @@ namespace ctranslate2 {
       for (const auto& pair : sorted_cumulated)
         longest_name = std::max(longest_name, pair.first.length());
 
-      double total_time_us = total_time.count();
+      double total_time_us = std::max<double>(1, total_time.count());
+      os << "# ct2_profile_format=1 self_pct incl_pct cumulative_pct scope self_ms calls\n";
       double ratio_printed_so_far = 0;
       for (const auto& pair : sorted_cumulated) {
         const auto& name = pair.first;
@@ -118,7 +122,7 @@ namespace ctranslate2 {
         os << ' ';
         print_as_percentage(os, ratio_printed_so_far);
         os << ' ' << std::left << std::setw(longest_name) << name
-           << ' ' << (time_in_scope_us / 1000) << "ms"
+           << ' ' << (time_in_scope_us / 1000) << "ms calls=" << result.calls
            << std::endl;
       }
     }
@@ -129,6 +133,8 @@ namespace ctranslate2 {
 
 
   void init_profiling(Device device, size_t num_threads) {
+    if (num_threads == 0)
+      throw std::invalid_argument("Profiling requires at least one thread");
     profiler = std::make_unique<Profiler>(device, num_threads);
   }
 

@@ -1,0 +1,12 @@
+{
+  "task": "t5gemma",
+  "device": "mps",
+  "compute_type": "int8_float32",
+  "prof": "/Users/masj/dev/CTranslate2/performance_learning/common_operations/results/t5gemma__mps__int8_float32.prof",
+  "metrics": {
+    "num_prompts": 20,
+    "total_tokens": 1068,
+    "wall_sec": 28.6317390410004
+  },
+  "status": "ok"
+}

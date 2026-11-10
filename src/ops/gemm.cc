@@ -109,7 +109,7 @@ namespace ctranslate2 {
                           const StorageView* a_shift_compensation,
                           const StorageView* bias,
                           const StorageView* residual) const {
-      PROFILE("Gemm");
+      PROFILE_WITH_SHAPES("Gemm", a.shape(), b.shape());
 
       bool fused = false;
       DEVICE_DISPATCH(a.device(),

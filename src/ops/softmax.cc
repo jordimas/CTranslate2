@@ -26,7 +26,7 @@ namespace ctranslate2 {
     }
 
     void SoftMax::operator()(const StorageView& x, const StorageView* lengths, StorageView& y) const {
-      PROFILE(_log ? "LogSoftMax" : "SoftMax");
+      PROFILE_WITH_SHAPES(_log ? "LogSoftMax" : "SoftMax", x.shape());
       y.resize_as(x);
 
       const dim_t depth = x.dim(-1);

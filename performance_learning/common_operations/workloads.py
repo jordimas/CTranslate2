@@ -5,9 +5,6 @@ ctranslate2._ext.init_profiling / dump_profiling and writes the raw dump
 to the path provided. Metrics are also returned for sanity checks.
 """
 
-import contextlib
-import os
-import tempfile
 import time
 
 import ctranslate2
@@ -25,6 +22,7 @@ def _profile(device, num_threads, prof_path, fn):
         start = time.perf_counter()
         result = fn()
         result["wall_sec"] = time.perf_counter() - start
+        result["methodology_version"] = 2
     finally:
         ctranslate2._ext.dump_profiling(prof_path)
     return result
@@ -55,12 +53,12 @@ def run_whisper(whisper_model, compute_type, device, prof_path,
     model = WhisperModel(model_arg, device=device, compute_type=compute_type,
                          cpu_threads=CPU_THREADS, num_workers=1)
 
+    # Consume lazy segments to complete warm-up before both measurements.
+    warmup, _ = model.transcribe(samples[0][0], language="en", beam_size=1,
+                                temperature=0.0, vad_filter=False)
+    list(warmup)
+
     def do():
-        # Warm-up on first sample (not profiled with final dump).
-        model.transcribe(samples[0][0], language="en", beam_size=1,
-                         temperature=0.0, vad_filter=False)
-        # Reset profiler to drop warmup.
-        ctranslate2._ext.init_profiling(device, CPU_THREADS)
         hyps = []
         audio_sec = 0.0
         for audio, sr, _ in samples:
@@ -88,9 +86,9 @@ def run_opus(compute_type, device, prof_path, limit=100, model_dir=None):
     tokenized = [tokenizer.convert_ids_to_tokens(tokenizer.encode(s))
                  for s in sources]
 
+    translator.translate_batch(tokenized[:4], beam_size=4, max_batch_size=16)
+
     def do():
-        translator.translate_batch(tokenized[:4], beam_size=4, max_batch_size=16)
-        ctranslate2._ext.init_profiling(device, CPU_THREADS)
         results = translator.translate_batch(tokenized, beam_size=4,
                                               max_batch_size=16)
         total_tokens = sum(len(r.hypotheses[0]) for r in results)
@@ -116,10 +114,10 @@ def run_t5gemma(compute_type, device, prof_path, limit=20, model_dir=None):
                                          compute_type=compute_type,
                                          intra_threads=CPU_THREADS, inter_threads=1)
 
+    translator.translate_batch(inputs[:2], beam_size=1, sampling_topk=1,
+                               max_decoding_length=64, max_batch_size=8)
+
     def do():
-        translator.translate_batch(inputs[:2], beam_size=1, sampling_topk=1,
-                                    max_decoding_length=64, max_batch_size=8)
-        ctranslate2._ext.init_profiling(device, CPU_THREADS)
         results = translator.translate_batch(inputs, beam_size=1,
                                               sampling_topk=1,
                                               max_decoding_length=64,

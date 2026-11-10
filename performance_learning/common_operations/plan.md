@@ -28,7 +28,16 @@ Validated on macOS CPU: a fresh C++ library and Python wheel, two enabled
 profiler tests, one separately compiled disabled-profiler test, three harness
 tests, and a two-sentence OPUS run through report generation. The validation
 build used Accelerate with MPS and Ruy disabled; this does not establish that
-the Linux OpenBLAS/Ruy or GPU configurations pass.
+the Linux OpenBLAS/Ruy configurations pass.
+
+The full Apple M4 Pro CPU/MPS rerun has now completed: 40 successful
+configurations using the fresh Accelerate + Ruy + MPS build from source revision
+`1b9a9c75`. Results are in `results/apple_m4_pro_methodology2/`; the updated
+`reports_apple_m4_pro.html` and `summary.json` are generated from that directory.
+All sample counts, positive timings/call counts, Gemm shape annotations, and
+methodology markers were checked. This validates execution and profile output,
+not model quality or unprofiled throughput. T5Gemma's affected MPS variants still
+produce 1280 tokens across 20 prompts, so the decoding-limit concern remains.
 
 Current defaults are 100 OPUS sentences, 20 T5Gemma prompts, and 20 Whisper
 samples. The release-gate-sized workload below remains a planned extension;

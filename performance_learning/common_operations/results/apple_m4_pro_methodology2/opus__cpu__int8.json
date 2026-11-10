@@ -1,0 +1,13 @@
+{
+  "task": "opus",
+  "device": "cpu",
+  "compute_type": "int8",
+  "prof": "results/apple_m4_pro_methodology2/opus__cpu__int8.prof",
+  "metrics": {
+    "num_sentences": 100,
+    "total_tokens": 2714,
+    "wall_sec": 6.140578291997372,
+    "methodology_version": 2
+  },
+  "status": "ok"
+}

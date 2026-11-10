@@ -1,0 +1,622 @@
+[
+  {
+    "task": "opus",
+    "device": "cpu",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/opus__cpu__float32.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2708,
+      "wall_sec": 3.654565624994575,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "cpu",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/opus__cpu__int8.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2714,
+      "wall_sec": 6.140578291997372,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "cpu",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/opus__cpu__int8_float32.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2714,
+      "wall_sec": 6.065274958004011,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "cpu",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__cpu__float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 52.22483637499681,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "cpu",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__cpu__int8.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 112.62994854100543,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "cpu",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__cpu__int8_float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 113.49908299999515,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "cpu",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__cpu__float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 86.63855787499779,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "cpu",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__cpu__int8.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 214.82319162500062,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "cpu",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__cpu__int8_float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 216.0494149160004,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "cpu",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__cpu__float32.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1149,
+      "wall_sec": 9.041046250000363,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "cpu",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__cpu__int8.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1190,
+      "wall_sec": 9.980632291997608,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "cpu",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__cpu__int8_float32.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1190,
+      "wall_sec": 9.67828941600601,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "mps",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/opus__mps__float32.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2708,
+      "wall_sec": 8.63758591599617,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "mps",
+    "compute_type": "float16",
+    "prof": "results/apple_m4_pro_methodology2/opus__mps__float16.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2711,
+      "wall_sec": 8.499592167005176,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "mps",
+    "compute_type": "bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/opus__mps__bfloat16.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2655,
+      "wall_sec": 8.094048708000628,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "mps",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/opus__mps__int8.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2694,
+      "wall_sec": 6.871756832995743,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "mps",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/opus__mps__int8_float32.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2708,
+      "wall_sec": 10.248099249998631,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "mps",
+    "compute_type": "int8_float16",
+    "prof": "results/apple_m4_pro_methodology2/opus__mps__int8_float16.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2694,
+      "wall_sec": 6.847548249999818,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "opus",
+    "device": "mps",
+    "compute_type": "int8_bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/opus__mps__int8_bfloat16.prof",
+    "metrics": {
+      "num_sentences": 100,
+      "total_tokens": 2642,
+      "wall_sec": 9.479589374997886,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "mps",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__mps__float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 63.02242324999679,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "mps",
+    "compute_type": "float16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__mps__float16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 48.70021808400634,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "mps",
+    "compute_type": "bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__mps__bfloat16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 85.55463787500048,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "mps",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__mps__int8.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 50.58209933299804,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "mps",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__mps__int8_float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 116.20172620799713,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "mps",
+    "compute_type": "int8_float16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__mps__int8_float16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 50.70794991600269,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-medium",
+    "device": "mps",
+    "compute_type": "int8_bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-medium__mps__int8_bfloat16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "He tells us that at this festive season of the year, with Christmas and roast beef looming before us,  similes drawn from eating and its results occur most readily to the mind."
+      ],
+      "wall_sec": 116.80397908300074,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "mps",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 100.53831479099608,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "mps",
+    "compute_type": "float16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__float16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 75.20961204099876,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "mps",
+    "compute_type": "bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__bfloat16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 148.99631674999546,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "mps",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__int8.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 74.79563316699932,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "mps",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__int8_float32.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 195.44564495899976,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "mps",
+    "compute_type": "int8_float16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__int8_float16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 74.89830337500462,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "whisper-large-v3",
+    "device": "mps",
+    "compute_type": "int8_bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__int8_bfloat16.prof",
+    "metrics": {
+      "num_samples": 20,
+      "audio_sec": 187.66499999999996,
+      "hyps_sample": [
+        "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+        "Nor is Mr. Quilter's manner less interesting than his matter.",
+        "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+      ],
+      "wall_sec": 198.6727454159991,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "mps",
+    "compute_type": "float32",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__float32.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1149,
+      "wall_sec": 20.18949216699548,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "mps",
+    "compute_type": "float16",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__float16.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1280,
+      "wall_sec": 17.551144917000784,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "mps",
+    "compute_type": "bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__bfloat16.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1102,
+      "wall_sec": 19.376315542001976,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "mps",
+    "compute_type": "int8",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__int8.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1280,
+      "wall_sec": 16.983732292006607,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "mps",
+    "compute_type": "int8_float32",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__int8_float32.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1068,
+      "wall_sec": 22.446334915999614,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "mps",
+    "compute_type": "int8_float16",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__int8_float16.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1280,
+      "wall_sec": 16.957818959002907,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  },
+  {
+    "task": "t5gemma",
+    "device": "mps",
+    "compute_type": "int8_bfloat16",
+    "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__int8_bfloat16.prof",
+    "metrics": {
+      "num_prompts": 20,
+      "total_tokens": 1087,
+      "wall_sec": 22.28495479200501,
+      "methodology_version": 2
+    },
+    "status": "ok"
+  }
+]

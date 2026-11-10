@@ -1,0 +1,13 @@
+{
+  "task": "t5gemma",
+  "device": "cpu",
+  "compute_type": "float32",
+  "prof": "results/apple_m4_pro_methodology2/t5gemma__cpu__float32.prof",
+  "metrics": {
+    "num_prompts": 20,
+    "total_tokens": 1149,
+    "wall_sec": 9.041046250000363,
+    "methodology_version": 2
+  },
+  "status": "ok"
+}

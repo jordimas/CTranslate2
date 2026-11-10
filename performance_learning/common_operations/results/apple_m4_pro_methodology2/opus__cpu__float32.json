@@ -1,0 +1,13 @@
+{
+  "task": "opus",
+  "device": "cpu",
+  "compute_type": "float32",
+  "prof": "results/apple_m4_pro_methodology2/opus__cpu__float32.prof",
+  "metrics": {
+    "num_sentences": 100,
+    "total_tokens": 2708,
+    "wall_sec": 3.654565624994575,
+    "methodology_version": 2
+  },
+  "status": "ok"
+}

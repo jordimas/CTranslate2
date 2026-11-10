@@ -233,11 +233,10 @@ def main():
     p.add_argument("--json-out",
                    default=str(pathlib.Path(__file__).parent / "summary.json"))
     a = p.parse_args()
+    metadata_path = pathlib.Path(a.results) / "run-metadata.json"
+    run_metadata = json.loads(metadata_path.read_text()) if metadata_path.is_file() else {}
     if not a.out:
-        identifier = a.cpu_id
-        metadata_path = pathlib.Path(a.results) / "run-metadata.json"
-        if not identifier and metadata_path.is_file():
-            identifier = json.loads(metadata_path.read_text()).get("cpu_id")
+        identifier = a.cpu_id or run_metadata.get("cpu_id")
         if not identifier:
             p.error("Results lack cpu_id; supply --cpu-id for the benchmark machine or --out")
         a.out = str(pathlib.Path(__file__).parent / f"reports_{cpu_id(identifier)}.html")
@@ -265,7 +264,8 @@ def main():
         rows_by_tag[tag] = rows
 
     with open(a.json_out, "w") as f:
-        json.dump({"manifest": manifest, "rows_by_tag": rows_by_tag},
+        json.dump({"manifest": manifest, "rows_by_tag": rows_by_tag,
+                   "run_metadata": run_metadata},
                   f, indent=2)
 
     ok = [e for e in manifest if e.get("status") == "ok"]
@@ -345,13 +345,21 @@ def main():
         '<a href="#per-run"><b>per run</b></a>'
     )
 
+    provenance = ""
+    if run_metadata:
+        description = (f"CPU: {run_metadata.get('cpu_id', 'unknown')} · "
+                       f"source: {run_metadata.get('source_commit', 'unknown')} · "
+                       f"methodology: {run_metadata.get('methodology_version', 'unknown')}")
+        provenance = ('<p class="meta">' + html.escape(description) + '</p>'
+                      '<p class="meta">Synchronized operation profiling; wall times are '
+                      'not unprofiled throughput measurements.</p>')
     doc = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<title>CT2 common operations profiling</title>"
         + CSS +
         "</head><body>"
         "<h1>CTranslate2 — common operations profiling</h1>"
-        f"<nav>{nav_links}</nav>"
+        + provenance + f"<nav>{nav_links}</nav>"
         + "".join(sections)
         + TABLE_JS
         + "</body></html>")

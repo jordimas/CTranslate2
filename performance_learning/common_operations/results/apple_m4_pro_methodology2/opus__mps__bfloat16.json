@@ -1,0 +1,13 @@
+{
+  "task": "opus",
+  "device": "mps",
+  "compute_type": "bfloat16",
+  "prof": "results/apple_m4_pro_methodology2/opus__mps__bfloat16.prof",
+  "metrics": {
+    "num_sentences": 100,
+    "total_tokens": 2655,
+    "wall_sec": 8.094048708000628,
+    "methodology_version": 2
+  },
+  "status": "ok"
+}

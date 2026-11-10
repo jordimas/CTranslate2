@@ -1,0 +1,13 @@
+{
+  "task": "t5gemma",
+  "device": "mps",
+  "compute_type": "int8_bfloat16",
+  "prof": "results/apple_m4_pro_methodology2/t5gemma__mps__int8_bfloat16.prof",
+  "metrics": {
+    "num_prompts": 20,
+    "total_tokens": 1087,
+    "wall_sec": 22.28495479200501,
+    "methodology_version": 2
+  },
+  "status": "ok"
+}

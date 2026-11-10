@@ -1,0 +1,18 @@
+{
+  "task": "whisper-large-v3",
+  "device": "mps",
+  "compute_type": "int8_float16",
+  "prof": "results/apple_m4_pro_methodology2/whisper-large-v3__mps__int8_float16.prof",
+  "metrics": {
+    "num_samples": 20,
+    "audio_sec": 187.66499999999996,
+    "hyps_sample": [
+      "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+      "Nor is Mr. Quilter's manner less interesting than his matter.",
+      "he tells us that at this festive season of the year with christmas and roast beef looming before us similes drawn from eating and its results occur most readily to the mind"
+    ],
+    "wall_sec": 74.89830337500462,
+    "methodology_version": 2
+  },
+  "status": "ok"
+}

@@ -10,10 +10,10 @@ fresh machine-specific results directory. Runs record host, source revision,
 package/Python versions, workload limits, and methodology version; incompatible
 resume metadata is rejected. Preserve build metadata and the CMake cache too.
 
-To regenerate the original report with only Python's standard library:
+To regenerate the latest report with only Python's standard library:
 
 ```sh
-python3 summarize.py --results results --cpu-id apple_m4_pro --json-out summary.json
+python3 summarize.py --results results/apple_m4_pro_methodology2 --json-out summary.json
 ```
 
 New reports default to `reports_<cpu_id>.html`, using the CPU identifier saved
@@ -25,8 +25,13 @@ absolute paths. Missing or unsupported profiles fail explicitly.
 
 ## Historical baseline
 
-`results/`, `reports_apple_m4_pro.html`, and `summary.json` preserve the original Mac baseline.
-The saved summary/report differs from current raw data for at least
+`reports_apple_m4_pro.html` and `summary.json` are generated from the new
+`results/apple_m4_pro_methodology2/` run. That directory also contains run
+metadata, the CMake cache, and a native-library checksum in `build-provenance.txt`.
+
+The files directly under `results/` preserve the original Mac measurements.
+Their original HTML/summary snapshot is available in Git history at `1b9a9c75`.
+That old snapshot differs from its raw data for at least
 `whisper-large-v3__mps__int8_bfloat16`; regeneration can change those numbers.
 The old wall timer included warm-up, and Whisper warm-up was not fully consumed.
 New runs use methodology 2; do not silently compare their timings to that baseline.

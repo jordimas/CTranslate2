@@ -1,0 +1,8 @@
+{
+  "source_commit": "1b9a9c750191be4ecf49694edb6f8d86204f72f7",
+  "native_library_sha256": "b51b16d250fd4c278a834eaa07621d2cb83a6dfb26f68e53201c934716b196e1",
+  "profile_format": 1,
+  "methodology_version": 2,
+  "cmake_cache": "CMakeCache.txt",
+  "python": "CPython 3.12 from venv-prof; newly built extension loaded through PYTHONPATH"
+}

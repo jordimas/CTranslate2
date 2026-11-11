@@ -53,6 +53,7 @@ def run_whisper_wer(limit=300, device="cpu"):
     audio_sec = sum(len(audio) / sr for audio, sr, _ in samples)
 
     return {"wer": jiwer.wer(refs, hyps),
+            "device": model.model.device, "compute_type": model.model.compute_type,
             "rtf_inverse": audio_sec / elapsed,
             "num_samples": len(samples)}
 
@@ -110,6 +111,7 @@ def run_opus_bleu(limit=500, device="cpu", model_dir=None):
                              skip_special_tokens=True)
             for r in results]
     return {"bleu": sacrebleu.corpus_bleu(hyps, refs).score,
+            "device": translator.device, "compute_type": translator.compute_type,
             "tokens_per_sec": total_tokens / elapsed,
             "num_sentences": len(sources)}
 
@@ -141,6 +143,7 @@ def run_t5gemma_generation(limit=50, device="cpu", model_dir=None):
     if len(outputs) != len(prompts) or any(not output for output in outputs):
         raise ValueError("Generation returned missing or empty completions")
     return {"outputs": outputs, "num_prompts": len(prompts),
+            "device": translator.device, "compute_type": translator.compute_type,
             "tokens_per_sec": sum(len(r.hypotheses[0]) for r in results) / elapsed}
 
 

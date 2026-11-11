@@ -41,3 +41,19 @@ Use `--candidate-wheel-pattern "dist/*.whl"` to require exactly one matching whe
 Omit `--candidate-wheel` to compare PyPI against itself. `--bleu-limit` sets
 translation coverage (default 500), independently of `--limit`.
 Task implementations are in `tasks.py`.
+
+The summary prints separate quality and performance tables, including the actual
+device and compute type on each side. Use `--report summary.md` to save Markdown.
+The local `performance_learning/benchmark/run_gates_installed_vs_latest.sh` wrapper
+saves `gate-summary.md`; `run_gates_gpu.sh` selects `--device cuda` and saves
+`gate-summary-gpu.md`. The `cuda` device name also applies to the HIP backend.
+Both wheels must support the host GPU. On AMD, provide a ROCm baseline wheel
+instead of the default PyPI CUDA wheel:
+
+```sh
+bash performance_learning/benchmark/run_gates_gpu.sh --baseline-wheel /path/to/baseline-rocm.whl
+```
+
+Compute types remain the same as the CPU tasks: Whisper requests int8,
+Opus uses the model default, and T5Gemma requests float32. Reported types reflect
+the backend's resolved type; these tasks do not isolate an int8 kernel speedup.

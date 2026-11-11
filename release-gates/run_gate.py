@@ -119,7 +119,8 @@ def compare_completions(base, cand):
     return len(changed)
 
 
-def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmation=False):
+def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmation=False,
+                  summary=None):
     """Compare three sequential pairs; retain every quality failure."""
     samples = {"baseline": [], "candidate": []}
     quality_failed = False
@@ -153,21 +154,65 @@ def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmatio
               f"({result.candidate - result.baseline:+.4f}) {'FAIL' if result.failed else 'ok'}")
     performance_failures = {metric for metric, result in results.items()
                             if result.performance and result.failed}
+    if summary is not None:
+        metadata = []
+        for label in ("baseline", "candidate"):
+            metadata.append(" / ".join(sorted({
+                f"{r.get('device', device)} / {r.get('compute_type', 'unknown')}"
+                for r in samples[label]
+            })))
+        round_name = "confirmation" if confirmation else "initial"
+        for metric, result in results.items():
+            delta = result.candidate - result.baseline
+            change = f"{delta:+.4f}"
+            if result.performance and result.baseline:
+                change = f"{100 * delta / abs(result.baseline):+.2f}%"
+            summary.append([task, round_name, *metadata, metric,
+                            f"{result.baseline:.4f}", f"{result.candidate:.4f}", change,
+                            "threshold exceeded" if result.failed else "ok"])
+        if task == "t5gemma_generation":
+            baseline, candidate = samples["baseline"][0], samples["candidate"][0]
+            changed = sum(b != c for b, c in zip(baseline["outputs"], candidate["outputs"]))
+            summary.append([task, round_name, *metadata, "nonempty completions",
+                            str(len(baseline["outputs"])), str(len(candidate["outputs"])),
+                            f"{changed} changed (first pair)", "ok; text changes informational"])
     return quality_failed, performance_failures
 
 
-def evaluate_task(base_py, cand_py, task, limit, device, model_dirs):
+def evaluate_task(base_py, cand_py, task, limit, device, model_dirs, summary=None):
+    report_args = {} if summary is None else {"summary": summary}
     quality_failed, performance_failures = measure_round(
-        base_py, cand_py, task, limit, device, model_dirs)
+        base_py, cand_py, task, limit, device, model_dirs, **report_args)
     if performance_failures:
         print(f"[gate] {task}: confirming performance regression", flush=True)
         confirmation_quality_failed, confirmed = measure_round(
-            base_py, cand_py, task, limit, device, model_dirs, confirmation=True)
+            base_py, cand_py, task, limit, device, model_dirs, confirmation=True, **report_args)
         quality_failed |= confirmation_quality_failed
         performance_failures &= confirmed
         print(f"[gate] {task}: performance regression "
               f"{'confirmed' if performance_failures else 'not confirmed'}")
     return quality_failed or bool(performance_failures)
+
+
+def publish_summary(rows, baseline, candidate, status, report=None):
+    def cell(value):
+        return str(value).replace("|", "\\|").replace("\n", " ")
+
+    lines = ["# Release gate summary", "", f"Baseline: {cell(baseline)}", "",
+             f"Candidate: {cell(candidate)}", "", f"Gate result: **{status}**", "",
+             "Numeric values are medians of three measurements per round. "
+             "Quality failures in any pair remain blocking; performance regressions require confirmation."]
+    for title, performance in (("Quality metrics", False), ("Performance metrics", True)):
+        lines.extend(["", f"## {title}", "",
+                      "| Task | Round | Baseline device / compute_type | Candidate device / compute_type | Metric | Baseline | Candidate | Change | Round result |",
+                      "| --- | --- | --- | --- | --- | ---: | ---: | --- | --- |"])
+        for row in rows:
+            if RULES[row[0]].get(row[4], (None, None, False))[2] == performance:
+                lines.append("| " + " | ".join(map(cell, row)) + " |")
+    text = "\n".join(lines) + "\n"
+    print("\n" + text, flush=True)
+    if report:
+        pathlib.Path(report).write_text(text, encoding="utf-8")
 
 
 def main():
@@ -181,6 +226,8 @@ def main():
     p.add_argument("--bleu-limit", type=int, default=500,
                    help="number of translation sentences (default: 500; overrides --limit)")
     p.add_argument("--device", default="cpu")
+    p.add_argument("--baseline-wheel", help="baseline pip spec or wheel path (default: latest PyPI)")
+    p.add_argument("--report", help="also save the summary table as Markdown")
     args = p.parse_args()
     if args.bleu_limit < 1:
         p.error("--bleu-limit must be positive")
@@ -191,7 +238,7 @@ def main():
         args.candidate_wheel = str(pathlib.Path(wheels[0]).resolve())
     limit = None if args.limit == 0 else args.limit
 
-    baseline_spec = f"ctranslate2=={latest_version()}"
+    baseline_spec = args.baseline_wheel or f"ctranslate2=={latest_version()}"
     print(f"[gate] baseline={baseline_spec} candidate={args.candidate_wheel}")
 
     with tempfile.TemporaryDirectory(prefix="release-gate-") as tmp:
@@ -200,18 +247,31 @@ def main():
         print("[gate] creating candidate venv")
         cand_py = make_venv(os.path.join(tmp, "candidate"), args.candidate_wheel)
 
+        if args.device == "cuda":
+            for label, py in (("baseline", base_py), ("candidate", cand_py)):
+                subprocess.check_call([py, "-c",
+                    "import ctranslate2; "
+                    f"assert ctranslate2.get_cuda_device_count() > 0, "
+                    f"{(label + ': no GPU available; use a wheel matching the GPU backend (CUDA or ROCm). Use --baseline-wheel to override the PyPI baseline.')!r}"])
+
         model_dirs = {
             "baseline": convert_models(base_py, os.path.join(tmp, "baseline-models")),
             "candidate": convert_models(cand_py, os.path.join(tmp, "candidate-models")),
         }
 
         failed = False
-        for task in RULES:
-            task_limit = args.bleu_limit if task == "opus_bleu" else limit
-            if task == "t5gemma_generation":
-                task_limit = 50
-            failed |= evaluate_task(base_py, cand_py, task, task_limit,
-                                    args.device, model_dirs)
+        summary = []
+        status = "ERROR (incomplete run)"
+        try:
+            for task in RULES:
+                task_limit = args.bleu_limit if task == "opus_bleu" else limit
+                if task == "t5gemma_generation":
+                    task_limit = 50
+                failed |= evaluate_task(base_py, cand_py, task, task_limit,
+                                        args.device, model_dirs, summary=summary)
+            status = "FAIL" if failed else "PASS"
+        finally:
+            publish_summary(summary, baseline_spec, args.candidate_wheel, status, args.report)
 
     sys.exit(1 if failed else 0)
 

@@ -4,7 +4,6 @@
 
 #include "ctranslate2/ops/bias_add.h"
 
-#include "cpu/cpu_info.h"
 #include "cpu/kernels.h"
 #include "dispatch.h"
 
@@ -77,8 +76,7 @@ namespace ctranslate2 {
                                                   const StorageView* weight_compensation) const {
 #if defined(CT2_X86_BUILD)
       bool supported = false;
-      CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2
-                       || (ISA == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni())));
+      CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
       if (!supported || !weight_compensation
           || _trans_a || !_trans_b || _a_is_packed || _b_is_packed || _beta != 0.f
           || input.dtype() != DataType::FLOAT32 || input.rank() < 1

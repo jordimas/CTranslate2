@@ -12,7 +12,6 @@ namespace ctranslate2 {
     bool cpu_supports_avx();
     bool cpu_supports_avx2();
     bool cpu_supports_avx512();
-    bool cpu_supports_avx512_vnni();
 #elif defined(CT2_ARM64_BUILD)
     bool cpu_supports_neon();
 #endif

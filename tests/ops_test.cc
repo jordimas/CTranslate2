@@ -5,7 +5,6 @@
 #include <limits>
 #include <set>
 #include "test_utils.h"
-#include "cpu/cpu_info.h"
 #include "cpu/cpu_isa.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/ops.h"
@@ -126,8 +125,7 @@ TEST(OpTest, GemmInt16) {
 
 TEST(OpTest, GemmWeightOnlyInt8M1) {
 #if defined(CT2_X86_BUILD)
-  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2
-      && !(cpu::get_cpu_isa() == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni()))
+  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2)
     GTEST_SKIP();
   StorageView input({1, 3}, std::vector<float>{1.f, 0.f, -1.f});
   StorageView weight({2, 3}, std::vector<int8_t>{1, 3, 5, 2, 4, 6});
@@ -144,8 +142,7 @@ TEST(OpTest, GemmWeightOnlyInt8M1) {
 
 TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
 #if defined(CT2_X86_BUILD)
-  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2
-      && !(cpu::get_cpu_isa() == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni()))
+  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2)
     GTEST_SKIP();
   const dim_t n = 19;
   const float alpha = 0.75f;
@@ -216,8 +213,7 @@ TEST(OpTest, GemmWeightOnlyInt8DispatchAndFallback) {
   ops::Gemm op(1.f, 0.f, false, true);
   bool supported = false;
 #if defined(CT2_X86_BUILD)
-  CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2
-                   || (ISA == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni())));
+  CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
 #endif
   EXPECT_EQ(op.try_weight_only_int8(input, weight, scale, output,
                                    nullptr, nullptr, nullptr, &compensation), supported);

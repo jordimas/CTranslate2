@@ -100,7 +100,7 @@ namespace ctranslate2 {
                   float epsilon,
                   bool use_residual);
 
-    // Fused small-M FP32 x INT8 GEMM for AVX2/AVX-512 VNNI, M=1..8.
+    // Fused small-M FP32 x INT8 GEMM for AVX2, M=1..8.
     // compensation[n] = -128 * sum_k(weight[n, k]), independent of alpha.
     // Caller checks ISA support; scratch holds m*k bytes; weights are unpacked [n,k].
     template <CpuIsa ISA>

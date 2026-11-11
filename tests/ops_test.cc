@@ -5,6 +5,7 @@
 #include <limits>
 #include <set>
 #include "test_utils.h"
+#include "cpu/cpu_info.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/ops.h"
 #include "ctranslate2/primitives.h"
@@ -123,17 +124,85 @@ TEST(OpTest, GemmInt16) {
 };
 
 TEST(OpTest, GemmWeightOnlyInt8M1) {
-  // input: [1, 3] fp32, weight: [3, 2] int8 (not transposed), scale: [2] fp32.
-  // Expected output[n] = alpha * sum_k(input[k] * weight[k,n]) * scale[n].
-  StorageView input({1, 3}, std::vector<float>{1.0f, 2.0f, 3.0f});
-  StorageView weight({3, 2}, std::vector<int8_t>{1, 2, 3, 4, 5, 6});
-  StorageView scale({2}, std::vector<float>{0.5f, 0.25f});
+#if defined(CT2_X86_BUILD)
+  if (!cpu::cpu_supports_avx512_vnni())
+    GTEST_SKIP();
+  StorageView input({1, 3}, std::vector<float>{1.f, 0.f, -1.f});
+  StorageView weight({2, 3}, std::vector<int8_t>{1, 3, 5, 2, 4, 6});
+  StorageView scale({2}, std::vector<float>{2.f, 4.f});
+  StorageView row_sum({2}, std::vector<int32_t>{9, 12});
   StorageView output(DataType::FLOAT32);
-  // col0: 1*1+2*3+3*5=22, *0.5=11.  col1: 1*2+2*4+3*6=28, *0.25=7.
-  StorageView expected({1, 2}, std::vector<float>{11.0f, 7.0f});
-  ops::Gemm op(1.0, 0.0, false, false);
-  ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
+  StorageView expected({1, 2}, std::vector<float>{-2.f, -1.f});
+  ops::Gemm op(1.f, 0.f, false, true);
+  ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
+                                    nullptr, nullptr, nullptr, &row_sum));
   expect_storage_eq(output, expected);
+#endif
+}
+
+TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
+#if defined(CT2_X86_BUILD)
+  if (!cpu::cpu_supports_avx512_vnni())
+    GTEST_SKIP();
+  const dim_t n = 19;
+  const float alpha = 0.75f;
+  for (dim_t m = 1; m <= 8; ++m) {
+    for (dim_t k : {1, 15, 63, 64, 65, 127, 128, 129, 1024}) {
+      SCOPED_TRACE("M=" + std::to_string(m) + " K=" + std::to_string(k));
+      std::vector<float> a(m * k), scales(n), expected(m * n);
+      std::vector<int8_t> b(n * k);
+      std::vector<int32_t> sums(n, 0);
+      for (dim_t r = 0; r < m; ++r)
+        for (dim_t t = 0; t < k; ++t)
+          a[r * k + t] = r == 0 ? 0.f : float((t * 13 + r * 7) % 31 - 15) / (r + 1);
+      for (dim_t c = 0; c < n; ++c) {
+        scales[c] = float(c + 2);
+        for (dim_t t = 0; t < k; ++t) {
+          b[c * k + t] = int8_t((c * 17 + t * 11) % 255 - 127);
+          sums[c] += b[c * k + t];
+        }
+      }
+      for (dim_t r = 0; r < m; ++r) {
+        float amax = 0.f;
+        for (dim_t t = 0; t < k; ++t)
+          amax = std::max(amax, std::fabs(a[r * k + t]));
+        const float act_scale = amax > 0.f ? 127.f / amax : 1.f;
+        for (dim_t c = 0; c < n; ++c) {
+          int32_t dot = 0;
+          for (dim_t t = 0; t < k; ++t)
+            dot += int32_t(std::nearbyintf(a[r * k + t] * act_scale)) * b[c * k + t];
+          expected[r * n + c] = alpha * float(dot) * (1.f / act_scale) / scales[c];
+        }
+      }
+      StorageView input({1, m, k}, a);
+      StorageView weight({n, k}, b);
+      StorageView scale({n}, scales);
+      StorageView row_sum({n}, sums);
+      StorageView output(DataType::FLOAT32);
+      ops::Gemm op(alpha, 0.f, false, true);
+      ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
+                                        nullptr, nullptr, nullptr, &row_sum));
+      StorageView reference({1, m, n}, expected);
+      expect_storage_eq(output, reference);
+
+      StorageView bias({n}, 0.25f);
+      StorageView residual({1, m, n}, -0.5f);
+      const ops::ActivationType activation = ops::ActivationType::ReLU;
+      for (auto& v : expected)
+        v = std::max(0.f, v + 0.25f - 0.5f);
+      ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
+                                        &activation, &bias, &residual, &row_sum));
+      StorageView epilogue_reference({1, m, n}, expected);
+      expect_storage_eq(output, epilogue_reference);
+
+      // Unsupported inputs must leave dispatch to the regular GEMM path.
+      EXPECT_FALSE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
+      ops::Gemm accumulating_op(alpha, 1.f, false, true);
+      EXPECT_FALSE(accumulating_op.try_weight_only_int8(input, weight, scale, output,
+                                                       nullptr, nullptr, nullptr, &row_sum));
+    }
+  }
+#endif
 }
 
 TEST(OpTest, GemmWeightOnlyInt8GatedForMGreaterThan1) {

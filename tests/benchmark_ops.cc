@@ -257,13 +257,13 @@ void benchmark_dense_int8_m1(Device device) {
     {4096, 1024, "K=4096 N=1024 (FFN down)"},
   };
 
+  const std::vector<dim_t> ms = {1, 4, 5, 8};
+
   for (const auto& sh : shapes) {
     const dim_t k = sh.k;
     const dim_t n = sh.n;
     std::cerr << "\n### " << sh.label << " ###" << std::endl;
 
-    // M=1 fp32 input
-    StorageView input({1, k}, rand_vector(k), device);
     // Random int8 weight [N, K] (trans_b=true layout)
     std::vector<float> weight_src = rand_vector(n * k);
     for (auto& v : weight_src) v = static_cast<int8_t>(static_cast<int>(v) % 127);
@@ -273,48 +273,45 @@ void benchmark_dense_int8_m1(Device device) {
     ops::Quantize quantize_w;
     quantize_w(weight_fp, weight, weight_scale);
 
-    StorageView output(device);
-    const ops::ActivationType* no_act = nullptr;
-
-    // Fast path (weight-only int8 directly).
-    ops::Gemm gemm_op(1.f, 0.f, /*trans_a=*/false, /*trans_b=*/true);
-    BENCHMARK(gemm_op.try_weight_only_int8(input, weight, weight_scale, output,
-                                            no_act, nullptr, nullptr),
-              2000);
-
-    // Fallback path: quantize input, int8 GEMM, dequantize.
-    StorageView qinput(DataType::INT8, device);
-    StorageView qinput_scale(DataType::FLOAT32, device);
-    StorageView qoutput(DataType::INT32, device);
-    StorageView dq_output(device);
-    ops::Quantize quantize_a;
-    ops::Dequantize dequantize_op;
-    auto fallback = [&]() {
-      quantize_a(input, qinput, qinput_scale);
-      gemm_op(qinput, weight, qoutput);
-      dequantize_op(qoutput, qinput_scale, weight_scale,
-                    /*trans_a=*/false, /*trans_b=*/true, dq_output);
-    };
-    BENCHMARK(fallback(), 2000);
-
-#if defined(__x86_64__)
-    // Fused VNNI (option 2): activation quantization + u8xs8 vpdpbusd + dequant.
-    std::vector<int32_t> wrow_sum(n, 0);
-    const int8_t* wptr = weight.data<int8_t>();
-    const float* wscale_ptr = weight_scale.data<float>();
-    for (dim_t ni = 0; ni < n; ++ni) {
-      int32_t s = 0;
-      for (dim_t ki = 0; ki < k; ++ki) s += wptr[ni * k + ki];
-      wrow_sum[ni] = s;
+    // Precompute int32 weight row sums for the VNNI +128 compensation.
+    StorageView wrow_sum({n}, DataType::INT32, device);
+    {
+      const int8_t* wptr = weight.data<int8_t>();
+      int32_t* sums = wrow_sum.data<int32_t>();
+      for (dim_t ni = 0; ni < n; ++ni) {
+        int32_t s = 0;
+        for (dim_t ki = 0; ki < k; ++ki) s += wptr[ni * k + ki];
+        sums[ni] = s;
+      }
     }
-    std::vector<uint8_t> qinput_scratch(((k + 63) / 64) * 64);
-    std::vector<float> vnni_output(n);
-    const float* in_ptr = input.data<float>();
-    BENCHMARK(fused_vnni_gemv(in_ptr, wptr, wscale_ptr, wrow_sum.data(),
-                              qinput_scratch.data(), vnni_output.data(),
-                              static_cast<int>(k), static_cast<int>(n), 1.f),
-              2000);
-#endif
+
+    for (dim_t m : ms) {
+      std::cerr << "-- m=" << m << " --" << std::endl;
+      StorageView input({m, k}, rand_vector(m * k), device);
+      StorageView output(device);
+      const ops::ActivationType* no_act = nullptr;
+
+      // Fast path: fused VNNI weight-only int8.
+      ops::Gemm gemm_op(1.f, 0.f, /*trans_a=*/false, /*trans_b=*/true);
+      BENCHMARK(gemm_op.try_weight_only_int8(input, weight, weight_scale, output,
+                                              no_act, nullptr, nullptr, &wrow_sum),
+                2000);
+
+      // Fallback path: quantize input, int8 GEMM, dequantize.
+      StorageView qinput(DataType::INT8, device);
+      StorageView qinput_scale(DataType::FLOAT32, device);
+      StorageView qoutput(DataType::INT32, device);
+      StorageView dq_output(device);
+      ops::Quantize quantize_a;
+      ops::Dequantize dequantize_op;
+      auto fallback = [&]() {
+        quantize_a(input, qinput, qinput_scale);
+        gemm_op(qinput, weight, qoutput);
+        dequantize_op(qoutput, qinput_scale, weight_scale,
+                      /*trans_a=*/false, /*trans_b=*/true, dq_output);
+      };
+      BENCHMARK(fallback(), 2000);
+    }
   }
 }
 

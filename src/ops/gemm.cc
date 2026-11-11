@@ -1,5 +1,9 @@
 #include "ctranslate2/ops/gemm.h"
 
+#include <atomic>
+#include <cstdlib>
+#include <iostream>
+
 #include "ctranslate2/ops/bias_add.h"
 
 #include "cpu/cpu_info.h"
@@ -75,6 +79,9 @@ namespace ctranslate2 {
                                                   const StorageView* residual,
                                                   const StorageView* weight_row_sum) const {
 #if defined(CT2_X86_BUILD)
+      static std::atomic<uint64_t> s_vnni_hits{0};
+      static std::atomic<uint64_t> s_vnni_misses{0};
+      static const char* dbg = std::getenv("CT2_VNNI_DEBUG");
       // The VNNI fused kernel supports only m=1, trans_a=false, trans_b=true, and needs the
       // precomputed s8 weight-row sums for the +128 compensation.
       if (!weight_row_sum
@@ -85,28 +92,43 @@ namespace ctranslate2 {
           || scale.dtype() != DataType::FLOAT32
           || weight_row_sum->dtype() != DataType::INT32
           || (bias && bias->dtype() != DataType::FLOAT32)
-          || (residual && residual->dtype() != DataType::FLOAT32))
+          || (residual && residual->dtype() != DataType::FLOAT32)) {
+        if (dbg) s_vnni_misses.fetch_add(1, std::memory_order_relaxed);
         return false;
+      }
 
       const dim_t k = input.dim(-1);
       const dim_t n = weight.dim(-2);
       const dim_t m = input.size() / k;
-      if (m != 1 || scale.size() != n || weight_row_sum->size() != n)
+      if (m < 1 || m > cpu::kMaxVnniM
+          || scale.size() != n || weight_row_sum->size() != n) {
+        if (dbg) {
+          auto misses = s_vnni_misses.fetch_add(1, std::memory_order_relaxed) + 1;
+          if (misses % 1000 == 0)
+            std::cerr << "[vnni] miss m=" << m << " k=" << k << " n=" << n
+                      << " total_misses=" << misses
+                      << " hits=" << s_vnni_hits.load(std::memory_order_relaxed)
+                      << std::endl;
+        }
         return false;
+      }
+      if (dbg) s_vnni_hits.fetch_add(1, std::memory_order_relaxed);
 
+      // Only the last dim changes (k -> n); the leading dims (including the
+      // m-dim, which may be collapsed across several batch dims) stay the same.
       Shape output_shape(input.shape());
-      output_shape[output_shape.size() - 2] = 1;
       output_shape[output_shape.size() - 1] = n;
       output.resize(std::move(output_shape));
 
-      std::vector<uint8_t> qinput_scratch(((k + 63) / 64) * 64);
+      const dim_t k_pad = (k + 63) & ~dim_t(63);
+      std::vector<uint8_t> qinput_scratch(static_cast<size_t>(m) * k_pad);
       cpu::vnni_fused_s8xs8_gemv(input.data<float>(),
                                  weight.data<int8_t>(),
                                  scale.data<float>(),
                                  weight_row_sum->data<int32_t>(),
                                  qinput_scratch.data(),
                                  output.data<float>(),
-                                 k, n, _alpha);
+                                 m, k, n, _alpha);
       apply_bias_and_activation(output, bias, activation, residual);
       return true;
 #else

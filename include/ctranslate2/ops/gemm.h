@@ -40,7 +40,8 @@ namespace ctranslate2 {
                                 StorageView& output,
                                 const ActivationType* activation,
                                 const StorageView* bias = nullptr,
-                                const StorageView* residual = nullptr) const;
+                                const StorageView* residual = nullptr,
+                                const StorageView* weight_row_sum = nullptr) const;
 
       // Return the packed representation of b, if implemented by the GEMM backend.
       static StorageView pack_b_input(const StorageView& b,
@@ -87,7 +88,8 @@ namespace ctranslate2 {
                                 StorageView& output,
                                 const ActivationType* activation,
                                 const StorageView* bias,
-                                const StorageView* residual) const;
+                                const StorageView* residual,
+                                const StorageView* weight_row_sum) const;
     };
 
   }

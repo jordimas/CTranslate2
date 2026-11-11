@@ -56,6 +56,11 @@ target_link_libraries(benchmark_ops PRIVATE
   )
 if(NOT MSVC)
   target_compile_options(benchmark_ops PRIVATE -Wno-unused-result)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64)")
+    target_compile_options(benchmark_ops PRIVATE
+      -mavx512f -mavx512bw -mavx512vl -mavx512dq -mavx512vnni -mfma -fopenmp)
+    target_link_options(benchmark_ops PRIVATE -fopenmp)
+  endif()
 endif()
 
 if(WITH_MPS)

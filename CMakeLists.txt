@@ -130,6 +130,7 @@ set(SOURCES
   src/cpu/kernels.cc
   src/cpu/parallel.cc
   src/cpu/primitives.cc
+  src/cpu/vnni_gemv.cc
   src/decoding.cc
   src/decoding_utils.cc
   src/devices.cc
@@ -264,6 +265,7 @@ set(SOURCES
   src/vocabulary.cc
   src/vocabulary_map.cc
 )
+
 set(CUDA_SOURCES
   src/ops/causal_depthwise_conv1d_gpu.cu
   src/ops/conv_transpose1d_gpu.cu
@@ -326,6 +328,11 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(amd64)|(AMD64)")
   add_definitions(-DCT2_X86_BUILD)
   set(CT2_BUILD_ARCH "x86_64")
 
+  if(NOT MSVC)
+    set_source_files_properties(src/cpu/vnni_gemv.cc PROPERTIES
+      COMPILE_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512dq -mavx512vnni")
+  endif()
+
   if(BUILD_SHARED_LIBS)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
   endif()
@@ -356,7 +363,7 @@ if(ENABLE_CPU_DISPATCH)
     else()
       ct2_compile_kernels_for_isa(avx "-mavx")
       ct2_compile_kernels_for_isa(avx2 "-mavx2 -mfma")
-      ct2_compile_kernels_for_isa(avx512 "-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq")
+      ct2_compile_kernels_for_isa(avx512 "-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq -mavx512vnni")
     endif()
   elseif(CT2_BUILD_ARCH STREQUAL "arm64")
     ct2_compile_kernels_for_isa(neon "-DUSE_NEON")
@@ -792,6 +799,7 @@ elseif(WITH_HIP)
     src/cpu/kernels.cc
     src/cpu/parallel.cc
     src/cpu/primitives.cc
+    src/cpu/vnni_gemv.cc
     src/ops/alibi_add_cpu.cc
     src/ops/bias_add_cpu.cc
     src/ops/concat_split_slide_cpu.cc

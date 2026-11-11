@@ -637,6 +637,27 @@ namespace ctranslate2 {
     }
 
     template<>
+    void weight_only_int8_gemv<TARGET_ISA>(const float* input,
+                                           const int8_t* weight,
+                                           const float* scale,
+                                           float* output,
+                                           dim_t k,
+                                           dim_t n,
+                                           float alpha) {
+      parallel_for(0, n, 1, [&](dim_t begin, dim_t end) {
+        for (dim_t ni = begin; ni < end; ++ni) {
+          const int8_t* __restrict__ w_row = weight + ni * k;
+          float acc = 0.0f;
+          #pragma omp simd reduction(+:acc)
+          for (dim_t ki = 0; ki < k; ++ki) {
+            acc += input[ki] * static_cast<float>(w_row[ki]);
+          }
+          output[ni] = alpha * acc / scale[ni];
+        }
+      });
+    }
+
+    template<>
     void quantize_s8<TARGET_ISA>(const float* x,
                                  int8_t* y,
                                  float* scales,

@@ -2,6 +2,9 @@
 
 #include "ctranslate2/ops/bias_add.h"
 
+#include "cpu/cpu_info.h"
+#include "cpu/kernels.h"
+#include "cpu/vnni_gemv.h"
 #include "dispatch.h"
 
 namespace ctranslate2 {
@@ -69,56 +72,48 @@ namespace ctranslate2 {
                                                   StorageView& output,
                                                   const ActivationType* activation,
                                                   const StorageView* bias,
-                                                  const StorageView* residual) const {
-     if (input.dtype() != DataType::FLOAT32
+                                                  const StorageView* residual,
+                                                  const StorageView* weight_row_sum) const {
+#if defined(CT2_X86_BUILD)
+      // The VNNI fused kernel supports only m=1, trans_a=false, trans_b=true, and needs the
+      // precomputed s8 weight-row sums for the +128 compensation.
+      if (!weight_row_sum
+          || !cpu::cpu_supports_avx512_vnni()
+          || _trans_a || !_trans_b || _beta != 0.0f
+          || input.dtype() != DataType::FLOAT32
           || weight.dtype() != DataType::INT8
           || scale.dtype() != DataType::FLOAT32
+          || weight_row_sum->dtype() != DataType::INT32
           || (bias && bias->dtype() != DataType::FLOAT32)
-          || (residual && residual->dtype() != DataType::FLOAT32)
-          || _beta != 0.0f)
+          || (residual && residual->dtype() != DataType::FLOAT32))
         return false;
 
-      const dim_t k = input.dim(_trans_a ? -2 : -1);
-      const dim_t n = weight.dim(_trans_b ? -2 : -1);
+      const dim_t k = input.dim(-1);
+      const dim_t n = weight.dim(-2);
       const dim_t m = input.size() / k;
-
-      // Only take the weight-only int8 path for M=1 (decode / memory-bound).
-      // For larger M, oneDNN's packed INT8 GEMM is faster than this kernel.
-      if (m != 1)
-        return false;
-
-      if (scale.size() != n)
+      if (m != 1 || scale.size() != n || weight_row_sum->size() != n)
         return false;
 
       Shape output_shape(input.shape());
-      output_shape[output_shape.size() - 2] = input.dim(_trans_a ? -1 : -2);
+      output_shape[output_shape.size() - 2] = 1;
       output_shape[output_shape.size() - 1] = n;
       output.resize(std::move(output_shape));
 
-      const float* input_data = input.data<float>();
-      const int8_t* weight_data = weight.data<int8_t>();
-      const float* scale_data = scale.data<float>();
-      float* output_data = output.data<float>();
-
-      for (dim_t m_i = 0; m_i < m; ++m_i) {
-        #pragma omp parallel for
-        for (dim_t n_i = 0; n_i < n; ++n_i) {
-          float acc = 0.0f;
-          for (dim_t k_i = 0; k_i < k; ++k_i) {
-            const float a = _trans_a
-              ? input_data[k_i * m + m_i]
-              : input_data[m_i * k + k_i];
-            const int8_t w = _trans_b
-              ? weight_data[n_i * k + k_i]
-              : weight_data[k_i * n + n_i];
-            acc += a * static_cast<float>(w);
-          }
-          output_data[m_i * n + n_i] = _alpha * acc / scale_data[n_i];
-        }
-      }
-
+      std::vector<uint8_t> qinput_scratch(((k + 63) / 64) * 64);
+      cpu::vnni_fused_s8xs8_gemv(input.data<float>(),
+                                 weight.data<int8_t>(),
+                                 scale.data<float>(),
+                                 weight_row_sum->data<int32_t>(),
+                                 qinput_scratch.data(),
+                                 output.data<float>(),
+                                 k, n, _alpha);
       apply_bias_and_activation(output, bias, activation, residual);
       return true;
+#else
+      (void)input; (void)weight; (void)scale; (void)output;
+      (void)activation; (void)bias; (void)residual; (void)weight_row_sum;
+      return false;
+#endif
     }
 
     template<>
@@ -127,6 +122,7 @@ namespace ctranslate2 {
                                                    const StorageView&,
                                                    StorageView&,
                                                    const ActivationType*,
+                                                   const StorageView*,
                                                    const StorageView*,
                                                    const StorageView*) const {
       return false;
@@ -138,7 +134,8 @@ namespace ctranslate2 {
                                     StorageView& output,
                                     const ActivationType* activation,
                                     const StorageView* bias,
-                                    const StorageView* residual) const {
+                                    const StorageView* residual,
+                                    const StorageView* weight_row_sum) const {
       bool supported = false;
       DEVICE_DISPATCH(input.device(),
                       supported = try_weight_only_int8<D>(input,
@@ -147,7 +144,8 @@ namespace ctranslate2 {
                                                           output,
                                                           activation,
                                                           bias,
-                                                          residual));
+                                                          residual,
+                                                          weight_row_sum));
       return supported;
     }
 

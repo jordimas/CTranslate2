@@ -99,7 +99,8 @@ namespace ctranslate2 {
                                                   StorageView& output,
                                                   const ActivationType* activation,
                                                   const StorageView* bias,
-                                                  const StorageView* residual) const {
+                                                  const StorageView* residual,
+                                                  const StorageView* /*weight_row_sum*/) const {
       if (input.dtype() != DataType::FLOAT16
           || weight.dtype() != DataType::INT8
           || (bias && bias->dtype() != DataType::FLOAT16)

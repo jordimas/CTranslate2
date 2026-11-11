@@ -1,6 +1,14 @@
 #include "benchmark_utils.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <numeric>
+#include <vector>
+
+#if defined(__x86_64__)
+#  include <immintrin.h>
+#endif
 
 #include "ctranslate2/ops/ops.h"
 
@@ -172,6 +180,144 @@ void benchmark_conv_transpose1d(Device device) {
   BENCHMARK(conv_op(x, weight, bias, y), 100);
 }
 
+#if defined(__x86_64__)
+// Fused s8xs8 GEMV via VNNI vpdpbusd. Quantize fp32 input to u8 (shift by +128),
+// dot with s8 weight using vpdpbusd, apply +128 compensation using precomputed
+// weight row sums, dequantize by (act_scale * weight_scale[n]).
+__attribute__((target("avx512f,avx512bw,avx512vl,avx512dq,avx512vnni")))
+static void fused_vnni_gemv(const float* __restrict__ input,
+                            const int8_t* __restrict__ weight,
+                            const float* __restrict__ weight_scale,
+                            const int32_t* __restrict__ weight_row_sum,
+                            uint8_t* __restrict__ qinput_scratch,
+                            float* __restrict__ output,
+                            int k, int n, float alpha) {
+    // 1) amax(input)
+    __m512 vamax = _mm512_setzero_ps();
+    int i = 0;
+    for (; i + 16 <= k; i += 16) {
+        __m512 v = _mm512_loadu_ps(input + i);
+        vamax = _mm512_max_ps(vamax, _mm512_abs_ps(v));
+    }
+    float amax = _mm512_reduce_max_ps(vamax);
+    for (; i < k; ++i) amax = std::max(amax, std::fabs(input[i]));
+    const float act_scale = (amax > 0.f) ? (127.f / amax) : 1.f;
+
+    // 2) quantize input to u8 shifted by +128
+    __m512 vscale = _mm512_set1_ps(act_scale);
+    __m512i v128 = _mm512_set1_epi32(128);
+    for (i = 0; i + 16 <= k; i += 16) {
+        __m512 v = _mm512_mul_ps(_mm512_loadu_ps(input + i), vscale);
+        __m512i qi = _mm512_cvtps_epi32(v);
+        qi = _mm512_add_epi32(qi, v128);
+        // saturate to [0, 255] and pack to u8
+        qi = _mm512_min_epi32(_mm512_max_epi32(qi, _mm512_setzero_si512()),
+                              _mm512_set1_epi32(255));
+        __m128i u8 = _mm512_cvtusepi32_epi8(qi);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(qinput_scratch + i), u8);
+    }
+    for (; i < k; ++i) {
+        int q = static_cast<int>(std::nearbyintf(input[i] * act_scale)) + 128;
+        qinput_scratch[i] = static_cast<uint8_t>(std::clamp(q, 0, 255));
+    }
+
+    // 3) VNNI dot over N (parallel)
+    const float inv_act = 1.f / act_scale;
+    #pragma omp parallel for schedule(static)
+    for (int ni = 0; ni < n; ++ni) {
+        const int8_t* wrow = weight + static_cast<size_t>(ni) * k;
+        __m512i acc = _mm512_setzero_si512();
+        int kk = 0;
+        for (; kk + 64 <= k; kk += 64) {
+            __m512i x = _mm512_loadu_si512(reinterpret_cast<const __m512i*>(qinput_scratch + kk));
+            __m512i w = _mm512_loadu_si512(reinterpret_cast<const __m512i*>(wrow + kk));
+            acc = _mm512_dpbusd_epi32(acc, x, w);
+        }
+        int32_t sum = _mm512_reduce_add_epi32(acc);
+        for (; kk < k; ++kk) {
+            sum += static_cast<int32_t>(qinput_scratch[kk]) * static_cast<int32_t>(wrow[kk]);
+        }
+        // compensation: u8 = s8 + 128  =>  real_dot = sum - 128 * weight_row_sum[n]
+        sum -= 128 * weight_row_sum[ni];
+        output[ni] = alpha * static_cast<float>(sum) * inv_act / weight_scale[ni];
+    }
+}
+#endif  // __x86_64__
+
+void benchmark_dense_int8_m1(Device device) {
+  if (device != Device::CPU) {
+    std::cerr << "dense_int8_m1 is CPU-only" << std::endl;
+    return;
+  }
+  struct Shape { dim_t k; dim_t n; const char* label; };
+  std::vector<Shape> shapes = {
+    {1024, 1024, "K=1024 N=1024 (attn)"},
+    {1024, 3072, "K=1024 N=3072 (QKV)"},
+    {1024, 4096, "K=1024 N=4096 (FFN up)"},
+    {4096, 1024, "K=4096 N=1024 (FFN down)"},
+  };
+
+  for (const auto& sh : shapes) {
+    const dim_t k = sh.k;
+    const dim_t n = sh.n;
+    std::cerr << "\n### " << sh.label << " ###" << std::endl;
+
+    // M=1 fp32 input
+    StorageView input({1, k}, rand_vector(k), device);
+    // Random int8 weight [N, K] (trans_b=true layout)
+    std::vector<float> weight_src = rand_vector(n * k);
+    for (auto& v : weight_src) v = static_cast<int8_t>(static_cast<int>(v) % 127);
+    StorageView weight_fp({n, k}, weight_src, device);
+    StorageView weight(DataType::INT8, device);
+    StorageView weight_scale(DataType::FLOAT32, device);
+    ops::Quantize quantize_w;
+    quantize_w(weight_fp, weight, weight_scale);
+
+    StorageView output(device);
+    const ops::ActivationType* no_act = nullptr;
+
+    // Fast path (weight-only int8 directly).
+    ops::Gemm gemm_op(1.f, 0.f, /*trans_a=*/false, /*trans_b=*/true);
+    BENCHMARK(gemm_op.try_weight_only_int8(input, weight, weight_scale, output,
+                                            no_act, nullptr, nullptr),
+              2000);
+
+    // Fallback path: quantize input, int8 GEMM, dequantize.
+    StorageView qinput(DataType::INT8, device);
+    StorageView qinput_scale(DataType::FLOAT32, device);
+    StorageView qoutput(DataType::INT32, device);
+    StorageView dq_output(device);
+    ops::Quantize quantize_a;
+    ops::Dequantize dequantize_op;
+    auto fallback = [&]() {
+      quantize_a(input, qinput, qinput_scale);
+      gemm_op(qinput, weight, qoutput);
+      dequantize_op(qoutput, qinput_scale, weight_scale,
+                    /*trans_a=*/false, /*trans_b=*/true, dq_output);
+    };
+    BENCHMARK(fallback(), 2000);
+
+#if defined(__x86_64__)
+    // Fused VNNI (option 2): activation quantization + u8xs8 vpdpbusd + dequant.
+    std::vector<int32_t> wrow_sum(n, 0);
+    const int8_t* wptr = weight.data<int8_t>();
+    const float* wscale_ptr = weight_scale.data<float>();
+    for (dim_t ni = 0; ni < n; ++ni) {
+      int32_t s = 0;
+      for (dim_t ki = 0; ki < k; ++ki) s += wptr[ni * k + ki];
+      wrow_sum[ni] = s;
+    }
+    std::vector<uint8_t> qinput_scratch(((k + 63) / 64) * 64);
+    std::vector<float> vnni_output(n);
+    const float* in_ptr = input.data<float>();
+    BENCHMARK(fused_vnni_gemv(in_ptr, wptr, wscale_ptr, wrow_sum.data(),
+                              qinput_scratch.data(), vnni_output.data(),
+                              static_cast<int>(k), static_cast<int>(n), 1.f),
+              2000);
+#endif
+  }
+}
+
 void benchmark_gated_delta_net(Device device) {
   StorageView query({1, 1, 4, 128}, 0.01f, device);
   StorageView key({1, 1, 4, 128}, 0.01f, device);
@@ -236,6 +382,8 @@ int main(int argc, char* argv[]) {
     benchmark_conv_transpose1d(device);
   else if (op == "gated_delta_net")
     benchmark_gated_delta_net(device);
+  else if (op == "dense_int8_m1")
+    benchmark_dense_int8_m1(device);
 
   return 0;
 }

@@ -4,6 +4,8 @@
 
 #include "ctranslate2/ops/activation.h"
 #include "cpu/backend.h"
+#include "cpu/cpu_info.h"
+#include "cpu/vnni_gemv.h"
 #include "dispatch.h"
 
 namespace ctranslate2 {
@@ -353,6 +355,26 @@ namespace ctranslate2 {
       if (_quantized_gemm) {
         const auto device = input.device();
 
+        const StorageView* weight_row_sum_ptr = nullptr;
+#if defined(CT2_X86_BUILD)
+        if (!affected_by_tp
+            && qscale
+            && weight->device() == Device::CPU
+            && weight->dtype() == DataType::INT8
+            && input.dtype() == DataType::FLOAT32
+            && cpu::cpu_supports_avx512_vnni()) {
+          if (_weight_row_sum.empty() || _weight_row_sum.size() != weight->dim(-2)) {
+            const dim_t k = weight->dim(-1);
+            const dim_t n = weight->dim(-2);
+            _weight_row_sum = StorageView({n}, DataType::INT32, Device::CPU);
+            cpu::compute_weight_row_sum_s8(weight->data<int8_t>(),
+                                           _weight_row_sum.data<int32_t>(),
+                                           k, n);
+          }
+          weight_row_sum_ptr = &_weight_row_sum;
+        }
+#endif
+
         if (!affected_by_tp
             && qscale
             && _output_type == input.dtype()
@@ -362,7 +384,8 @@ namespace ctranslate2 {
                                               output,
                                               _activation_type,
                                               bias,
-                                              residual))
+                                              residual,
+                                              weight_row_sum_ptr))
           return;
 
         StorageView qinput(_weight.dtype(), device);

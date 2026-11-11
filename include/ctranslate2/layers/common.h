@@ -150,6 +150,7 @@ namespace ctranslate2 {
       StorageView _partial_bias;
       StorageView _partial_qscale;
       StorageView _partial_u8_shift_compensation;
+      mutable StorageView _weight_row_sum;
       const DataType _output_type;
       const models::QUANTIZATION_TYPE _quant_method;
       const bool _quantized_gemm;

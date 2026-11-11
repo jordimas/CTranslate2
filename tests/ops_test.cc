@@ -122,6 +122,29 @@ TEST(OpTest, GemmInt16) {
   expect_storage_eq(y, expected);
 };
 
+TEST(OpTest, GemmWeightOnlyInt8M1) {
+  // input: [1, 3] fp32, weight: [3, 2] int8 (not transposed), scale: [2] fp32.
+  // Expected output[n] = alpha * sum_k(input[k] * weight[k,n]) * scale[n].
+  StorageView input({1, 3}, std::vector<float>{1.0f, 2.0f, 3.0f});
+  StorageView weight({3, 2}, std::vector<int8_t>{1, 2, 3, 4, 5, 6});
+  StorageView scale({2}, std::vector<float>{0.5f, 0.25f});
+  StorageView output(DataType::FLOAT32);
+  // col0: 1*1+2*3+3*5=22, *0.5=11.  col1: 1*2+2*4+3*6=28, *0.25=7.
+  StorageView expected({1, 2}, std::vector<float>{11.0f, 7.0f});
+  ops::Gemm op(1.0, 0.0, false, false);
+  ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
+  expect_storage_eq(output, expected);
+}
+
+TEST(OpTest, GemmWeightOnlyInt8GatedForMGreaterThan1) {
+  StorageView input({2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6});
+  StorageView weight({3, 2}, std::vector<int8_t>{1, 2, 3, 4, 5, 6});
+  StorageView scale({2}, std::vector<float>{0.5f, 0.25f});
+  StorageView output(DataType::FLOAT32);
+  ops::Gemm op(1.0, 0.0, false, false);
+  EXPECT_FALSE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
+}
+
 TEST(OpTest, QuantizeINT16) {
   StorageView scale;
   StorageView input({4}, std::vector<float>{0.1f, -0.5f, 2.0f, 0.0f});

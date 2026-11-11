@@ -100,17 +100,6 @@ namespace ctranslate2 {
                   float epsilon,
                   bool use_residual);
 
-    // M=1 weight-only int8 GEMV: output[n] = alpha * sum_k(input[k] * weight[n,k]) / scale[n].
-    // Assumes trans_a=false, trans_b=true (weight stored row-major as [n, k]).
-    template <CpuIsa ISA>
-    void weight_only_int8_gemv(const float* input,
-                               const int8_t* weight,
-                               const float* scale,
-                               float* output,
-                               dim_t k,
-                               dim_t n,
-                               float alpha);
-
     template <CpuIsa ISA>
     void quantize_s8(const float* x,
                      int8_t* y,

@@ -101,6 +101,7 @@ namespace ctranslate2 {
       float* output_data = output.data<float>();
 
       for (dim_t m_i = 0; m_i < m; ++m_i) {
+        #pragma omp parallel for
         for (dim_t n_i = 0; n_i < n; ++n_i) {
           float acc = 0.0f;
           for (dim_t k_i = 0; k_i < k; ++k_i) {
@@ -112,7 +113,7 @@ namespace ctranslate2 {
               : weight_data[k_i * n + n_i];
             acc += a * static_cast<float>(w);
           }
-          output_data[m_i * n + n_i] = _alpha * acc * scale_data[n_i];
+          output_data[m_i * n + n_i] = _alpha * acc / scale_data[n_i];
         }
       }
 

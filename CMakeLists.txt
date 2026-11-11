@@ -130,7 +130,6 @@ set(SOURCES
   src/cpu/kernels.cc
   src/cpu/parallel.cc
   src/cpu/primitives.cc
-  src/cpu/vnni_gemv.cc
   src/decoding.cc
   src/decoding_utils.cc
   src/devices.cc
@@ -328,10 +327,6 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(amd64)|(AMD64)")
   add_definitions(-DCT2_X86_BUILD)
   set(CT2_BUILD_ARCH "x86_64")
 
-  if(NOT MSVC)
-    set_source_files_properties(src/cpu/vnni_gemv.cc PROPERTIES
-      COMPILE_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512dq -mavx512vnni")
-  endif()
 
   if(BUILD_SHARED_LIBS)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -799,7 +794,6 @@ elseif(WITH_HIP)
     src/cpu/kernels.cc
     src/cpu/parallel.cc
     src/cpu/primitives.cc
-    src/cpu/vnni_gemv.cc
     src/ops/alibi_add_cpu.cc
     src/ops/bias_add_cpu.cc
     src/ops/concat_split_slide_cpu.cc

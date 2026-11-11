@@ -1,14 +1,11 @@
 #include "ctranslate2/ops/gemm.h"
 
-#include <atomic>
-#include <cstdlib>
-#include <iostream>
+#include <vector>
 
 #include "ctranslate2/ops/bias_add.h"
 
 #include "cpu/cpu_info.h"
 #include "cpu/kernels.h"
-#include "cpu/vnni_gemv.h"
 #include "dispatch.h"
 
 namespace ctranslate2 {
@@ -77,63 +74,44 @@ namespace ctranslate2 {
                                                   const ActivationType* activation,
                                                   const StorageView* bias,
                                                   const StorageView* residual,
-                                                  const StorageView* weight_row_sum) const {
+                                                  const StorageView* weight_compensation) const {
 #if defined(CT2_X86_BUILD)
-      static std::atomic<uint64_t> s_vnni_hits{0};
-      static std::atomic<uint64_t> s_vnni_misses{0};
-      static const char* dbg = std::getenv("CT2_VNNI_DEBUG");
-      // The VNNI fused kernel supports only m=1, trans_a=false, trans_b=true, and needs the
-      // precomputed s8 weight-row sums for the +128 compensation.
-      if (!weight_row_sum
-          || !cpu::cpu_supports_avx512_vnni()
-          || _trans_a || !_trans_b || _beta != 0.0f
-          || input.dtype() != DataType::FLOAT32
-          || weight.dtype() != DataType::INT8
+      bool supported = false;
+      CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2
+                       || (ISA == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni())));
+      if (!supported || !weight_compensation
+          || _trans_a || !_trans_b || _a_is_packed || _b_is_packed || _beta != 0.f
+          || input.dtype() != DataType::FLOAT32 || input.rank() < 1
+          || weight.dtype() != DataType::INT8 || weight.rank() != 2
           || scale.dtype() != DataType::FLOAT32
-          || weight_row_sum->dtype() != DataType::INT32
-          || (bias && bias->dtype() != DataType::FLOAT32)
-          || (residual && residual->dtype() != DataType::FLOAT32)) {
-        if (dbg) s_vnni_misses.fetch_add(1, std::memory_order_relaxed);
+          || weight_compensation->dtype() != DataType::INT32
+          || weight.device() != Device::CPU || scale.device() != Device::CPU
+          || weight_compensation->device() != Device::CPU
+          || output.dtype() != DataType::FLOAT32 || output.device() != Device::CPU
+          || (bias && (bias->dtype() != DataType::FLOAT32 || bias->device() != Device::CPU))
+          || (residual && (residual->dtype() != DataType::FLOAT32 || residual->device() != Device::CPU)))
         return false;
-      }
-
       const dim_t k = input.dim(-1);
-      const dim_t n = weight.dim(-2);
-      const dim_t m = input.size() / k;
-      if (m < 1 || m > cpu::kMaxVnniM
-          || scale.size() != n || weight_row_sum->size() != n) {
-        if (dbg) {
-          auto misses = s_vnni_misses.fetch_add(1, std::memory_order_relaxed) + 1;
-          if (misses % 1000 == 0)
-            std::cerr << "[vnni] miss m=" << m << " k=" << k << " n=" << n
-                      << " total_misses=" << misses
-                      << " hits=" << s_vnni_hits.load(std::memory_order_relaxed)
-                      << std::endl;
-        }
+      const dim_t n = weight.dim(0);
+      if (k <= 0 || n <= 0 || weight.dim(1) != k)
         return false;
-      }
-      if (dbg) s_vnni_hits.fetch_add(1, std::memory_order_relaxed);
+      const dim_t m = input.size() / k;
+      if (m < 1 || m > 8 || scale.size() != n || weight_compensation->size() != n
+          || (bias && bias->size() != n) || (residual && residual->size() != m * n))
+        return false;
 
-      // Only the last dim changes (k -> n); the leading dims (including the
-      // m-dim, which may be collapsed across several batch dims) stay the same.
-      Shape output_shape(input.shape());
-      output_shape[output_shape.size() - 1] = n;
-      output.resize(std::move(output_shape));
-
-      const dim_t k_pad = (k + 63) & ~dim_t(63);
-      std::vector<uint8_t> qinput_scratch(static_cast<size_t>(m) * k_pad);
-      cpu::vnni_fused_s8xs8_gemv(input.data<float>(),
-                                 weight.data<int8_t>(),
-                                 scale.data<float>(),
-                                 weight_row_sum->data<int32_t>(),
-                                 qinput_scratch.data(),
-                                 output.data<float>(),
-                                 m, k, n, _alpha);
+      Shape shape(input.shape());
+      shape.back() = n;
+      output.resize(std::move(shape));
+      std::vector<uint8_t> scratch(m * k);
+      CPU_ISA_DISPATCH((cpu::weight_only_int8_gemm<ISA>(input.data<float>(), weight.data<int8_t>(),
+                         scale.data<float>(), weight_compensation->data<int32_t>(),
+                         scratch.data(), output.data<float>(), m, k, n, _alpha)));
       apply_bias_and_activation(output, bias, activation, residual);
       return true;
 #else
       (void)input; (void)weight; (void)scale; (void)output;
-      (void)activation; (void)bias; (void)residual; (void)weight_row_sum;
+      (void)activation; (void)bias; (void)residual; (void)weight_compensation;
       return false;
 #endif
     }
@@ -157,7 +135,7 @@ namespace ctranslate2 {
                                     const ActivationType* activation,
                                     const StorageView* bias,
                                     const StorageView* residual,
-                                    const StorageView* weight_row_sum) const {
+                                    const StorageView* weight_compensation) const {
       bool supported = false;
       DEVICE_DISPATCH(input.device(),
                       supported = try_weight_only_int8<D>(input,
@@ -167,7 +145,7 @@ namespace ctranslate2 {
                                                           activation,
                                                           bias,
                                                           residual,
-                                                          weight_row_sum));
+                                                          weight_compensation));
       return supported;
     }
 

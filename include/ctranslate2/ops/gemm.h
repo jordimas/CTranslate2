@@ -29,7 +29,8 @@ namespace ctranslate2 {
                       const StorageView* bias = nullptr,
                       const StorageView* residual = nullptr) const;
 
-      // Attempts a backend-specific weight-only INT8 GEMM. Returns false when
+      // weight_compensation must use alpha=1 (the fused kernel applies alpha after accumulation).
+      // Attempts a fused weight-only INT8 GEMM. Returns false when
       // the backend or shape is unsupported so callers can use the portable
       // quantize -> GEMM -> dequantize implementation. The activation is passed
       // in because this operator's own is unset in a quantized Dense, where the
@@ -41,7 +42,7 @@ namespace ctranslate2 {
                                 const ActivationType* activation,
                                 const StorageView* bias = nullptr,
                                 const StorageView* residual = nullptr,
-                                const StorageView* weight_row_sum = nullptr) const;
+                                const StorageView* weight_compensation = nullptr) const;
 
       // Return the packed representation of b, if implemented by the GEMM backend.
       static StorageView pack_b_input(const StorageView& b,
@@ -89,7 +90,7 @@ namespace ctranslate2 {
                                 const ActivationType* activation,
                                 const StorageView* bias,
                                 const StorageView* residual,
-                                const StorageView* weight_row_sum) const;
+                                const StorageView* weight_compensation) const;
     };
 
   }

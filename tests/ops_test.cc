@@ -6,6 +6,7 @@
 #include <set>
 #include "test_utils.h"
 #include "cpu/cpu_info.h"
+#include "cpu/cpu_isa.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/ops.h"
 #include "ctranslate2/primitives.h"
@@ -125,24 +126,26 @@ TEST(OpTest, GemmInt16) {
 
 TEST(OpTest, GemmWeightOnlyInt8M1) {
 #if defined(CT2_X86_BUILD)
-  if (!cpu::cpu_supports_avx512_vnni())
+  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2
+      && !(cpu::get_cpu_isa() == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni()))
     GTEST_SKIP();
   StorageView input({1, 3}, std::vector<float>{1.f, 0.f, -1.f});
   StorageView weight({2, 3}, std::vector<int8_t>{1, 3, 5, 2, 4, 6});
   StorageView scale({2}, std::vector<float>{2.f, 4.f});
-  StorageView row_sum({2}, std::vector<int32_t>{9, 12});
+  StorageView compensation({2}, std::vector<int32_t>{-1152, -1536});
   StorageView output(DataType::FLOAT32);
   StorageView expected({1, 2}, std::vector<float>{-2.f, -1.f});
   ops::Gemm op(1.f, 0.f, false, true);
   ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
-                                    nullptr, nullptr, nullptr, &row_sum));
+                                    nullptr, nullptr, nullptr, &compensation));
   expect_storage_eq(output, expected);
 #endif
 }
 
 TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
 #if defined(CT2_X86_BUILD)
-  if (!cpu::cpu_supports_avx512_vnni())
+  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2
+      && !(cpu::get_cpu_isa() == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni()))
     GTEST_SKIP();
   const dim_t n = 19;
   const float alpha = 0.75f;
@@ -177,11 +180,12 @@ TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
       StorageView input({1, m, k}, a);
       StorageView weight({n, k}, b);
       StorageView scale({n}, scales);
-      StorageView row_sum({n}, sums);
+      for (auto& sum : sums) sum *= -128;
+      StorageView compensation({n}, sums);
       StorageView output(DataType::FLOAT32);
       ops::Gemm op(alpha, 0.f, false, true);
       ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
-                                        nullptr, nullptr, nullptr, &row_sum));
+                                        nullptr, nullptr, nullptr, &compensation));
       StorageView reference({1, m, n}, expected);
       expect_storage_eq(output, reference);
 
@@ -191,7 +195,7 @@ TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
       for (auto& v : expected)
         v = std::max(0.f, v + 0.25f - 0.5f);
       ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
-                                        &activation, &bias, &residual, &row_sum));
+                                        &activation, &bias, &residual, &compensation));
       StorageView epilogue_reference({1, m, n}, expected);
       expect_storage_eq(output, epilogue_reference);
 
@@ -199,13 +203,33 @@ TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
       EXPECT_FALSE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
       ops::Gemm accumulating_op(alpha, 1.f, false, true);
       EXPECT_FALSE(accumulating_op.try_weight_only_int8(input, weight, scale, output,
-                                                       nullptr, nullptr, nullptr, &row_sum));
+                                                       nullptr, nullptr, nullptr, &compensation));
     }
   }
 #endif
 }
 
-TEST(OpTest, GemmWeightOnlyInt8GatedForMGreaterThan1) {
+TEST(OpTest, GemmWeightOnlyInt8DispatchAndFallback) {
+  StorageView input({1, 3}, 1.f), scale({2}, 1.f), output(DataType::FLOAT32);
+  StorageView weight({2, 3}, int8_t(1));
+  StorageView compensation({2}, int32_t(-384));
+  ops::Gemm op(1.f, 0.f, false, true);
+  bool supported = false;
+#if defined(CT2_X86_BUILD)
+  CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2
+                   || (ISA == cpu::CpuIsa::AVX512 && cpu::cpu_supports_avx512_vnni())));
+#endif
+  EXPECT_EQ(op.try_weight_only_int8(input, weight, scale, output,
+                                   nullptr, nullptr, nullptr, &compensation), supported);
+  StorageView large_input({9, 3}, 1.f);
+  EXPECT_FALSE(op.try_weight_only_int8(large_input, weight, scale, output,
+                                     nullptr, nullptr, nullptr, &compensation));
+  ops::Gemm packed_op(1.f, 0.f, false, true, false, true);
+  EXPECT_FALSE(packed_op.try_weight_only_int8(input, weight, scale, output,
+                                            nullptr, nullptr, nullptr, &compensation));
+}
+
+TEST(OpTest, GemmWeightOnlyInt8RejectsUnsupportedLayout) {
   StorageView input({2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6});
   StorageView weight({3, 2}, std::vector<int8_t>{1, 2, 3, 4, 5, 6});
   StorageView scale({2}, std::vector<float>{0.5f, 0.25f});

@@ -636,6 +636,123 @@ namespace ctranslate2 {
       });
     }
 
+#if defined(__AVX512F__) || defined(__AVX2__)
+    // ISA-specific operations; quantization, row blocking, and scheduling are shared.
+    struct WeightOnlyInt8Dot {
+#if defined(__AVX512VNNI__) || (defined(_MSC_VER) && defined(__AVX512F__))
+      using Vector = __m512i;
+      static constexpr dim_t width = 64;
+      static Vector zero() { return _mm512_setzero_si512(); }
+      static Vector add(Vector a, Vector b) { return _mm512_add_epi32(a, b); }
+      static Vector weight(const int8_t* p) { return _mm512_loadu_si512(p); }
+      static Vector input(const uint8_t* p) { return _mm512_loadu_si512(p); }
+      static Vector dot(Vector sum, Vector x, Vector w) { return _mm512_dpbusd_epi32(sum, x, w); }
+      static int32_t reduce(Vector sum) { return _mm512_reduce_add_epi32(sum); }
+#else
+      using Vector = __m256i;
+      static constexpr dim_t width = 16;
+      static Vector zero() { return _mm256_setzero_si256(); }
+      static Vector add(Vector a, Vector b) { return _mm256_add_epi32(a, b); }
+      // Widen before multiplying: byte-pair sums could otherwise saturate INT16.
+      static Vector weight(const int8_t* p) { return _mm256_cvtepi8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(p))); }
+      static Vector input(const uint8_t* p) { return _mm256_cvtepu8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(p))); }
+      static Vector dot(Vector sum, Vector x, Vector w) { return _mm256_add_epi32(sum, _mm256_madd_epi16(x, w)); }
+      static int32_t reduce(Vector sum) {
+        auto x = _mm_add_epi32(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
+        x = _mm_hadd_epi32(x, x);
+        return _mm_cvtsi128_si32(_mm_hadd_epi32(x, x));
+      }
+#endif
+    };
+
+    template<int M>
+    static void weight_only_int8_dot_rows(const int8_t* weight, const float* scale,
+                                         const int32_t* compensation, const uint8_t* input,
+                                         float* output, dim_t k, dim_t n, dim_t stride,
+                                         const float* inv_scale, float alpha) {
+      using Dot = WeightOnlyInt8Dot;
+      // AVX2 has fewer registers; avoid spilling for M=5..8.
+      constexpr int chains = sizeof(Dot::Vector) == 64 || M <= 4 ? 2 : 1;
+      parallel_for(0, n, 1, [&](dim_t begin, dim_t end) {
+        for (dim_t c = begin; c < end; ++c) {
+          typename Dot::Vector acc[chains][M];
+          for (int chain = 0; chain < chains; ++chain)
+            for (int r = 0; r < M; ++r)
+              acc[chain][r] = Dot::zero();
+          const int8_t* row = weight + c * k;
+          dim_t j = 0;
+          for (; j + 2 * Dot::width <= k; j += 2 * Dot::width) {
+            const auto w0 = Dot::weight(row + j);
+            const auto w1 = Dot::weight(row + j + Dot::width);
+            for (int r = 0; r < M; ++r) {
+              const uint8_t* x = input + r * stride + j;
+              acc[0][r] = Dot::dot(acc[0][r], Dot::input(x), w0);
+              acc[chains - 1][r] = Dot::dot(acc[chains - 1][r], Dot::input(x + Dot::width), w1);
+            }
+          }
+          if (j + Dot::width <= k) {
+            const auto w = Dot::weight(row + j);
+            for (int r = 0; r < M; ++r)
+              acc[0][r] = Dot::dot(acc[0][r], Dot::input(input + r * stride + j), w);
+            j += Dot::width;
+          }
+          for (int r = 0; r < M; ++r) {
+            auto total = acc[0][r];
+            if constexpr (chains == 2)
+              total = Dot::add(total, acc[1][r]);
+            int32_t sum = Dot::reduce(total) + compensation[c];
+            for (dim_t t = j; t < k; ++t)
+              sum += int32_t(input[r * stride + t]) * row[t];
+            output[r * n + c] = alpha * float(sum) * inv_scale[r] / scale[c];
+          }
+        }
+      });
+    }
+#endif
+
+    template<>
+    void weight_only_int8_gemm<TARGET_ISA>(const float* input,
+                                         const int8_t* weight,
+                                         const float* scale,
+                                         const int32_t* compensation,
+                                         uint8_t* scratch,
+                                         float* output,
+                                         dim_t m, dim_t k, dim_t n, float alpha) {
+#if defined(__AVX2__) || defined(__AVX512F__)
+      using VecType = Vec<float, TARGET_ISA>;
+      float inv_scale[8];
+      for (dim_t r = 0; r < m; ++r) {
+        const float* row = input + r * k;
+        const float amax = reduce_amax<TARGET_ISA>(row, k);
+        const float act_scale = amax > 0.f ? 127.f / amax : 1.f;
+        inv_scale[r] = 1.f / act_scale;
+        const auto factor = VecType::load(act_scale);
+        for (dim_t j = 0; j < k; j += VecType::width) {
+          const dim_t count = std::min(dim_t(VecType::width), k - j);
+          auto value = VecType::round(VecType::mul(VecType::load(row + j, count), factor));
+          // Round before shifting, matching signed activation quantization.
+          value = VecType::add(value, VecType::load(128.f));
+          value = VecType::min(VecType::max(value, VecType::load(0.f)), VecType::load(255.f));
+          VecType::convert_and_store(value, scratch + r * k + j, count);
+        }
+      }
+      // Fixed M keeps accumulators in registers, especially for beam-size-five decoding.
+#define CT2_WEIGHT_ONLY_CASE(M) \
+      case M: weight_only_int8_dot_rows<M>(weight, scale, compensation, scratch, output, \
+                                           k, n, k, inv_scale, alpha); break
+      switch (m) {
+        CT2_WEIGHT_ONLY_CASE(1); CT2_WEIGHT_ONLY_CASE(2);
+        CT2_WEIGHT_ONLY_CASE(3); CT2_WEIGHT_ONLY_CASE(4);
+        CT2_WEIGHT_ONLY_CASE(5); CT2_WEIGHT_ONLY_CASE(6);
+        CT2_WEIGHT_ONLY_CASE(7); CT2_WEIGHT_ONLY_CASE(8);
+      }
+#undef CT2_WEIGHT_ONLY_CASE
+#else
+      (void)input; (void)weight; (void)scale; (void)compensation;
+      (void)scratch; (void)output; (void)m; (void)k; (void)n; (void)alpha;
+#endif
+    }
+
     template<>
     void quantize_s8<TARGET_ISA>(const float* x,
                                  int8_t* y,

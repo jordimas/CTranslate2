@@ -10,11 +10,9 @@ namespace ctranslate2 {
 
     static CpuIsa try_isa(const std::string& name, CpuIsa cpu_isa, bool supported) {
 #ifdef CT2_WITH_CPU_DISPATCH
-      if (!supported) {
+      if (!supported)
         throw std::invalid_argument("The CPU does not support " + name);
-      } else {
-        return cpu_isa;
-      }
+      return cpu_isa;
 #else
       (void)cpu_isa;
       (void)supported;

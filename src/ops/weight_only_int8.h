@@ -5,6 +5,8 @@
 namespace ctranslate2 {
   namespace ops {
 
+    // `weight_compensation` is required by CPU (u8 activations) and ignored by
+    // CUDA (s8 activations); each caller enforces its own policy.
     inline bool weight_only_int8_shape_ok(bool trans_a, bool trans_b,
                                           bool a_is_packed, bool b_is_packed,
                                           float beta,
@@ -37,6 +39,14 @@ namespace ctranslate2 {
           || (residual && residual->size() != m * n))
         return false;
       return true;
+    }
+
+    inline void resize_weight_only_int8_output(const StorageView& input,
+                                               dim_t n,
+                                               StorageView& output) {
+      Shape shape(input.shape());
+      shape.back() = n;
+      output.resize(std::move(shape));
     }
 
   }

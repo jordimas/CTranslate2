@@ -102,9 +102,7 @@ namespace ctranslate2 {
           || std::max({input.size(), weight.size(), m * n}) > std::numeric_limits<int>::max() - 3)
         return false;
 
-      Shape shape(input.shape());
-      shape.back() = n;
-      output.resize(std::move(shape));
+      resize_weight_only_int8_output(input, n, output);
       StorageView quantized(DataType::INT8, Device::CUDA);
       StorageView input_scale(DataType::FLOAT32, Device::CUDA);
       Quantize()(input, quantized, input_scale);

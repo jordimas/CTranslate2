@@ -89,9 +89,7 @@ namespace ctranslate2 {
           || weight_compensation->size() != n)
         return false;
 
-      Shape shape(input.shape());
-      shape.back() = n;
-      output.resize(std::move(shape));
+      resize_weight_only_int8_output(input, n, output);
       std::vector<uint8_t> scratch(m * k);
       CPU_ISA_DISPATCH((cpu::weight_only_int8_gemm<ISA>(input.data<float>(), weight.data<int8_t>(),
                          scale.data<float>(), weight_compensation->data<int32_t>(),

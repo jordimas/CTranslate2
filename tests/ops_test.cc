@@ -214,8 +214,7 @@ TEST(OpTest, GemmWeightOnlyInt8DispatchAndFallback) {
   ops::Gemm op(1.f, 0.f, false, true);
   bool supported = false;
 #if defined(CT2_X86_BUILD)
-  CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2
-                                 || ISA == cpu::CpuIsa::AVX2_VNNI)));
+  CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
 #endif
   EXPECT_EQ(op.try_weight_only_int8(input, weight, scale, output,
                                    nullptr, nullptr, nullptr, &compensation), supported);

@@ -76,8 +76,7 @@ namespace ctranslate2 {
                                                   const StorageView* weight_compensation) const {
 #if defined(CT2_X86_BUILD)
       bool supported = false;
-      CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2
-                                     || ISA == cpu::CpuIsa::AVX2_VNNI)));
+      CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
       if (!supported || !weight_compensation
           || _trans_a || !_trans_b || _a_is_packed || _b_is_packed || _beta != 0.f
           || input.dtype() != DataType::FLOAT32 || input.rank() < 1

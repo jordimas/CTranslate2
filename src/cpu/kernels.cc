@@ -5,9 +5,6 @@
 #if defined(__AVX512F__)
 #  define TARGET_ISA CpuIsa::AVX512
 #  include "cpu/vec_avx512.h"
-#elif defined(__AVX2__) && defined(__AVXVNNI__)
-#  define TARGET_ISA CpuIsa::AVX2_VNNI
-#  include "cpu/vec_avx.h"
 #elif defined(__AVX2__)
 #  define TARGET_ISA CpuIsa::AVX2
 #  include "cpu/vec_avx.h"
@@ -659,32 +656,6 @@ namespace ctranslate2 {
                                          const int32_t* compensation, const uint8_t* input,
                                          float* output, dim_t k, dim_t n,
                                          const float* inv_scale, float alpha) {
-#if defined(__AVXVNNI__)
-      // VNNI fuses u8*s8->s32 widen+madd+add into one vpdpbusd. 32 bytes/iter, M accumulators.
-      parallel_for(0, n, 1, [&](dim_t begin, dim_t end) {
-        for (dim_t c = begin; c < end; ++c) {
-          __m256i acc[M];
-          for (int r = 0; r < M; ++r)
-            acc[r] = _mm256_setzero_si256();
-          const int8_t* row = weight + c * k;
-          dim_t j = 0;
-          for (; j + 32 <= k; j += 32) {
-            const __m256i w = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row + j));
-            for (int r = 0; r < M; ++r) {
-              const __m256i x = _mm256_loadu_si256(
-                reinterpret_cast<const __m256i*>(input + r * k + j));
-              acc[r] = _mm256_dpbusd_avx_epi32(acc[r], x, w);
-            }
-          }
-          for (int r = 0; r < M; ++r) {
-            int32_t sum = reduce_int32(acc[r]) + compensation[c];
-            for (dim_t t = j; t < k; ++t)
-              sum += int32_t(input[r * k + t]) * row[t];
-            output[r * n + c] = alpha * float(sum) * inv_scale[r] / scale[c];
-          }
-        }
-      });
-#else
       // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
       // chains must be a template-param expression at the array-bound site; a
       // lambda-local `constexpr int chains = ...` trips MSVC C2131.
@@ -724,7 +695,6 @@ namespace ctranslate2 {
           }
         }
       });
-#endif
     }
 #endif
 

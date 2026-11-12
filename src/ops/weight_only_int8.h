@@ -5,13 +5,6 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // Structural eligibility shared by the CPU and CUDA/HIP fused weight-only
-    // int8 kernels. Checks: no transpose on A, trans on B, no packing, beta==0,
-    // dtypes (fp32 input/scale/bias/residual, int8 weight), device of weight/
-    // scale/bias/residual matches `expected_device`, k/n > 0 with matching K,
-    // m ∈ [1,8], and bias/residual sizes. Does not look at `input.device()`,
-    // output, or any device-specific flags (alpha, output dtype, size caps,
-    // weight_compensation); callers add those.
     inline bool weight_only_int8_shape_ok(bool trans_a, bool trans_b,
                                           bool a_is_packed, bool b_is_packed,
                                           float beta,

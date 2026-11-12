@@ -1,0 +1,65 @@
+name: Release gate comment
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare release gate report
+        id: report
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              ...context.repo, commit_sha: run.head_sha,
+            });
+            const pr = prs.find(pr => pr.state !== 'closed' &&
+              pr.base.repo.full_name === `${context.repo.owner}/${context.repo.repo}`);
+            if (!pr) return;
+            const { data: current } = await github.rest.pulls.get({
+              ...context.repo, pull_number: pr.number,
+            });
+            if (current.state !== 'open' || current.head.sha !== run.head_sha) return;
+
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              ...context.repo, run_id: run.id, filter: 'latest',
+            });
+            const gates = jobs.filter(job =>
+              job.name.startsWith('release-gate / release-gate ('));
+            if (!gates.length) return;
+
+            const rows = gates.map(job => {
+              const platform = job.name.match(/\(([^,\)]+)/)[1];
+              return `| ${platform} | [${job.conclusion || job.status}](${job.html_url}) |`;
+            });
+            const body = [
+              '### Release gate',
+              '',
+              `Commit: ${run.head_sha.slice(0, 7)}`,
+              '',
+              '| Platform | Result |',
+              '| --- | --- |',
+              ...rows,
+              '',
+              `[Full CI run](${run.html_url})`,
+            ].join('\n');
+            require('fs').writeFileSync('release-gate-report.md', body);
+            core.setOutput('pr', pr.number);
+
+      - name: Update release gate comment
+        if: steps.report.outputs.pr
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          number: ${{ steps.report.outputs.pr }}
+          header: release-gate
+          path: release-gate-report.md

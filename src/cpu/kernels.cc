@@ -680,7 +680,9 @@ namespace ctranslate2 {
                                          const ops::ActivationType* activation) {
       using VecType = Vec<float, TARGET_ISA>;
       constexpr dim_t width = VecType::width;
-#if !defined(__AVXVNNI__)
+#if defined(__AVXVNNI__)
+      constexpr int chains = 1;
+#else
       // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
       constexpr int chains = M <= 4 ? 2 : 1;
 #endif
@@ -692,13 +694,13 @@ namespace ctranslate2 {
           float values[M][VecType::width] = {};
           for (dim_t lane = 0; lane < count; ++lane) {
             const dim_t c = first + lane;
-#if defined(__AVXVNNI__)
-            // vpdpbusd fuses u8*s8 widen+madd+add; one accumulator per row.
-            __m256i acc[M];
-            for (int r = 0; r < M; ++r)
-              acc[r] = _mm256_setzero_si256();
+            __m256i acc[chains * M];
+            for (int i = 0; i < chains * M; ++i)
+              acc[i] = _mm256_setzero_si256();
             const int8_t* row = weight + c * k;
             dim_t j = 0;
+#if defined(__AVXVNNI__)
+            // vpdpbusd fuses u8*s8 widen+madd+add; one accumulator per row.
             for (; j + 32 <= k; j += 32) {
               const __m256i w = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row + j));
               for (int r = 0; r < M; ++r) {
@@ -707,19 +709,7 @@ namespace ctranslate2 {
                 acc[r] = _mm256_dpbusd_avx_epi32(acc[r], x, w);
               }
             }
-            for (int r = 0; r < M; ++r) {
-              int32_t sum = reduce_int32(acc[r]) + compensation[c];
-              for (dim_t t = j; t < k; ++t)
-                sum += int32_t(input[r * k + t]) * row[t];
-              values[r][lane] = float(sum) * inv_scale[r] / scale[c];
-            }
 #else
-            // Over-allocate to 2*M (compile-time constant); only chains*M entries used.
-            __m256i acc[2 * M];
-            for (int i = 0; i < chains * M; ++i)
-              acc[i] = _mm256_setzero_si256();
-            const int8_t* row = weight + c * k;
-            dim_t j = 0;
             for (; j + 32 <= k; j += 32) {
               const auto w0 = load_weight_s16(row + j);
               const auto w1 = load_weight_s16(row + j + 16);
@@ -736,16 +726,16 @@ namespace ctranslate2 {
                 acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(input + r * k + j), w));
               j += 16;
             }
+#endif
             for (int r = 0; r < M; ++r) {
               auto total = acc[r];
-              if constexpr (M <= 4)
+              if constexpr (chains == 2)
                 total = _mm256_add_epi32(total, acc[M + r]);
               int32_t sum = reduce_int32(total) + compensation[c];
               for (dim_t t = j; t < k; ++t)
                 sum += int32_t(input[r * k + t]) * row[t];
               values[r][lane] = float(sum) * inv_scale[r] / scale[c];
             }
-#endif
           }
           for (int r = 0; r < M; ++r) {
             auto v = VecType::load(values[r]);

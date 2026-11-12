@@ -684,7 +684,7 @@ namespace ctranslate2 {
         for (dim_t tile = begin; tile < end; ++tile) {
           const dim_t first = tile * width;
           const dim_t count = std::min(width, n - first);
-          float values[M][width] = {};
+          float values[M][VecType::width] = {};
           for (dim_t lane = 0; lane < count; ++lane) {
             const dim_t c = first + lane;
             // Over-allocate to 2*M (compile-time constant); only chains*M entries used.

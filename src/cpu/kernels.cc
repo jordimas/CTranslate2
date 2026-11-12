@@ -689,10 +689,10 @@ namespace ctranslate2 {
       constexpr int chains = M <= 4 ? 2 : 1;
       parallel_for(0, n, 1, [&](dim_t begin, dim_t end) {
         for (dim_t c = begin; c < end; ++c) {
-          __m256i acc[chains][M];
-          for (int chain = 0; chain < chains; ++chain)
-            for (int r = 0; r < M; ++r)
-              acc[chain][r] = _mm256_setzero_si256();
+          // Flat layout (MSVC mishandles 2D __m256i arrays inside lambdas): acc[chain*M + r].
+          __m256i acc[chains * M];
+          for (int i = 0; i < chains * M; ++i)
+            acc[i] = _mm256_setzero_si256();
           const int8_t* row = weight + c * k;
           dim_t j = 0;
           for (; j + 32 <= k; j += 32) {
@@ -700,20 +700,21 @@ namespace ctranslate2 {
             const auto w1 = load_weight_s16(row + j + 16);
             for (int r = 0; r < M; ++r) {
               const uint8_t* x = input + r * k + j;
-              acc[0][r] = _mm256_add_epi32(acc[0][r], _mm256_madd_epi16(load_input_u16(x), w0));
-              acc[chains - 1][r] = _mm256_add_epi32(acc[chains - 1][r], _mm256_madd_epi16(load_input_u16(x + 16), w1));
+              acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(x), w0));
+              acc[(chains - 1) * M + r] = _mm256_add_epi32(acc[(chains - 1) * M + r],
+                  _mm256_madd_epi16(load_input_u16(x + 16), w1));
             }
           }
           if (j + 16 <= k) {
             const auto w = load_weight_s16(row + j);
             for (int r = 0; r < M; ++r)
-              acc[0][r] = _mm256_add_epi32(acc[0][r], _mm256_madd_epi16(load_input_u16(input + r * k + j), w));
+              acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(input + r * k + j), w));
             j += 16;
           }
           for (int r = 0; r < M; ++r) {
-            auto total = acc[0][r];
+            auto total = acc[r];
             if constexpr (chains == 2)
-              total = _mm256_add_epi32(total, acc[1][r]);
+              total = _mm256_add_epi32(total, acc[M + r]);
             int32_t sum = reduce_int32(total) + compensation[c];
             for (dim_t t = j; t < k; ++t)
               sum += int32_t(input[r * k + t]) * row[t];

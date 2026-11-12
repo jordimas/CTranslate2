@@ -66,16 +66,16 @@ namespace ctranslate2 {
       return false;
     }
 
-    template<>
-    bool Gemm::try_weight_only_int8<Device::CPU>([[maybe_unused]] const StorageView& input,
-                                                  [[maybe_unused]] const StorageView& weight,
-                                                  [[maybe_unused]] const StorageView& scale,
-                                                  [[maybe_unused]] StorageView& output,
-                                                  [[maybe_unused]] const ActivationType* activation,
-                                                  [[maybe_unused]] const StorageView* bias,
-                                                  [[maybe_unused]] const StorageView* residual,
-                                                  [[maybe_unused]] const StorageView* weight_compensation) const {
 #if defined(CT2_X86_BUILD)
+    template<>
+    bool Gemm::try_weight_only_int8<Device::CPU>(const StorageView& input,
+                                                  const StorageView& weight,
+                                                  const StorageView& scale,
+                                                  StorageView& output,
+                                                  const ActivationType* activation,
+                                                  const StorageView* bias,
+                                                  const StorageView* residual,
+                                                  const StorageView* weight_compensation) const {
       bool supported = false;
       CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
       dim_t m, k, n;
@@ -97,10 +97,20 @@ namespace ctranslate2 {
                          bias ? bias->data<float>() : nullptr,
                          residual ? residual->data<float>() : nullptr, activation)));
       return true;
-#else
-      return false;
-#endif
     }
+#else
+    template<>
+    bool Gemm::try_weight_only_int8<Device::CPU>(const StorageView&,
+                                                  const StorageView&,
+                                                  const StorageView&,
+                                                  StorageView&,
+                                                  const ActivationType*,
+                                                  const StorageView*,
+                                                  const StorageView*,
+                                                  const StorageView*) const {
+      return false;
+    }
+#endif
 
 #ifndef CT2_WITH_CUDA
     template<>

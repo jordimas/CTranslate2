@@ -180,14 +180,14 @@ void benchmark_dense_int8_m1(Device device) {
     return;
   }
   struct Shape { dim_t k; dim_t n; const char* label; };
-  std::vector<Shape> shapes = {
+  const Shape shapes[] = {
     {1024, 1024, "K=1024 N=1024 (attn)"},
     {1024, 3072, "K=1024 N=3072 (QKV)"},
     {1024, 4096, "K=1024 N=4096 (FFN up)"},
     {4096, 1024, "K=4096 N=1024 (FFN down)"},
   };
 
-  const std::vector<dim_t> ms = {1, 4, 5, 8};
+  const ops::Quantize quantize;
 
   for (const auto& sh : shapes) {
     const dim_t k = sh.k;
@@ -195,28 +195,26 @@ void benchmark_dense_int8_m1(Device device) {
     std::cerr << "\n### " << sh.label << " ###" << std::endl;
 
     // Random int8 weight [N, K] (trans_b=true layout)
-    std::vector<float> weight_src = rand_vector(n * k);
-    for (auto& v : weight_src) v = static_cast<int8_t>(static_cast<int>(v) % 127);
-    StorageView weight_fp({n, k}, weight_src, device);
+    StorageView weight_fp({n, k}, rand_vector(n * k), device);
     StorageView weight(DataType::INT8, device);
     StorageView weight_scale(DataType::FLOAT32, device);
-    ops::Quantize quantize_w;
-    quantize_w(weight_fp, weight, weight_scale);
+    quantize(weight_fp, weight, weight_scale);
 
     StorageView compensation = ops::Gemm::compensate_u8_input(weight, true, k, n, 1.f);
 
-    for (dim_t m : ms) {
+    for (dim_t m : {1, 4, 5, 8}) {
       std::cerr << "-- m=" << m << " --" << std::endl;
       StorageView input({m, k}, rand_vector(m * k), device);
       StorageView output(device);
-      const ops::ActivationType* no_act = nullptr;
 
       // Fast path: fused AVX2 weight-only int8.
       ops::Gemm gemm_op(1.f, 0.f, /*trans_a=*/false, /*trans_b=*/true);
-      if (gemm_op.try_weight_only_int8(input, weight, weight_scale, output,
-                                      no_act, nullptr, nullptr, &compensation)) {
-        BENCHMARK(gemm_op.try_weight_only_int8(input, weight, weight_scale, output,
-                                              no_act, nullptr, nullptr, &compensation), 2000);
+      auto fused = [&]() {
+        return gemm_op.try_weight_only_int8(input, weight, weight_scale, output,
+                                            nullptr, nullptr, nullptr, &compensation);
+      };
+      if (fused()) {
+        BENCHMARK(fused(), 2000);
       } else {
         std::cerr << "Fused kernel unavailable for the selected ISA" << std::endl;
       }
@@ -226,10 +224,9 @@ void benchmark_dense_int8_m1(Device device) {
       StorageView qinput_scale(DataType::FLOAT32, device);
       StorageView qoutput(DataType::INT32, device);
       StorageView dq_output(device);
-      ops::Quantize quantize_a;
       ops::Dequantize dequantize_op;
       auto fallback = [&]() {
-        quantize_a(input, qinput, qinput_scale);
+        quantize(input, qinput, qinput_scale);
         gemm_op(qinput, weight, qoutput);
         dequantize_op(qoutput, qinput_scale, weight_scale,
                       /*trans_a=*/false, /*trans_b=*/true, dq_output);

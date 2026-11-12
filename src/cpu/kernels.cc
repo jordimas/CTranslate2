@@ -684,7 +684,7 @@ namespace ctranslate2 {
           }
           for (int r = 0; r < M; ++r) {
             auto total = acc[r];
-            if constexpr (chains == 2)
+            if constexpr (M <= 4)
               total = _mm256_add_epi32(total, acc[M + r]);
             int32_t sum = reduce_int32(total) + compensation[c];
             for (dim_t t = j; t < k; ++t)

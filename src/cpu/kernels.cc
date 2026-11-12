@@ -655,7 +655,7 @@ namespace ctranslate2 {
     static void weight_only_int8_dot_rows(const int8_t* weight, const float* scale,
                                          const int32_t* compensation, const uint8_t* input,
                                          float* output, dim_t k, dim_t n,
-                                         const float* inv_scale, float alpha) {
+                                         const float* inv_scale) {
       // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
       constexpr int chains = M <= 4 ? 2 : 1;
       parallel_for(0, n, 1, [&](dim_t begin, dim_t end) {
@@ -689,7 +689,7 @@ namespace ctranslate2 {
             int32_t sum = reduce_int32(total) + compensation[c];
             for (dim_t t = j; t < k; ++t)
               sum += int32_t(input[r * k + t]) * row[t];
-            output[r * n + c] = alpha * float(sum) * inv_scale[r] / scale[c];
+            output[r * n + c] = float(sum) * inv_scale[r] / scale[c];
           }
         }
       });
@@ -703,7 +703,7 @@ namespace ctranslate2 {
                                          const int32_t* compensation,
                                          uint8_t* scratch,
                                          float* output,
-                                         dim_t m, dim_t k, dim_t n, float alpha) {
+                                         dim_t m, dim_t k, dim_t n) {
 #if defined(__AVX2__) && !defined(__AVX512F__)
       using VecType = Vec<float, TARGET_ISA>;
       float inv_scale[8];
@@ -725,7 +725,7 @@ namespace ctranslate2 {
       // Fixed M keeps accumulators in registers, especially for beam-size-five decoding.
 #define CT2_WEIGHT_ONLY_CASE(M) \
       case M: weight_only_int8_dot_rows<M>(weight, scale, compensation, scratch, output, \
-                                           k, n, inv_scale, alpha); break
+                                           k, n, inv_scale); break
       switch (m) {
         CT2_WEIGHT_ONLY_CASE(1); CT2_WEIGHT_ONLY_CASE(2);
         CT2_WEIGHT_ONLY_CASE(3); CT2_WEIGHT_ONLY_CASE(4);
@@ -735,7 +735,7 @@ namespace ctranslate2 {
 #undef CT2_WEIGHT_ONLY_CASE
 #else
       (void)input; (void)weight; (void)scale; (void)compensation;
-      (void)scratch; (void)output; (void)m; (void)k; (void)n; (void)alpha;
+      (void)scratch; (void)output; (void)m; (void)k; (void)n;
 #endif
     }
 

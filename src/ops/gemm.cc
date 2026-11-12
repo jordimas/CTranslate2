@@ -93,7 +93,7 @@ namespace ctranslate2 {
       std::vector<uint8_t> scratch(m * k);
       CPU_ISA_DISPATCH((cpu::weight_only_int8_gemm<ISA>(input.data<float>(), weight.data<int8_t>(),
                          scale.data<float>(), weight_compensation->data<int32_t>(),
-                         scratch.data(), output.data<float>(), m, k, n, _alpha)));
+                         scratch.data(), output.data<float>(), m, k, n)));
       apply_bias_and_activation(output, bias, activation, residual);
       return true;
 #else

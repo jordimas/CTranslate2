@@ -110,7 +110,7 @@ namespace ctranslate2 {
                                const int32_t* compensation,
                                uint8_t* scratch,
                                float* output,
-                               dim_t m, dim_t k, dim_t n, float alpha);
+                               dim_t m, dim_t k, dim_t n);
 
     template <CpuIsa ISA>
     void quantize_s8(const float* x,

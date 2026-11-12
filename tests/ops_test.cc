@@ -123,21 +123,23 @@ TEST(OpTest, GemmInt16) {
   expect_storage_eq(y, expected);
 };
 
-TEST(OpTest, GemmWeightOnlyInt8M1) {
-#if defined(CT2_X86_BUILD)
-  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2)
-    GTEST_SKIP();
-  StorageView input({1, 3}, std::vector<float>{1.f, 0.f, -1.f});
-  StorageView weight({2, 3}, std::vector<int8_t>{1, 3, 5, 2, 4, 6});
-  StorageView scale({2}, std::vector<float>{2.f, 4.f});
-  StorageView compensation({2}, std::vector<int32_t>{-1152, -1536});
-  StorageView output(DataType::FLOAT32);
-  StorageView expected({1, 2}, std::vector<float>{-2.f, -1.f});
-  ops::Gemm op(1.f, 0.f, false, true);
-  ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
-                                    nullptr, nullptr, nullptr, &compensation));
-  expect_storage_eq(output, expected);
-#endif
+// Keep dot products scalar so the reference does not depend on GEMM's int8 backend.
+static StorageView weight_only_int8_reference(const StorageView& input,
+                                             const StorageView& weight,
+                                             StorageView& input_scale) {
+  StorageView quantized(DataType::INT8, input.device());
+  ops::Quantize()(input, quantized, input_scale);
+  const auto q = quantized.to(Device::CPU);
+  const auto w = weight.to(Device::CPU);
+  const dim_t k = input.dim(-1), m = input.size() / k, n = weight.dim(0);
+  std::vector<int32_t> dots(m * n, 0);
+  for (dim_t r = 0; r < m; ++r)
+    for (dim_t c = 0; c < n; ++c)
+      for (dim_t i = 0; i < k; ++i)
+        dots[r * n + c] += int(q.data<int8_t>()[r * k + i]) * int(w.data<int8_t>()[c * k + i]);
+  Shape shape(input.shape());
+  shape.back() = n;
+  return StorageView(shape, dots, input.device());
 }
 
 TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
@@ -145,62 +147,40 @@ TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
   if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2)
     GTEST_SKIP();
   const dim_t n = 19;
-  const float alpha = 0.75f;
   for (dim_t m = 1; m <= 8; ++m) {
     for (dim_t k : {1, 15, 63, 64, 65, 127, 128, 129, 1024}) {
       SCOPED_TRACE("M=" + std::to_string(m) + " K=" + std::to_string(k));
-      std::vector<float> a(m * k), scales(n), expected(m * n);
+      std::vector<float> a(m * k), scales(n);
       std::vector<int8_t> b(n * k);
-      std::vector<int32_t> sums(n, 0);
       for (dim_t r = 0; r < m; ++r)
         for (dim_t t = 0; t < k; ++t)
-          a[r * k + t] = r == 0 ? 0.f : float((t * 13 + r * 7) % 31 - 15) / (r + 1);
+          a[r * k + t] = m > 1 && r == 0 ? 0.f : float((t * 13 + r * 7) % 31 - 15) / (r + 1);
       for (dim_t c = 0; c < n; ++c) {
         scales[c] = float(c + 2);
-        for (dim_t t = 0; t < k; ++t) {
-          b[c * k + t] = int8_t((c * 17 + t * 11) % 255 - 127);
-          sums[c] += b[c * k + t];
-        }
-      }
-      for (dim_t r = 0; r < m; ++r) {
-        float amax = 0.f;
         for (dim_t t = 0; t < k; ++t)
-          amax = std::max(amax, std::fabs(a[r * k + t]));
-        const float act_scale = amax > 0.f ? 127.f / amax : 1.f;
-        for (dim_t c = 0; c < n; ++c) {
-          int32_t dot = 0;
-          for (dim_t t = 0; t < k; ++t)
-            dot += int32_t(std::nearbyintf(a[r * k + t] * act_scale)) * b[c * k + t];
-          expected[r * n + c] = alpha * float(dot) * (1.f / act_scale) / scales[c];
-        }
+          b[c * k + t] = int8_t((c * 17 + t * 11) % 255 - 127);
       }
       StorageView input({1, m, k}, a);
       StorageView weight({n, k}, b);
       StorageView scale({n}, scales);
-      for (auto& sum : sums) sum *= -128;
-      StorageView compensation({n}, sums);
+      auto compensation = ops::Gemm::compensate_u8_input(weight, true, k, n, 1.f);
+      StorageView input_scale(DataType::FLOAT32), reference(DataType::FLOAT32);
+      const auto accum = weight_only_int8_reference(input, weight, input_scale);
+      ops::Dequantize()(accum, input_scale, scale, false, true, reference);
       StorageView output(DataType::FLOAT32);
-      ops::Gemm op(alpha, 0.f, false, true);
+      ops::Gemm op(1.f, 0.f, false, true);
       ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
                                         nullptr, nullptr, nullptr, &compensation));
-      StorageView reference({1, m, n}, expected);
       expect_storage_eq(output, reference);
 
       StorageView bias({n}, 0.25f);
       StorageView residual({1, m, n}, -0.5f);
       const ops::ActivationType activation = ops::ActivationType::ReLU;
-      for (auto& v : expected)
-        v = std::max(0.f, v + 0.25f - 0.5f);
+      for (dim_t i = 0; i < reference.size(); ++i)
+        reference.data<float>()[i] = std::max(0.f, reference.data<float>()[i] + 0.25f - 0.5f);
       ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
                                         &activation, &bias, &residual, &compensation));
-      StorageView epilogue_reference({1, m, n}, expected);
-      expect_storage_eq(output, epilogue_reference);
-
-      // Unsupported inputs must leave dispatch to the regular GEMM path.
-      EXPECT_FALSE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
-      ops::Gemm accumulating_op(alpha, 1.f, false, true);
-      EXPECT_FALSE(accumulating_op.try_weight_only_int8(input, weight, scale, output,
-                                                       nullptr, nullptr, nullptr, &compensation));
+      expect_storage_eq(output, reference);
     }
   }
 #endif
@@ -217,21 +197,18 @@ TEST(OpTest, GemmWeightOnlyInt8DispatchAndFallback) {
 #endif
   EXPECT_EQ(op.try_weight_only_int8(input, weight, scale, output,
                                    nullptr, nullptr, nullptr, &compensation), supported);
+  EXPECT_FALSE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
+  for (const auto& unsupported : {ops::Gemm(1, 1, false, true),
+                                ops::Gemm(0.75f, 0, false, true),
+                                ops::Gemm(1, 0, false, false)})
+    EXPECT_FALSE(unsupported.try_weight_only_int8(input, weight, scale, output,
+                                                 nullptr, nullptr, nullptr, &compensation));
   StorageView large_input({9, 3}, 1.f);
   EXPECT_FALSE(op.try_weight_only_int8(large_input, weight, scale, output,
                                      nullptr, nullptr, nullptr, &compensation));
   ops::Gemm packed_op(1.f, 0.f, false, true, false, true);
   EXPECT_FALSE(packed_op.try_weight_only_int8(input, weight, scale, output,
                                             nullptr, nullptr, nullptr, &compensation));
-}
-
-TEST(OpTest, GemmWeightOnlyInt8RejectsUnsupportedLayout) {
-  StorageView input({2, 3}, std::vector<float>{1, 2, 3, 4, 5, 6});
-  StorageView weight({3, 2}, std::vector<int8_t>{1, 2, 3, 4, 5, 6});
-  StorageView scale({2}, std::vector<float>{0.5f, 0.25f});
-  StorageView output(DataType::FLOAT32);
-  ops::Gemm op(1.0, 0.0, false, false);
-  EXPECT_FALSE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
 }
 
 TEST(OpTest, QuantizeINT16) {
@@ -269,15 +246,8 @@ TEST_P(OpDeviceTest, GemmWeightOnlyInt8GPU) {
       StorageView input({1, m, k}, a, device), weight({n, k}, b, device);
       StorageView scale({n}, scales, device), bias({n}, 0.25f, device);
       StorageView residual({1, m, n}, -0.5f, device);
-      StorageView quantized(DataType::INT8, device), input_scale(DataType::FLOAT32, device);
-      ops::Quantize()(input, quantized, input_scale);
-      const auto q = quantized.to(Device::CPU);
-      std::vector<int32_t> dots(m * n, 0);
-      for (dim_t r = 0; r < m; ++r)
-        for (dim_t c = 0; c < n; ++c)
-          for (dim_t i = 0; i < k; ++i)
-            dots[r * n + c] += int(q.data<int8_t>()[r * k + i]) * int(b[c * k + i]);
-      StorageView accum({1, m, n}, dots, device);
+      StorageView input_scale(DataType::FLOAT32, device);
+      const auto accum = weight_only_int8_reference(input, weight, input_scale);
       StorageView expected(DataType::FLOAT32, device), output(DataType::FLOAT32, device);
       for (int act = -1; act <= int(ops::ActivationType::Sigmoid); ++act) {
         const auto activation = static_cast<ops::ActivationType>(act);

@@ -19,14 +19,15 @@ namespace ctranslate2 {
                                           dim_t& m, dim_t& k, dim_t& n) {
       if (trans_a || !trans_b || a_is_packed || b_is_packed || beta != 0.f
           || input.rank() < 1
-          || input.dtype() != DataType::FLOAT32
+          || (input.dtype() != DataType::FLOAT32
+              && (expected_device != Device::CUDA || input.dtype() != DataType::FLOAT16))
           || weight.dtype() != DataType::INT8 || weight.rank() != 2
           || scale.dtype() != DataType::FLOAT32
           || weight.device() != expected_device
           || scale.device() != expected_device
-          || (bias && (bias->dtype() != DataType::FLOAT32
+          || (bias && (bias->dtype() != input.dtype()
                        || bias->device() != expected_device))
-          || (residual && (residual->dtype() != DataType::FLOAT32
+          || (residual && (residual->dtype() != input.dtype()
                            || residual->device() != expected_device)))
         return false;
       k = input.dim(-1);

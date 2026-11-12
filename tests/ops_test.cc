@@ -239,9 +239,13 @@ TEST(OpTest, QuantizeINT16) {
 class OpDeviceTest : public ::testing::TestWithParam<Device> {
 };
 
-TEST_P(OpDeviceTest, GemmWeightOnlyInt8GPU) {
-  const Device device = GetParam();
-  if (device != Device::CUDA)
+class OpDeviceFPTest : public ::testing::TestWithParam<FloatType> {
+};
+
+TEST_P(OpDeviceFPTest, GemmWeightOnlyInt8GPU) {
+  const Device device = GetParam().device;
+  const DataType dtype = GetParam().dtype;
+  if (device != Device::CUDA || dtype == DataType::BFLOAT16)
     GTEST_SKIP();
   const dim_t n = 19;
   const ops::Gemm gemm(1, 0, false, true);
@@ -256,39 +260,51 @@ TEST_P(OpDeviceTest, GemmWeightOnlyInt8GPU) {
         b[i] = int8_t((i * 17) % 256 - 128);
       for (dim_t i = 0; i < n; ++i)
         scales[i] = float(i + 2);
-      StorageView input({1, m, k}, a, device), weight({n, k}, b, device);
-      StorageView scale({n}, scales, device), bias({n}, 0.25f, device);
-      StorageView residual({1, m, n}, -0.5f, device);
+      auto input = StorageView({1, m, k}, a, device).to(dtype);
+      StorageView weight({n, k}, b, device), scale({n}, scales, device);
+      auto bias = StorageView({n}, 0.1f, device).to(dtype);
+      auto residual = StorageView({1, m, n}, -0.3f, device).to(dtype);
       StorageView input_scale(DataType::FLOAT32, device);
       const auto accum = weight_only_int8_reference(input, weight, input_scale);
-      StorageView expected(DataType::FLOAT32, device), output(DataType::FLOAT32, device);
+      StorageView expected(dtype, device), output(dtype, device);
       for (int act = -1; act <= int(ops::ActivationType::Sigmoid); ++act) {
         const auto activation = static_cast<ops::ActivationType>(act);
         const auto* pactivation = act < 0 ? nullptr : &activation;
-        ops::Dequantize{pactivation}(accum, input_scale, scale, false, true, expected, &bias);
-        ops::Add()(expected, residual, expected);
-        ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output,
-                                              pactivation, &bias, &residual));
-        expect_storage_eq(output, expected);
+        for (int flags = 0; flags < 4; ++flags) {
+          SCOPED_TRACE("activation=" + std::to_string(act) + " flags=" + std::to_string(flags));
+          const auto* pbias = flags & 1 ? &bias : nullptr;
+          const auto* presidual = flags & 2 ? &residual : nullptr;
+          ops::Dequantize{pactivation}(accum, input_scale, scale, false, true, expected, pbias);
+          if (presidual)
+            ops::Add()(expected, *presidual, expected);
+          ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output,
+                                                pactivation, pbias, presidual));
+          expect_storage_eq(output, expected);
+        }
       }
       ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr));
       ops::Dequantize()(accum, input_scale, scale, false, true, expected);
       expect_storage_eq(output, expected);
     }
   }
-  StorageView input({9, 64}, 1.f, device), weight({n, 64}, int8_t(1), device);
-  StorageView scale({n}, 1.f, device), output(DataType::FLOAT32, device);
+  auto input = StorageView({9, 64}, 1.f, device).to(dtype);
+  StorageView weight({n, 64}, int8_t(1), device);
+  StorageView scale({n}, 1.f, device), output(dtype, device);
   EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr));
   input.resize({1, 64});
   EXPECT_FALSE(ops::Gemm(1, 1, false, true).try_weight_only_int8(input, weight, scale, output, nullptr));
   EXPECT_FALSE(ops::Gemm(0.5f, 0, false, true).try_weight_only_int8(input, weight, scale, output, nullptr));
+  const auto other_dtype = dtype == DataType::FLOAT16 ? DataType::FLOAT32 : DataType::FLOAT16;
+  StorageView wrong_output(other_dtype, device);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, wrong_output, nullptr));
+  auto wrong_bias = StorageView({n}, 0.1f, device).to(other_dtype);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr, &wrong_bias));
+  auto wrong_residual = StorageView({1, n}, 0.1f, device).to(other_dtype);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr, nullptr, &wrong_residual));
   input.resize({5, 64});
   StorageView large_weight({8193, 64}, int8_t(1), device), large_scale({8193}, 1.f, device);
   EXPECT_FALSE(gemm.try_weight_only_int8(input, large_weight, large_scale, output, nullptr));
 }
-
-class OpDeviceFPTest : public ::testing::TestWithParam<FloatType> {
-};
 
 
 TEST_P(OpDeviceFPTest, MedianFilter) {

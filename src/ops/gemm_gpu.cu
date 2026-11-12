@@ -7,6 +7,19 @@
 namespace ctranslate2 {
   namespace ops {
 
+    __device__ __forceinline__ float apply_activation(float value, int activation) {
+      switch (activation) {
+      case int(ActivationType::ReLU):         return cuda::relu_func<float>()(value);
+      case int(ActivationType::GELU):         return cuda::gelu_func<float>()(value);
+      case int(ActivationType::GELUTanh):     return cuda::gelu_tanh_func<float>()(value);
+      case int(ActivationType::GELUSigmoid):  return cuda::gelu_sigmoid_func<float>()(value);
+      case int(ActivationType::Sigmoid):      return cuda::sigmoid_func<float>()(value);
+      case int(ActivationType::Swish):        return cuda::swish_func<float>()(value);
+      case int(ActivationType::Tanh):         return cuda::tanh_func<float>()(value);
+      default:                                return value;
+      }
+    }
+
     // Each group of 32 threads computes one output channel and reuses its
     // weights across the small batch. No INT32 output tensor is materialized.
     template <int M>
@@ -59,15 +72,7 @@ namespace ctranslate2 {
           float value = __fdividef(float(sums[row]), input_scale[row] * weight_scale[channel]);
           if (bias)
             value += bias[channel];
-          switch (activation) {
-          case int(ActivationType::ReLU): value = cuda::relu_func<float>()(value); break;
-          case int(ActivationType::GELU): value = cuda::gelu_func<float>()(value); break;
-          case int(ActivationType::GELUTanh): value = cuda::gelu_tanh_func<float>()(value); break;
-          case int(ActivationType::GELUSigmoid): value = cuda::gelu_sigmoid_func<float>()(value); break;
-          case int(ActivationType::Sigmoid): value = cuda::sigmoid_func<float>()(value); break;
-          case int(ActivationType::Swish): value = cuda::swish_func<float>()(value); break;
-          case int(ActivationType::Tanh): value = cuda::tanh_func<float>()(value); break;
-          }
+          value = apply_activation(value, activation);
           // Quantized Dense adds the residual after applying its activation.
           if (residual)
             value += residual[row * n + channel];

@@ -79,7 +79,7 @@ namespace ctranslate2 {
       bool supported = false;
       CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
       dim_t m, k, n;
-      if (!supported || !weight_compensation
+      if (!supported || _alpha != 1.f || !weight_compensation
           || weight_compensation->dtype() != DataType::INT32
           || weight_compensation->device() != Device::CPU
           || output.dtype() != DataType::FLOAT32 || output.device() != Device::CPU

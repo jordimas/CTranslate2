@@ -6,6 +6,12 @@
 
 #include <cpuinfo_x86.h>
 
+#if defined(_MSC_VER)
+#  include <intrin.h>
+#else
+#  include <cpuid.h>
+#endif
+
 namespace ctranslate2 {
   namespace cpu {
 
@@ -29,6 +35,21 @@ namespace ctranslate2 {
 
     bool cpu_supports_avx2() {
       return info.features.avx2;
+    }
+
+    bool cpu_supports_avx2_vnni() {
+      if (!cpu_supports_avx2())
+        return false;
+
+      // AVX-VNNI (256-bit vpdpbusd): CPUID.(EAX=7,ECX=1):EAX[bit 4].
+#if defined(_MSC_VER)
+      int regs[4];
+      __cpuidex(regs, 7, 1);
+      return (regs[0] & (1 << 4)) != 0;
+#else
+      unsigned int a, b, c, d;
+      return __get_cpuid_count(7, 1, &a, &b, &c, &d) && (a & (1u << 4));
+#endif
     }
 
     bool cpu_supports_avx512() {

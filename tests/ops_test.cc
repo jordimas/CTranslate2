@@ -142,63 +142,6 @@ static StorageView weight_only_int8_reference(const StorageView& input,
   return StorageView(shape, dots, input.device());
 }
 
-TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
-#if defined(CT2_X86_BUILD)
-  if (cpu::get_cpu_isa() != cpu::CpuIsa::AVX2)
-    GTEST_SKIP();
-  const dim_t n = 19;
-  for (dim_t m = 1; m <= 8; ++m) {
-    for (dim_t k : {1, 15, 63, 64, 65, 127, 128, 129, 1024}) {
-      SCOPED_TRACE("M=" + std::to_string(m) + " K=" + std::to_string(k));
-      std::vector<float> a(m * k), scales(n);
-      std::vector<int8_t> b(n * k);
-      for (dim_t r = 0; r < m; ++r)
-        for (dim_t t = 0; t < k; ++t)
-          a[r * k + t] = m > 1 && r == 0 ? 0.f : float((t * 13 + r * 7) % 31 - 15) / (r + 1);
-      for (dim_t c = 0; c < n; ++c) {
-        scales[c] = float(c + 2);
-        for (dim_t t = 0; t < k; ++t)
-          b[c * k + t] = int8_t((c * 17 + t * 11) % 255 - 127);
-      }
-      StorageView input({1, m, k}, a);
-      StorageView weight({n, k}, b);
-      StorageView scale({n}, scales);
-      auto compensation = ops::Gemm::compensate_u8_input(weight, true, k, n, 1.f);
-      StorageView input_scale(DataType::FLOAT32), reference(DataType::FLOAT32);
-      const auto accum = weight_only_int8_reference(input, weight, input_scale);
-      ops::Dequantize()(accum, input_scale, scale, false, true, reference);
-      StorageView output(DataType::FLOAT32);
-      ops::Gemm op(1.f, 0.f, false, true);
-      ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
-                                        nullptr, nullptr, nullptr, &compensation));
-      expect_storage_eq(output, reference);
-
-      StorageView bias({n}, 0.25f);
-      StorageView residual({1, m, n}, -0.5f);
-      for (int act = -1; act <= int(ops::ActivationType::Sigmoid); ++act) {
-        const auto activation = static_cast<ops::ActivationType>(act);
-        const auto* pactivation = act < 0 ? nullptr : &activation;
-        for (int flags = 0; flags < 4; ++flags) {
-          SCOPED_TRACE("activation=" + std::to_string(act) + " flags=" + std::to_string(flags));
-          const auto* pbias = flags & 1 ? &bias : nullptr;
-          const auto* presidual = flags & 2 ? &residual : nullptr;
-          StorageView expected(reference);
-          if (pbias)
-            ops::BiasAdd()(expected, *pbias, expected);
-          if (presidual)
-            ops::Add()(expected, *presidual, expected);
-          if (pactivation)
-            ops::get_activation_op(*pactivation)(expected, expected);
-          ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
-                                            pactivation, pbias, presidual, &compensation));
-          expect_storage_eq(output, expected, 1e-5f);
-        }
-      }
-    }
-  }
-#endif
-}
-
 TEST(OpTest, GemmWeightOnlyInt8DispatchAndFallback) {
   StorageView input({1, 3}, 1.f), scale({2}, 1.f), output(DataType::FLOAT32);
   StorageView weight({2, 3}, int8_t(1));
@@ -243,51 +186,83 @@ class OpDeviceTest : public ::testing::TestWithParam<Device> {
 class OpDeviceFPTest : public ::testing::TestWithParam<FloatType> {
 };
 
-TEST_P(OpDeviceFPTest, GemmWeightOnlyInt8GPU) {
+TEST_P(OpDeviceFPTest, GemmWeightOnlyInt8SmallRowsAndTails) {
+  const Device device = GetParam().device;
+  const DataType dtype = GetParam().dtype;
+  if (device == Device::CPU) {
+    bool supported = false;
+#if defined(CT2_X86_BUILD)
+    CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2
+                                   || ISA == cpu::CpuIsa::AVX2_VNNI)));
+#endif
+    if (!supported)
+      GTEST_SKIP();
+  } else if (device != Device::CUDA || dtype == DataType::BFLOAT16) {
+    GTEST_SKIP();
+  }
+  const dim_t n = 19;
+  const ops::Gemm gemm(1, 0, false, true);
+  for (dim_t m = 1; m <= 8; ++m) {
+    for (dim_t k : {1, 15, 31, 63, 64, 65, 127, 128, 129, 132, 260, 1024}) {
+      SCOPED_TRACE("M=" + std::to_string(m) + " K=" + std::to_string(k));
+      std::vector<float> a(m * k), scales(n);
+      std::vector<int8_t> b(n * k);
+      for (dim_t r = 0; r < m; ++r)
+        for (dim_t t = 0; t < k; ++t)
+          a[r * k + t] = m > 1 && r == 0 ? 0.f : float((t * 13 + r * 7) % 31 - 15) / (r + 1);
+      for (dim_t c = 0; c < n; ++c) {
+        scales[c] = float(c + 2);
+        for (dim_t t = 0; t < k; ++t)
+          b[c * k + t] = int8_t((c * 17 + t * 11) % 256 - 128);
+      }
+      auto input = StorageView({1, m, k}, a, device).to(dtype);
+      StorageView weight({n, k}, b, device), scale({n}, scales, device);
+      StorageView compensation(DataType::INT32, device);
+      if (device == Device::CPU)
+        compensation = ops::Gemm::compensate_u8_input(weight, true, k, n, 1.f);
+      const auto* pcompensation = device == Device::CPU ? &compensation : nullptr;
+      auto bias = StorageView({n}, 0.1f, device).to(dtype);
+      auto residual = StorageView({1, m, n}, -0.3f, device).to(dtype);
+      StorageView input_scale(DataType::FLOAT32, device);
+      const auto accum = weight_only_int8_reference(input, weight, input_scale);
+      StorageView expected(dtype, device), output(dtype, device);
+      const ops::ActivationType activations[] = {
+        ops::ActivationType::ReLU, ops::ActivationType::GELUTanh,
+        ops::ActivationType::Swish, ops::ActivationType::GELU,
+        ops::ActivationType::GELUSigmoid, ops::ActivationType::Tanh,
+        ops::ActivationType::Sigmoid,
+      };
+      // A null activation covers the unfused epilogue as well.
+      for (size_t i = 0; i <= std::size(activations); ++i) {
+        const auto* pactivation = i == 0 ? nullptr : &activations[i - 1];
+        for (int flags = 0; flags < 4; ++flags) {
+          SCOPED_TRACE("activation=" + std::to_string(pactivation ? int(*pactivation) : -1)
+                       + " flags=" + std::to_string(flags));
+          const auto* pbias = flags & 1 ? &bias : nullptr;
+          const auto* presidual = flags & 2 ? &residual : nullptr;
+          // CPU adds the residual before activation; CUDA adds it afterwards.
+          ops::Dequantize{device == Device::CUDA ? pactivation : nullptr}(
+            accum, input_scale, scale, false, true, expected, pbias);
+          if (presidual)
+            ops::Add()(expected, *presidual, expected);
+          if (device == Device::CPU && pactivation)
+            ops::get_activation_op(*pactivation)(expected, expected);
+          ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output,
+                                                pactivation, pbias, presidual, pcompensation));
+          expect_storage_eq(output, expected);
+        }
+      }
+    }
+  }
+}
+
+TEST_P(OpDeviceFPTest, GemmWeightOnlyInt8GPUFallback) {
   const Device device = GetParam().device;
   const DataType dtype = GetParam().dtype;
   if (device != Device::CUDA || dtype == DataType::BFLOAT16)
     GTEST_SKIP();
   const dim_t n = 19;
   const ops::Gemm gemm(1, 0, false, true);
-  for (dim_t m = 1; m <= 8; ++m) {
-    for (dim_t k : {1, 31, 65, 128, 132, 260, 1024}) {
-      SCOPED_TRACE("M=" + std::to_string(m) + " K=" + std::to_string(k));
-      std::vector<float> a(m * k), scales(n);
-      std::vector<int8_t> b(n * k);
-      for (dim_t i = 0; i < m * k; ++i)
-        a[i] = m > 1 && i < k ? 0.f : float((i * 13) % 31 - 15) / 7.f;
-      for (dim_t i = 0; i < n * k; ++i)
-        b[i] = int8_t((i * 17) % 256 - 128);
-      for (dim_t i = 0; i < n; ++i)
-        scales[i] = float(i + 2);
-      auto input = StorageView({1, m, k}, a, device).to(dtype);
-      StorageView weight({n, k}, b, device), scale({n}, scales, device);
-      auto bias = StorageView({n}, 0.1f, device).to(dtype);
-      auto residual = StorageView({1, m, n}, -0.3f, device).to(dtype);
-      StorageView input_scale(DataType::FLOAT32, device);
-      const auto accum = weight_only_int8_reference(input, weight, input_scale);
-      StorageView expected(dtype, device), output(dtype, device);
-      for (int act = -1; act <= int(ops::ActivationType::Sigmoid); ++act) {
-        const auto activation = static_cast<ops::ActivationType>(act);
-        const auto* pactivation = act < 0 ? nullptr : &activation;
-        for (int flags = 0; flags < 4; ++flags) {
-          SCOPED_TRACE("activation=" + std::to_string(act) + " flags=" + std::to_string(flags));
-          const auto* pbias = flags & 1 ? &bias : nullptr;
-          const auto* presidual = flags & 2 ? &residual : nullptr;
-          ops::Dequantize{pactivation}(accum, input_scale, scale, false, true, expected, pbias);
-          if (presidual)
-            ops::Add()(expected, *presidual, expected);
-          ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output,
-                                                pactivation, pbias, presidual));
-          expect_storage_eq(output, expected);
-        }
-      }
-      ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr));
-      ops::Dequantize()(accum, input_scale, scale, false, true, expected);
-      expect_storage_eq(output, expected);
-    }
-  }
   auto input = StorageView({9, 64}, 1.f, device).to(dtype);
   StorageView weight({n, 64}, int8_t(1), device);
   StorageView scale({n}, 1.f, device), output(dtype, device);

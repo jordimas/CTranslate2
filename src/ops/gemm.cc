@@ -66,14 +66,14 @@ namespace ctranslate2 {
     }
 
     template<>
-    bool Gemm::try_weight_only_int8<Device::CPU>(const StorageView& input,
-                                                  const StorageView& weight,
-                                                  const StorageView& scale,
-                                                  StorageView& output,
-                                                  const ActivationType* activation,
-                                                  const StorageView* bias,
-                                                  const StorageView* residual,
-                                                  const StorageView* weight_compensation) const {
+    bool Gemm::try_weight_only_int8<Device::CPU>([[maybe_unused]] const StorageView& input,
+                                                  [[maybe_unused]] const StorageView& weight,
+                                                  [[maybe_unused]] const StorageView& scale,
+                                                  [[maybe_unused]] StorageView& output,
+                                                  [[maybe_unused]] const ActivationType* activation,
+                                                  [[maybe_unused]] const StorageView* bias,
+                                                  [[maybe_unused]] const StorageView* residual,
+                                                  [[maybe_unused]] const StorageView* weight_compensation) const {
 #if defined(CT2_X86_BUILD)
       bool supported = false;
       CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
@@ -108,8 +108,6 @@ namespace ctranslate2 {
       apply_bias_and_activation(output, bias, activation, residual);
       return true;
 #else
-      (void)input; (void)weight; (void)scale; (void)output;
-      (void)activation; (void)bias; (void)residual; (void)weight_compensation;
       return false;
 #endif
     }

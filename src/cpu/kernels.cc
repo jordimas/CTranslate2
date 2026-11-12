@@ -657,14 +657,12 @@ namespace ctranslate2 {
                                          float* output, dim_t k, dim_t n,
                                          const float* inv_scale, float alpha) {
       // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
-      // chains must be a template-param expression at the array-bound site; a
-      // lambda-local `constexpr int chains = ...` trips MSVC C2131.
-      constexpr int chains_const = M <= 4 ? 2 : 1;
+      constexpr int chains = M <= 4 ? 2 : 1;
       parallel_for(0, n, 1, [&](dim_t begin, dim_t end) {
         for (dim_t c = begin; c < end; ++c) {
-          // Over-allocate to 2*M (compile-time constant); only chains_const*M entries used.
+          // Over-allocate to 2*M (compile-time constant); only chains*M entries used.
           __m256i acc[2 * M];
-          for (int i = 0; i < chains_const * M; ++i)
+          for (int i = 0; i < chains * M; ++i)
             acc[i] = _mm256_setzero_si256();
           const int8_t* row = weight + c * k;
           dim_t j = 0;
@@ -674,7 +672,7 @@ namespace ctranslate2 {
             for (int r = 0; r < M; ++r) {
               const uint8_t* x = input + r * k + j;
               acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(x), w0));
-              acc[(chains_const - 1) * M + r] = _mm256_add_epi32(acc[(chains_const - 1) * M + r],
+              acc[(chains - 1) * M + r] = _mm256_add_epi32(acc[(chains - 1) * M + r],
                   _mm256_madd_epi16(load_input_u16(x + 16), w1));
             }
           }
@@ -686,7 +684,7 @@ namespace ctranslate2 {
           }
           for (int r = 0; r < M; ++r) {
             auto total = acc[r];
-            if constexpr (chains_const == 2)
+            if constexpr (chains == 2)
               total = _mm256_add_epi32(total, acc[M + r]);
             int32_t sum = reduce_int32(total) + compensation[c];
             for (dim_t t = j; t < k; ++t)

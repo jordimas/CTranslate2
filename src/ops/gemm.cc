@@ -6,6 +6,7 @@
 
 #include "cpu/kernels.h"
 #include "dispatch.h"
+#include "ops/weight_only_int8.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -77,25 +78,15 @@ namespace ctranslate2 {
 #if defined(CT2_X86_BUILD)
       bool supported = false;
       CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
+      dim_t m, k, n;
       if (!supported || !weight_compensation
-          || _trans_a || !_trans_b || _a_is_packed || _b_is_packed || _beta != 0.f
-          || input.dtype() != DataType::FLOAT32 || input.rank() < 1
-          || weight.dtype() != DataType::INT8 || weight.rank() != 2
-          || scale.dtype() != DataType::FLOAT32
           || weight_compensation->dtype() != DataType::INT32
-          || weight.device() != Device::CPU || scale.device() != Device::CPU
           || weight_compensation->device() != Device::CPU
           || output.dtype() != DataType::FLOAT32 || output.device() != Device::CPU
-          || (bias && (bias->dtype() != DataType::FLOAT32 || bias->device() != Device::CPU))
-          || (residual && (residual->dtype() != DataType::FLOAT32 || residual->device() != Device::CPU)))
-        return false;
-      const dim_t k = input.dim(-1);
-      const dim_t n = weight.dim(0);
-      if (k <= 0 || n <= 0 || weight.dim(1) != k)
-        return false;
-      const dim_t m = input.size() / k;
-      if (m < 1 || m > 8 || scale.size() != n || weight_compensation->size() != n
-          || (bias && bias->size() != n) || (residual && residual->size() != m * n))
+          || !weight_only_int8_shape_ok(_trans_a, _trans_b, _a_is_packed, _b_is_packed,
+                                        _beta, Device::CPU, input, weight, scale,
+                                        bias, residual, m, k, n)
+          || weight_compensation->size() != n)
         return false;
 
       Shape shape(input.shape());

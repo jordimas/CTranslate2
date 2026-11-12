@@ -2,6 +2,7 @@
 #include "ctranslate2/ops/quantize.h"
 
 #include "cuda/helpers.h"
+#include "ops/weight_only_int8.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -84,24 +85,16 @@ namespace ctranslate2 {
                                                 const StorageView* bias,
                                                 const StorageView* residual,
                                                 const StorageView*) const {
-      if (_trans_a || !_trans_b || _a_is_packed || _b_is_packed
-          || _alpha != 1.f || _beta != 0.f || input.rank() < 1
-          || input.dtype() != DataType::FLOAT32 || weight.rank() != 2
-          || weight.dtype() != DataType::INT8 || scale.dtype() != DataType::FLOAT32
+      dim_t m, k, n;
+      if (_alpha != 1.f
           || output.dtype() != DataType::FLOAT32 || output.device() != Device::CUDA
-          || weight.device() != Device::CUDA || scale.device() != Device::CUDA
-          || (bias && (bias->dtype() != DataType::FLOAT32 || bias->device() != Device::CUDA))
-          || (residual && (residual->dtype() != DataType::FLOAT32 || residual->device() != Device::CUDA)))
+          || !weight_only_int8_shape_ok(_trans_a, _trans_b, _a_is_packed, _b_is_packed,
+                                        _beta, Device::CUDA, input, weight, scale,
+                                        bias, residual, m, k, n))
         return false;
-      const dim_t k = input.dim(-1);
-      const dim_t n = weight.dim(0);
-      if (k <= 0 || n <= 0 || weight.dim(1) != k)
-        return false;
-      const dim_t m = input.size() / k;
       // Large projections lose the launch-overhead advantage at wider batches.
-      if (m < 1 || m > 8 || (m > 2 && n > 8192) || scale.size() != n
-          || std::max({input.size(), weight.size(), m * n}) > std::numeric_limits<int>::max() - 3
-          || (bias && bias->size() != n) || (residual && residual->size() != m * n))
+      if ((m > 2 && n > 8192)
+          || std::max({input.size(), weight.size(), m * n}) > std::numeric_limits<int>::max() - 3)
         return false;
 
       Shape shape(input.shape());

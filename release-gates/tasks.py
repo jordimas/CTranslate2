@@ -39,7 +39,7 @@ def run_whisper_wer(limit=300, device="cpu"):
     from faster_whisper import WhisperModel
 
     samples = _load_librispeech(limit)
-    model = WhisperModel("tiny", device=device, compute_type="int8_float32",
+    model = WhisperModel("tiny", device=device, compute_type="int8",
                          cpu_threads=CPU_THREADS, num_workers=1)
 
     def transcribe(batch):
@@ -53,7 +53,6 @@ def run_whisper_wer(limit=300, device="cpu"):
     audio_sec = sum(len(audio) / sr for audio, sr, _ in samples)
 
     return {"wer": jiwer.wer(refs, hyps),
-            "device": model.model.device, "compute_type": model.model.compute_type,
             "rtf_inverse": audio_sec / elapsed,
             "num_samples": len(samples)}
 
@@ -61,7 +60,6 @@ def run_whisper_wer(limit=300, device="cpu"):
 OPUS_MODEL = "Helsinki-NLP/opus-mt-en-de"
 T5GEMMA_MODEL = "jordimas/t5gemma-2-270m-270m"
 T5GEMMA_REVISION = "dfb6d0d619d8e6d42f279a6197abb90dec0137c1"
-GEMMA3_MODEL = "jordimas/gemma-3-1b-it"
 
 
 def _converted_dir(stack, model_dir, convert):
@@ -99,7 +97,7 @@ def run_opus_bleu(limit=500, device="cpu", model_dir=None):
 
     with contextlib.ExitStack() as stack:
         model_path = _converted_dir(stack, model_dir, convert_opus_bleu)
-        translator = ctranslate2.Translator(model_path, device=device, compute_type="int8_float32",
+        translator = ctranslate2.Translator(model_path, device=device,
                                              intra_threads=CPU_THREADS, inter_threads=1)
         tokenized = [tokenizer.convert_ids_to_tokens(tokenizer.encode(s))
                      for s in sources]
@@ -112,7 +110,6 @@ def run_opus_bleu(limit=500, device="cpu", model_dir=None):
                              skip_special_tokens=True)
             for r in results]
     return {"bleu": sacrebleu.corpus_bleu(hyps, refs).score,
-            "device": translator.device, "compute_type": translator.compute_type,
             "tokens_per_sec": total_tokens / elapsed,
             "num_sentences": len(sources)}
 
@@ -130,95 +127,28 @@ def run_t5gemma_generation(limit=50, device="cpu", model_dir=None):
     if not prompts:
         raise ValueError("Generation requires at least one prompt")
     tokenizer = transformers.AutoTokenizer.from_pretrained(T5GEMMA_MODEL, revision=T5GEMMA_REVISION)
+    inputs = [tokenizer.convert_ids_to_tokens(tokenizer.encode(p, truncation=True, max_length=512))
+              for p in prompts]
     with contextlib.ExitStack() as stack:
         model_path = _converted_dir(stack, model_dir, convert_t5gemma_generation)
-        translator = ctranslate2.Translator(model_path, device=device, compute_type="int8_float32",
+        translator = ctranslate2.Translator(model_path, device=device, compute_type="float32",
                                              intra_threads=CPU_THREADS, inter_threads=1)
-        def generate(batch):
-            for prompt in batch:
-                try:
-                    tokens = tokenizer.convert_ids_to_tokens(
-                        tokenizer.encode(prompt, truncation=True, max_length=512))
-                    result = translator.translate_batch(
-                        [tokens], beam_size=1, sampling_topk=1, max_decoding_length=64,
-                        max_batch_size=1)[0]
-                    output = tokenizer.decode(tokenizer.convert_tokens_to_ids(
-                        result.hypotheses[0]), skip_special_tokens=True).strip()
-                    if not output:
-                        raise ValueError("Generation returned an empty completion")
-                    record = (output, len(result.hypotheses[0]), None)
-                except Exception as exc:
-                    record = ("", 0, f"{type(exc).__name__}: {exc}")
-                yield record
-
-        results, elapsed = run_and_measure(generate, prompts, warmup_size=8)
-    outputs = [output for output, _, _ in results]
-    prompt_errors = [{"prompt": i, "error": error}
-                     for i, (_, _, error) in enumerate(results, 1) if error]
+        results, elapsed = run_and_measure(
+            translator.translate_batch, inputs, warmup_size=8,
+            beam_size=1, sampling_topk=1, max_decoding_length=64, max_batch_size=8)
+    outputs = [tokenizer.decode(tokenizer.convert_tokens_to_ids(r.hypotheses[0]),
+                                skip_special_tokens=True).strip() for r in results]
+    if len(outputs) != len(prompts) or any(not output for output in outputs):
+        raise ValueError("Generation returned missing or empty completions")
     return {"outputs": outputs, "num_prompts": len(prompts),
-            "prompt_errors": prompt_errors,
-            "device": translator.device, "compute_type": translator.compute_type,
-            "tokens_per_sec": sum(tokens for _, tokens, _ in results) / elapsed}
-
-
-def convert_gemma3_generation(out_dir):
-    from ctranslate2.converters.transformers import TransformersConverter
-    TransformersConverter(GEMMA3_MODEL).convert(out_dir, force=True, quantization="float32")
-
-
-def run_gemma3_generation(limit=50, device="cpu", model_dir=None):
-    import contextlib
-    import ctranslate2
-    import transformers
-    from datasets import load_dataset
-
-    samples = load_dataset("rajpurkar/squad", split="validation",
-                           revision=SQUAD_REVISION).shuffle(seed=42)[:limit]
-    prompts = [f"Context: {context} Question: {question} Answer:"
-               for context, question in zip(samples["context"], samples["question"])]
-    if not prompts:
-        raise ValueError("Generation requires at least one prompt")
-    tokenizer = transformers.AutoTokenizer.from_pretrained(GEMMA3_MODEL)
-    with contextlib.ExitStack() as stack:
-        model_path = _converted_dir(stack, model_dir, convert_gemma3_generation)
-        generator = ctranslate2.Generator(model_path, device=device, compute_type="int8_float32",
-                                           intra_threads=CPU_THREADS, inter_threads=1)
-
-        def generate(batch):
-            for prompt in batch:
-                try:
-                    tokens = tokenizer.convert_ids_to_tokens(
-                        tokenizer.encode(prompt, truncation=True, max_length=512))
-                    result = generator.generate_batch(
-                        [tokens], beam_size=1, sampling_topk=1, max_length=64,
-                        include_prompt_in_result=False)[0]
-                    seq = result.sequences[0]
-                    output = tokenizer.decode(tokenizer.convert_tokens_to_ids(seq),
-                                              skip_special_tokens=True).strip()
-                    if not output:
-                        raise ValueError("Generation returned an empty completion")
-                    record = (output, len(seq), None)
-                except Exception as exc:
-                    record = ("", 0, f"{type(exc).__name__}: {exc}")
-                yield record
-
-        results, elapsed = run_and_measure(generate, prompts, warmup_size=8)
-    outputs = [output for output, _, _ in results]
-    prompt_errors = [{"prompt": i, "error": error}
-                     for i, (_, _, error) in enumerate(results, 1) if error]
-    return {"outputs": outputs, "num_prompts": len(prompts),
-            "prompt_errors": prompt_errors,
-            "device": generator.device, "compute_type": generator.compute_type,
-            "tokens_per_sec": sum(tokens for _, tokens, _ in results) / elapsed}
+            "tokens_per_sec": sum(len(r.hypotheses[0]) for r in results) / elapsed}
 
 
 TASKS = {"whisper_wer": run_whisper_wer, "opus_bleu": run_opus_bleu,
-         "t5gemma_generation": run_t5gemma_generation,
-         "gemma3_generation": run_gemma3_generation}
+         "t5gemma_generation": run_t5gemma_generation}
 
 CONVERTERS = {"opus_bleu": convert_opus_bleu,
-              "t5gemma_generation": convert_t5gemma_generation,
-              "gemma3_generation": convert_gemma3_generation}
+              "t5gemma_generation": convert_t5gemma_generation}
 
 
 if __name__ == "__main__":

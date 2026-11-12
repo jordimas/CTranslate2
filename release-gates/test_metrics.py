@@ -66,7 +66,7 @@ class MetricValidationTest(unittest.TestCase):
         }
         for degraded_task in (None, *baseline):
             with self.subTest(degraded_task=degraded_task):
-                def result(py, task, limit, device, model_dir=None):
+                def result(py, task, limit, device):
                     metrics = dict(baseline[task])
                     if py == "candidate" and task == degraded_task:
                         metric = "rtf_inverse" if task == "whisper_wer" else "tokens_per_sec"
@@ -74,7 +74,6 @@ class MetricValidationTest(unittest.TestCase):
                     return metrics
                 with patch.object(run_gate, "latest_version", return_value="4.8.5"), \
                      patch.object(run_gate, "make_venv", side_effect=["baseline", "candidate"]), \
-                     patch.object(run_gate, "convert_models", return_value={}), \
                      patch.object(run_gate, "run_task", side_effect=result), \
                      patch("sys.argv", ["run_gate.py"]), \
                      contextlib.redirect_stdout(io.StringIO()), \
@@ -89,7 +88,6 @@ class MetricValidationTest(unittest.TestCase):
                  patch.object(run_gate.glob, "glob", return_value=wheels), \
                  patch.object(run_gate, "latest_version", return_value="4.8.5") as latest, \
                  patch.object(run_gate, "make_venv") as make_venv, \
-                 patch.object(run_gate, "convert_models", return_value={}), \
                  patch.object(run_gate, "evaluate_task", return_value=False), \
                  contextlib.redirect_stdout(io.StringIO()), \
                  contextlib.redirect_stderr(io.StringIO()), \
@@ -115,7 +113,7 @@ class MetricValidationTest(unittest.TestCase):
             with self.subTest(rounds=rounds), \
                  patch.object(run_gate, "measure_round", side_effect=rounds) as measure, \
                  contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(run_gate.evaluate_task("b", "c", "opus_bleu", 20, "cpu", {}),
+                self.assertEqual(run_gate.evaluate_task("b", "c", "opus_bleu", 20, "cpu"),
                                  expected)
                 self.assertEqual(measure.call_count, len(rounds))
 
@@ -127,7 +125,7 @@ class MetricValidationTest(unittest.TestCase):
             with self.subTest(metric=metric):
                 values = iter(values)
 
-                def result(py, *args, **kwargs):
+                def result(py, *args):
                     metrics = {"bleu": 30, "tokens_per_sec": 100}
                     if py == "c":
                         metrics[metric] = next(values)
@@ -135,8 +133,7 @@ class MetricValidationTest(unittest.TestCase):
 
                 with patch.object(run_gate, "run_task", side_effect=result) as task, \
                      contextlib.redirect_stdout(io.StringIO()):
-                    quality, performance = run_gate.measure_round(
-                        "b", "c", "opus_bleu", 20, "cpu", {"baseline": {}, "candidate": {}})
+                    quality, performance = run_gate.measure_round("b", "c", "opus_bleu", 20, "cpu")
                 self.assertEqual(quality, expected_quality)
                 self.assertEqual(performance, set())
                 self.assertEqual([call.args[0] for call in task.call_args_list],

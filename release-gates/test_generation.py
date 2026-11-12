@@ -24,15 +24,11 @@ class CompletionComparisonTest(unittest.TestCase):
 
     def test_invalid_completions_fail(self):
         for baseline, candidate in [([], []), (["one"], []),
+                                    (["one"], [" "]), ([""], ["one"]),
                                     (["one"], [None])]:
             with self.subTest(baseline=baseline, candidate=candidate):
                 with self.assertRaises(ValueError):
                     compare_completions({"outputs": baseline}, {"outputs": candidate})
-
-    def test_empty_prompts_do_not_abort_comparison(self):
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(compare_completions(
-                {"outputs": ["", "same"]}, {"outputs": ["one", "same"]}), 1)
 
 
 if __name__ == "__main__":

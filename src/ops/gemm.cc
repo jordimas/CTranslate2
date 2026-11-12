@@ -77,8 +77,7 @@ namespace ctranslate2 {
                                                   const StorageView* residual,
                                                   const StorageView* weight_compensation) const {
       bool supported = false;
-      CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2
-                                     || ISA == cpu::CpuIsa::AVX2_VNNI)));
+      CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2)));
       dim_t m, k, n;
       if (!supported || _alpha != 1.f || !weight_compensation
           || weight_compensation->dtype() != DataType::INT32

@@ -30,8 +30,6 @@ namespace ctranslate2 {
         return "AVX";
       case CpuIsa::AVX2:
         return "AVX2";
-      case CpuIsa::AVX2_VNNI:
-        return "AVX2_VNNI";
       case CpuIsa::AVX512:
         return "AVX512";
 #elif defined(CT2_ARM64_BUILD)
@@ -66,8 +64,6 @@ namespace ctranslate2 {
 #ifdef CT2_WITH_CPU_DISPATCH
 #  if defined(CT2_X86_BUILD)
       // Note that AVX512 can only be enabled with the environment variable at this time.
-      if (cpu_supports_avx2_vnni())
-        return CpuIsa::AVX2_VNNI;
       if (cpu_supports_avx2())
         return CpuIsa::AVX2;
       if (cpu_supports_avx())

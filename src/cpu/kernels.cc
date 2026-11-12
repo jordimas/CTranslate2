@@ -5,9 +5,6 @@
 #if defined(__AVX512F__)
 #  define TARGET_ISA CpuIsa::AVX512
 #  include "cpu/vec_avx512.h"
-#elif defined(__AVX2__) && defined(__AVXVNNI__)
-#  define TARGET_ISA CpuIsa::AVX2_VNNI
-#  include "cpu/vec_avx.h"
 #elif defined(__AVX2__)
 #  define TARGET_ISA CpuIsa::AVX2
 #  include "cpu/vec_avx.h"
@@ -41,7 +38,11 @@
 #  define CT2_FFAST_MATH_END _Pragma("GCC pop_options")
 #endif
 
+#include "cpu/activation.h"
+#include "cpu/cpu_info.h"
 #include "cpu/parallel.h"
+#include "cpu/weight_only_int8.h"
+#include "env.h"
 #include "type_dispatch.h"
 
 namespace ctranslate2 {
@@ -147,86 +148,6 @@ namespace ctranslate2 {
                                             scalar_reduce_func);
     }
 
-    struct relu_func {
-      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
-        using VecType = Vec<float, TARGET_ISA>;
-        return VecType::max(v, VecType::load(0.f));
-      }
-    };
-
-    struct gelu_func {
-      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
-        using VecType = Vec<float, TARGET_ISA>;
-        auto u = VecType::mul(VecType::load(0.7071067811865475f), v);
-        u = VecType::add(VecType::load(1.f), VecType::erf(u));
-        u = VecType::mul(v, u);
-        u = VecType::mul(VecType::load(0.5f), u);
-        return u;
-      }
-    };
-
-    struct gelu_tanh_func {
-      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
-        using VecType = Vec<float, TARGET_ISA>;
-        auto u = VecType::mul(VecType::mul(v, v), v);
-        u = VecType::mul_add(VecType::load(0.044715f), u, v);
-        u = VecType::mul(VecType::load(0.7978845608028654f), u);
-        u = VecType::tanh(u);
-        u = VecType::add(VecType::load(1.f), u);
-        u = VecType::mul(v, u);
-        u = VecType::mul(VecType::load(0.5f), u);
-        return u;
-      }
-    };
-
-    struct gelu_sigmoid_func {
-      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
-        using VecType = Vec<float, TARGET_ISA>;
-        return VecType::div(v, VecType::add(VecType::load(1.f),
-                                            VecType::exp(VecType::mul(VecType::load(-1.702f), v))));
-      }
-    };
-
-    struct sigmoid_func {
-      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
-        using VecType = Vec<float, TARGET_ISA>;
-        return VecType::div(VecType::load(1.f), VecType::add(VecType::load(1.f), VecType::exp(VecType::neg(v))));
-      }
-    };
-
-    struct swish_func {
-      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
-        using VecType = Vec<float, TARGET_ISA>;
-        return VecType::div(v, VecType::add(VecType::load(1.f), VecType::exp(VecType::neg(v))));
-      }
-    };
-
-    struct tanh_func {
-      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
-        using VecType = Vec<float, TARGET_ISA>;
-        return VecType::tanh(v);
-      }
-    };
-
-
-    template <typename Function>
-    static void with_activation(const ops::ActivationType* activation, const Function& func) {
-      if (!activation) {
-        func(identity());
-      } else {
-        switch (*activation) {
-        case ops::ActivationType::ReLU:        func(relu_func()); break;
-        case ops::ActivationType::GELU:        func(gelu_func()); break;
-        case ops::ActivationType::GELUTanh:    func(gelu_tanh_func()); break;
-        case ops::ActivationType::GELUSigmoid: func(gelu_sigmoid_func()); break;
-        case ops::ActivationType::Sigmoid:     func(sigmoid_func()); break;
-        case ops::ActivationType::Swish:       func(swish_func()); break;
-        case ops::ActivationType::Tanh:        func(tanh_func()); break;
-        }
-      }
-    }
-
-
     template <CpuIsa ISA, typename T>
     void rcp(const T* x, T* y, dim_t size) {
       vectorized_unary_transform<ISA>(x, y, size, Vec<T, ISA>::rcp);
@@ -259,27 +180,27 @@ namespace ctranslate2 {
 
     template<>
     void gelu<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_func());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_func<TARGET_ISA>());
     }
 
     template<>
     void gelu_tanh<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_tanh_func());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_tanh_func<TARGET_ISA>());
     }
 
     template<>
     void gelu_sigmoid<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_sigmoid_func());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_sigmoid_func<TARGET_ISA>());
     }
 
     template<>
     void sigmoid<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, sigmoid_func());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, sigmoid_func<TARGET_ISA>());
     }
 
     template<>
     void swish<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, swish_func());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, swish_func<TARGET_ISA>());
     }
 
     template <CpuIsa ISA, typename T>
@@ -657,101 +578,6 @@ namespace ctranslate2 {
       });
     }
 
-#if defined(__AVX2__) && !defined(__AVX512F__)
-    static __m256i load_weight_s16(const int8_t* p) {
-      return _mm256_cvtepi8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(p)));
-    }
-
-    static __m256i load_input_u16(const uint8_t* p) {
-      return _mm256_cvtepu8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(p)));
-    }
-
-    static int32_t reduce_int32(__m256i sum) {
-      auto x = _mm_add_epi32(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
-      x = _mm_hadd_epi32(x, x);
-      return _mm_cvtsi128_si32(_mm_hadd_epi32(x, x));
-    }
-
-    template<int M>
-    static void weight_only_int8_dot_rows(const int8_t* weight, const float* scale,
-                                         const int32_t* compensation, const uint8_t* input,
-                                         float* output, dim_t k, dim_t n,
-                                         const float* inv_scale, const float* bias, const float* residual,
-                                         const ops::ActivationType* activation) {
-      using VecType = Vec<float, TARGET_ISA>;
-      constexpr dim_t width = VecType::width;
-#if defined(__AVXVNNI__)
-      constexpr int chains = 1;
-#else
-      // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
-      constexpr int chains = M <= 4 ? 2 : 1;
-#endif
-      // Buffer output channels so activations use full SIMD vectors even for M=1.
-      parallel_for(0, (n + width - 1) / width, 1, [&](dim_t begin, dim_t end) {
-        for (dim_t tile = begin; tile < end; ++tile) {
-          const dim_t first = tile * width;
-          const dim_t count = std::min(width, n - first);
-          float values[M][VecType::width] = {};
-          for (dim_t lane = 0; lane < count; ++lane) {
-            const dim_t c = first + lane;
-            __m256i acc[chains * M];
-            for (int i = 0; i < chains * M; ++i)
-              acc[i] = _mm256_setzero_si256();
-            const int8_t* row = weight + c * k;
-            dim_t j = 0;
-#if defined(__AVXVNNI__)
-            // vpdpbusd fuses u8*s8 widen+madd+add; one accumulator per row.
-            for (; j + 32 <= k; j += 32) {
-              const __m256i w = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row + j));
-              for (int r = 0; r < M; ++r) {
-                const __m256i x = _mm256_loadu_si256(
-                    reinterpret_cast<const __m256i*>(input + r * k + j));
-                acc[r] = _mm256_dpbusd_avx_epi32(acc[r], x, w);
-              }
-            }
-#else
-            for (; j + 32 <= k; j += 32) {
-              const auto w0 = load_weight_s16(row + j);
-              const auto w1 = load_weight_s16(row + j + 16);
-              for (int r = 0; r < M; ++r) {
-                const uint8_t* x = input + r * k + j;
-                acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(x), w0));
-                acc[(chains - 1) * M + r] = _mm256_add_epi32(acc[(chains - 1) * M + r],
-                    _mm256_madd_epi16(load_input_u16(x + 16), w1));
-              }
-            }
-            if (j + 16 <= k) {
-              const auto w = load_weight_s16(row + j);
-              for (int r = 0; r < M; ++r)
-                acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(input + r * k + j), w));
-              j += 16;
-            }
-#endif
-            for (int r = 0; r < M; ++r) {
-              auto total = acc[r];
-              if constexpr (chains == 2)
-                total = _mm256_add_epi32(total, acc[M + r]);
-              int32_t sum = reduce_int32(total) + compensation[c];
-              for (dim_t t = j; t < k; ++t)
-                sum += int32_t(input[r * k + t]) * row[t];
-              values[r][lane] = float(sum) * inv_scale[r] / scale[c];
-            }
-          }
-          for (int r = 0; r < M; ++r) {
-            auto v = VecType::load(values[r]);
-            if (bias)
-              v = VecType::add(v, VecType::load(bias + first, count));
-            if (residual)
-              v = VecType::add(v, VecType::load(residual + r * n + first, count));
-            with_activation(activation, [&](const auto& epilogue) {
-              VecType::store(epilogue(v), output + r * n + first, count);
-            });
-          }
-        }
-      });
-    }
-#endif
-
     template<>
     void weight_only_int8_gemm<TARGET_ISA>(const float* input,
                                          const int8_t* weight,
@@ -780,17 +606,18 @@ namespace ctranslate2 {
           VecType::convert_and_store(value, scratch + r * k + j, count);
         }
       }
-      // Fixed M keeps accumulators in registers, especially for beam-size-five decoding.
-#define CT2_WEIGHT_ONLY_CASE(M) \
-      case M: weight_only_int8_dot_rows<M>(weight, scale, compensation, scratch, output, \
-                                           k, n, inv_scale, bias, residual, activation); break
-      switch (m) {
-        CT2_WEIGHT_ONLY_CASE(1); CT2_WEIGHT_ONLY_CASE(2);
-        CT2_WEIGHT_ONLY_CASE(3); CT2_WEIGHT_ONLY_CASE(4);
-        CT2_WEIGHT_ONLY_CASE(5); CT2_WEIGHT_ONLY_CASE(6);
-        CT2_WEIGHT_ONLY_CASE(7); CT2_WEIGHT_ONLY_CASE(8);
+#if defined(CT2_WITH_AVX_VNNI)
+      // An explicit ISA override keeps the AVX2 baseline available for testing.
+      static const bool use_vnni = cpu_supports_avx2_vnni()
+        && read_string_from_env("CT2_FORCE_CPU_ISA").empty();
+      if (use_vnni) {
+        weight_only_int8_dot_vnni(weight, scale, compensation, scratch, output,
+                                  m, k, n, inv_scale, bias, residual, activation);
+        return;
       }
-#undef CT2_WEIGHT_ONLY_CASE
+#endif
+      weight_only_int8_dot(weight, scale, compensation, scratch, output,
+                             m, k, n, inv_scale, bias, residual, activation);
 #else
       (void)input; (void)weight; (void)scale; (void)compensation;
       (void)scratch; (void)output; (void)m; (void)k; (void)n;
@@ -854,7 +681,7 @@ namespace ctranslate2 {
                                            dim_t m,
                                            float* y,
                                            const ops::ActivationType* activation_type) {
-      with_activation(activation_type, [&](const auto& epilogue) {
+      with_activation<TARGET_ISA>(activation_type, [&](const auto& epilogue) {
         dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, epilogue);
       });
     }

@@ -115,6 +115,14 @@ namespace ctranslate2 {
                                const float* bias, const float* residual,
                                const ops::ActivationType* activation);
 
+#if defined(CT2_WITH_AVX_VNNI)
+    void weight_only_int8_dot_vnni(const int8_t* weight, const float* scale,
+                                  const int32_t* compensation, const uint8_t* input,
+                                  float* output, dim_t m, dim_t k, dim_t n,
+                                  const float* inv_scale, const float* bias, const float* residual,
+                                  const ops::ActivationType* activation);
+#endif
+
     template <CpuIsa ISA>
     void quantize_s8(const float* x,
                      int8_t* y,

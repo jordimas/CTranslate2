@@ -6,7 +6,6 @@
 #include <set>
 #include "test_utils.h"
 #include "cpu/cpu_isa.h"
-#include "env.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/ops.h"
 #include "ctranslate2/primitives.h"
@@ -252,7 +251,7 @@ class OpDeviceTest : public ::testing::TestWithParam<Device> {
 
 TEST_P(OpDeviceTest, GemmWeightOnlyInt8GPU) {
   const Device device = GetParam();
-  if (device != Device::CUDA || !read_bool_from_env("CT2_CUDA_FUSED_INT8", false))
+  if (device != Device::CUDA)
     GTEST_SKIP();
   const dim_t n = 19;
   const ops::Gemm gemm(1, 0, false, true);

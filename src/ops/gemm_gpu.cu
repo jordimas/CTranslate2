@@ -2,7 +2,6 @@
 #include "ctranslate2/ops/quantize.h"
 
 #include "cuda/helpers.h"
-#include "env.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -85,8 +84,7 @@ namespace ctranslate2 {
                                                 const StorageView* bias,
                                                 const StorageView* residual,
                                                 const StorageView*) const {
-      static const bool enabled = read_bool_from_env("CT2_CUDA_FUSED_INT8", false);
-      if (!enabled || _trans_a || !_trans_b || _a_is_packed || _b_is_packed
+      if (_trans_a || !_trans_b || _a_is_packed || _b_is_packed
           || _alpha != 1.f || _beta != 0.f || input.rank() < 1
           || input.dtype() != DataType::FLOAT32 || weight.rank() != 2
           || weight.dtype() != DataType::INT8 || scale.dtype() != DataType::FLOAT32

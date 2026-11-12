@@ -103,6 +103,7 @@ namespace ctranslate2 {
     // Fused small-M FP32 x INT8 GEMM for AVX2, M=1..8.
     // compensation[n] = -128 * sum_k(weight[n, k]), independent of alpha.
     // Caller checks ISA support; scratch holds m*k bytes; weights are unpacked [n,k].
+    // Epilogue applies activation(output + bias + residual).
     template <CpuIsa ISA>
     void weight_only_int8_gemm(const float* input,
                                const int8_t* weight,
@@ -110,7 +111,9 @@ namespace ctranslate2 {
                                const int32_t* compensation,
                                uint8_t* scratch,
                                float* output,
-                               dim_t m, dim_t k, dim_t n);
+                               dim_t m, dim_t k, dim_t n,
+                               const float* bias, const float* residual,
+                               const ops::ActivationType* activation);
 
     template <CpuIsa ISA>
     void quantize_s8(const float* x,

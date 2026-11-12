@@ -206,6 +206,24 @@ namespace ctranslate2 {
     };
 
 
+    template <typename Function>
+    static void with_activation(const ops::ActivationType* activation, const Function& func) {
+      if (!activation) {
+        func(identity());
+      } else {
+        switch (*activation) {
+        case ops::ActivationType::ReLU:        func(relu_func()); break;
+        case ops::ActivationType::GELU:        func(gelu_func()); break;
+        case ops::ActivationType::GELUTanh:    func(gelu_tanh_func()); break;
+        case ops::ActivationType::GELUSigmoid: func(gelu_sigmoid_func()); break;
+        case ops::ActivationType::Sigmoid:     func(sigmoid_func()); break;
+        case ops::ActivationType::Swish:       func(swish_func()); break;
+        case ops::ActivationType::Tanh:        func(tanh_func()); break;
+        }
+      }
+    }
+
+
     template <CpuIsa ISA, typename T>
     void rcp(const T* x, T* y, dim_t size) {
       vectorized_unary_transform<ISA>(x, y, size, Vec<T, ISA>::rcp);
@@ -655,41 +673,61 @@ namespace ctranslate2 {
     static void weight_only_int8_dot_rows(const int8_t* weight, const float* scale,
                                          const int32_t* compensation, const uint8_t* input,
                                          float* output, dim_t k, dim_t n,
-                                         const float* inv_scale) {
+                                         const float* inv_scale, const float* bias, const float* residual,
+                                         const ops::ActivationType* activation) {
       // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
       constexpr int chains = M <= 4 ? 2 : 1;
-      parallel_for(0, n, 1, [&](dim_t begin, dim_t end) {
-        for (dim_t c = begin; c < end; ++c) {
-          // Over-allocate to 2*M (compile-time constant); only chains*M entries used.
-          __m256i acc[2 * M];
-          for (int i = 0; i < chains * M; ++i)
-            acc[i] = _mm256_setzero_si256();
-          const int8_t* row = weight + c * k;
-          dim_t j = 0;
-          for (; j + 32 <= k; j += 32) {
-            const auto w0 = load_weight_s16(row + j);
-            const auto w1 = load_weight_s16(row + j + 16);
+      using VecType = Vec<float, TARGET_ISA>;
+      constexpr dim_t width = VecType::width;
+      // Buffer output channels so activations use full SIMD vectors even for M=1.
+      parallel_for(0, (n + width - 1) / width, 1, [&](dim_t begin, dim_t end) {
+        for (dim_t tile = begin; tile < end; ++tile) {
+          const dim_t first = tile * width;
+          const dim_t count = std::min(width, n - first);
+          float values[M][width] = {};
+          for (dim_t lane = 0; lane < count; ++lane) {
+            const dim_t c = first + lane;
+            // Over-allocate to 2*M (compile-time constant); only chains*M entries used.
+            __m256i acc[2 * M];
+            for (int i = 0; i < chains * M; ++i)
+              acc[i] = _mm256_setzero_si256();
+            const int8_t* row = weight + c * k;
+            dim_t j = 0;
+            for (; j + 32 <= k; j += 32) {
+              const auto w0 = load_weight_s16(row + j);
+              const auto w1 = load_weight_s16(row + j + 16);
+              for (int r = 0; r < M; ++r) {
+                const uint8_t* x = input + r * k + j;
+                acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(x), w0));
+                acc[(chains - 1) * M + r] = _mm256_add_epi32(acc[(chains - 1) * M + r],
+                    _mm256_madd_epi16(load_input_u16(x + 16), w1));
+              }
+            }
+            if (j + 16 <= k) {
+              const auto w = load_weight_s16(row + j);
+              for (int r = 0; r < M; ++r)
+                acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(input + r * k + j), w));
+              j += 16;
+            }
             for (int r = 0; r < M; ++r) {
-              const uint8_t* x = input + r * k + j;
-              acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(x), w0));
-              acc[(chains - 1) * M + r] = _mm256_add_epi32(acc[(chains - 1) * M + r],
-                  _mm256_madd_epi16(load_input_u16(x + 16), w1));
+              auto total = acc[r];
+              if constexpr (M <= 4)
+                total = _mm256_add_epi32(total, acc[M + r]);
+              int32_t sum = reduce_int32(total) + compensation[c];
+              for (dim_t t = j; t < k; ++t)
+                sum += int32_t(input[r * k + t]) * row[t];
+              values[r][lane] = float(sum) * inv_scale[r] / scale[c];
             }
           }
-          if (j + 16 <= k) {
-            const auto w = load_weight_s16(row + j);
-            for (int r = 0; r < M; ++r)
-              acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(input + r * k + j), w));
-            j += 16;
-          }
           for (int r = 0; r < M; ++r) {
-            auto total = acc[r];
-            if constexpr (M <= 4)
-              total = _mm256_add_epi32(total, acc[M + r]);
-            int32_t sum = reduce_int32(total) + compensation[c];
-            for (dim_t t = j; t < k; ++t)
-              sum += int32_t(input[r * k + t]) * row[t];
-            output[r * n + c] = float(sum) * inv_scale[r] / scale[c];
+            auto v = VecType::load(values[r]);
+            if (bias)
+              v = VecType::add(v, VecType::load(bias + first, count));
+            if (residual)
+              v = VecType::add(v, VecType::load(residual + r * n + first, count));
+            with_activation(activation, [&](const auto& epilogue) {
+              VecType::store(epilogue(v), output + r * n + first, count);
+            });
           }
         }
       });
@@ -703,7 +741,9 @@ namespace ctranslate2 {
                                          const int32_t* compensation,
                                          uint8_t* scratch,
                                          float* output,
-                                         dim_t m, dim_t k, dim_t n) {
+                                         dim_t m, dim_t k, dim_t n,
+                                         const float* bias, const float* residual,
+                                         const ops::ActivationType* activation) {
 #if defined(__AVX2__) && !defined(__AVX512F__)
       using VecType = Vec<float, TARGET_ISA>;
       float inv_scale[8];
@@ -725,7 +765,7 @@ namespace ctranslate2 {
       // Fixed M keeps accumulators in registers, especially for beam-size-five decoding.
 #define CT2_WEIGHT_ONLY_CASE(M) \
       case M: weight_only_int8_dot_rows<M>(weight, scale, compensation, scratch, output, \
-                                           k, n, inv_scale); break
+                                           k, n, inv_scale, bias, residual, activation); break
       switch (m) {
         CT2_WEIGHT_ONLY_CASE(1); CT2_WEIGHT_ONLY_CASE(2);
         CT2_WEIGHT_ONLY_CASE(3); CT2_WEIGHT_ONLY_CASE(4);
@@ -736,6 +776,7 @@ namespace ctranslate2 {
 #else
       (void)input; (void)weight; (void)scale; (void)compensation;
       (void)scratch; (void)output; (void)m; (void)k; (void)n;
+      (void)bias; (void)residual; (void)activation;
 #endif
     }
 
@@ -795,33 +836,9 @@ namespace ctranslate2 {
                                            dim_t m,
                                            float* y,
                                            const ops::ActivationType* activation_type) {
-      if (!activation_type) {
-        dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, identity());
-      } else {
-        switch (*activation_type) {
-        case ops::ActivationType::ReLU:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, relu_func());
-          break;
-        case ops::ActivationType::GELU:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, gelu_func());
-          break;
-        case ops::ActivationType::GELUTanh:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, gelu_tanh_func());
-          break;
-        case ops::ActivationType::GELUSigmoid:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, gelu_sigmoid_func());
-          break;
-        case ops::ActivationType::Sigmoid:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, sigmoid_func());
-          break;
-        case ops::ActivationType::Swish:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, swish_func());
-          break;
-        case ops::ActivationType::Tanh:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, tanh_func());
-          break;
-        }
-      }
+      with_activation(activation_type, [&](const auto& epilogue) {
+        dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, epilogue);
+      });
     }
 
     template<>

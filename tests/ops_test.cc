@@ -175,12 +175,25 @@ TEST(OpTest, GemmWeightOnlyInt8SmallRowsAndTails) {
 
       StorageView bias({n}, 0.25f);
       StorageView residual({1, m, n}, -0.5f);
-      const ops::ActivationType activation = ops::ActivationType::ReLU;
-      for (dim_t i = 0; i < reference.size(); ++i)
-        reference.data<float>()[i] = std::max(0.f, reference.data<float>()[i] + 0.25f - 0.5f);
-      ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
-                                        &activation, &bias, &residual, &compensation));
-      expect_storage_eq(output, reference);
+      for (int act = -1; act <= int(ops::ActivationType::Sigmoid); ++act) {
+        const auto activation = static_cast<ops::ActivationType>(act);
+        const auto* pactivation = act < 0 ? nullptr : &activation;
+        for (int flags = 0; flags < 4; ++flags) {
+          SCOPED_TRACE("activation=" + std::to_string(act) + " flags=" + std::to_string(flags));
+          const auto* pbias = flags & 1 ? &bias : nullptr;
+          const auto* presidual = flags & 2 ? &residual : nullptr;
+          StorageView expected(reference);
+          if (pbias)
+            ops::BiasAdd()(expected, *pbias, expected);
+          if (presidual)
+            ops::Add()(expected, *presidual, expected);
+          if (pactivation)
+            ops::get_activation_op(*pactivation)(expected, expected);
+          ASSERT_TRUE(op.try_weight_only_int8(input, weight, scale, output,
+                                            pactivation, pbias, presidual, &compensation));
+          expect_storage_eq(output, expected, 1e-5f);
+        }
+      }
     }
   }
 #endif

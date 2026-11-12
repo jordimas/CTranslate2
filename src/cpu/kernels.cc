@@ -5,6 +5,9 @@
 #if defined(__AVX512F__)
 #  define TARGET_ISA CpuIsa::AVX512
 #  include "cpu/vec_avx512.h"
+#elif defined(__AVX2__) && defined(__AVXVNNI__)
+#  define TARGET_ISA CpuIsa::AVX2_VNNI
+#  include "cpu/vec_avx.h"
 #elif defined(__AVX2__)
 #  define TARGET_ISA CpuIsa::AVX2
 #  include "cpu/vec_avx.h"

@@ -7,20 +7,28 @@ passing the gate. Thresholds are in `run_gate.py` (`RULES`).
 | --- | --- | --- |
 | Whisper tiny | 20 LibriSpeech dummy clean samples | WER increase >0.01 (1 percentage point) |
 | opus-mt-en-de | 500 WMT14 sentences | BLEU decrease >1 point |
-| T5Gemma 2 270M | 50 SQuAD validation prompts, FP32 greedy, up to 64 output tokens | Missing or empty completions |
+| T5Gemma 2 270M | 50 SQuAD validation prompts, INT8/FP32 greedy, up to 64 output tokens | Missing or empty completions |
 | All tasks | Median throughput | Confirmed drop >10% |
 
 T5Gemma uses `jordimas/t5gemma-2-270m-270m` at a pinned revision through
 `Translator`. Changed text is informational, not an answer-quality check.
 Prompts use `rajpurkar/squad` at revision `7b6d24c440a36b6815f21b70d25016731768db1f`,
 shuffled with seed 42 and capped at 512 input tokens.
-Invalid metrics and runtime errors fail immediately.
+T5Gemma catches encoding, inference, and decoding errors per prompt, including
+empty completions, and continues through all prompts. Failed outputs retain their
+position for comparison and fail the quality gate. The summary shows the lowest
+successful completion count across the three measurements.
+Errors outside per-prompt generation still abort the run.
 
 ## Performance
 
 Each task runs three sequential baseline/candidate pairs in alternating order.
 Each fresh process warms up on one batch (one sample for Whisper), then times
 inference only. CPU thread counts are fixed at two, with one CTranslate2 worker.
+T5Gemma runs one prompt per call to isolate failures. Its throughput counts tokens
+from successful prompts over total attempt time, including failed attempts,
+prompt tokenization, and decoding.
+These timings are not directly comparable to earlier batches of eight prompts.
 
 A median throughput drop >10% triggers three more pairs, starting with the
 candidate. The same metric must regress in both rounds to fail; quality failures
@@ -54,6 +62,6 @@ instead of the default PyPI CUDA wheel:
 bash performance_learning/benchmark/run_gates_gpu.sh --baseline-wheel /path/to/baseline-rocm.whl
 ```
 
-Compute types remain the same as the CPU tasks: Whisper requests int8,
-Opus uses the model default, and T5Gemma requests float32. Reported types reflect
-the backend's resolved type; these tasks do not isolate an int8 kernel speedup.
+All three tasks explicitly request `int8_float32` on CPU and GPU: INT8 weights
+with FP32 nonquantized computation. Reported types reflect the backend's resolved
+type. Comparing different releases/builds does not isolate an int8 kernel speedup.

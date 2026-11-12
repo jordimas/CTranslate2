@@ -34,6 +34,9 @@ RULES = {
     "t5gemma_generation": {
         "tokens_per_sec": (0.10, True, True),
     },
+    "gemma3_generation": {
+        "tokens_per_sec": (0.10, True, True),
+    },
 }
 
 
@@ -56,7 +59,8 @@ def make_venv(path, ct2_spec):
     return py
 
 
-CONVERTIBLE_TASKS = ("opus_bleu", "t5gemma_generation")
+CONVERTIBLE_TASKS = ("opus_bleu", "t5gemma_generation", "gemma3_generation")
+GENERATION_TASKS = ("t5gemma_generation", "gemma3_generation")
 
 
 def convert_models(py, out_root):
@@ -110,8 +114,11 @@ def judge(task, base, cand):
 def compare_completions(base, cand):
     baseline, candidate = base["outputs"], cand["outputs"]
     if (not baseline or len(baseline) != len(candidate)
-            or any(not isinstance(s, str) or not s.strip() for s in baseline + candidate)):
-        raise ValueError("Expected equal, nonempty sets of nonempty completions")
+            or any(not isinstance(s, str) for s in baseline + candidate)):
+        raise ValueError("Expected equal, nonempty sets of completion strings")
+    for label, result in (("baseline", base), ("candidate", cand)):
+        for error in result.get("prompt_errors", []):
+            print(f"[gate] {label} prompt {error['prompt']}: ERROR: {error['error']}")
     changed = [(i, b, c) for i, (b, c) in enumerate(zip(baseline, candidate), 1) if b != c]
     print(f"[gate] changed completions: {len(changed)}/{len(baseline)} [informational]")
     for i, b, c in changed:
@@ -136,8 +143,9 @@ def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmatio
             validate_metrics(task, result, label)
             samples[label].append(result)
         base, cand = samples["baseline"][-1], samples["candidate"][-1]
-        if task == "t5gemma_generation":
+        if task in GENERATION_TASKS:
             compare_completions(base, cand)
+            quality_failed |= any(not output.strip() for output in base["outputs"] + cand["outputs"])
         quality_failed |= any(result.failed for result in judge(task, base, cand).values()
                               if not result.performance)
 
@@ -170,12 +178,14 @@ def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmatio
             summary.append([task, round_name, *metadata, metric,
                             f"{result.baseline:.4f}", f"{result.candidate:.4f}", change,
                             "threshold exceeded" if result.failed else "ok"])
-        if task == "t5gemma_generation":
+        if task in GENERATION_TASKS:
             baseline, candidate = samples["baseline"][0], samples["candidate"][0]
             changed = sum(b != c for b, c in zip(baseline["outputs"], candidate["outputs"]))
+            counts = [f"{min(sum(bool(s.strip()) for s in r['outputs']) for r in samples[label])}"
+                      f"/{len(samples[label][0]['outputs'])}" for label in ("baseline", "candidate")]
             summary.append([task, round_name, *metadata, "nonempty completions",
-                            str(len(baseline["outputs"])), str(len(candidate["outputs"])),
-                            f"{changed} changed (first pair)", "ok; text changes informational"])
+                            *counts, f"{changed} changed (first pair)",
+                            "FAIL; prompt errors" if quality_failed else "ok; text changes informational"])
     return quality_failed, performance_failures
 
 
@@ -201,6 +211,7 @@ def publish_summary(rows, baseline, candidate, status, report=None):
     lines = ["# Release gate summary", "", f"Baseline: {cell(baseline)}", "",
              f"Candidate: {cell(candidate)}", "", f"Gate result: **{status}**", "",
              "Numeric values are medians of three measurements per round. "
+             "Completion counts show the lowest successful count in the round. "
              "Quality failures in any pair remain blocking; performance regressions require confirmation."]
     for title, performance in (("Quality metrics", False), ("Performance metrics", True)):
         lines.extend(["", f"## {title}", "",
@@ -265,7 +276,7 @@ def main():
         try:
             for task in RULES:
                 task_limit = args.bleu_limit if task == "opus_bleu" else limit
-                if task == "t5gemma_generation":
+                if task in GENERATION_TASKS:
                     task_limit = 50
                 failed |= evaluate_task(base_py, cand_py, task, task_limit,
                                         args.device, model_dirs, summary=summary)

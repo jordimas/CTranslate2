@@ -281,6 +281,7 @@ set(CUDA_SOURCES
   src/ops/concat_split_slide_gpu.cu
   src/ops/conv1d_gpu.cu
   src/ops/dequantize_gpu.cu
+  src/ops/gemm_gpu.cu
   src/ops/drama/grouped_moe_gpu.cu
   src/ops/drama/drama_gpu.cu
   src/ops/drama/fish_dac_gpu.cu
@@ -358,6 +359,7 @@ if(ENABLE_CPU_DISPATCH)
     else()
       ct2_compile_kernels_for_isa(avx "-mavx")
       ct2_compile_kernels_for_isa(avx2 "-mavx2 -mfma")
+      ct2_compile_kernels_for_isa(avx2_vnni "-mavx2 -mfma -mavxvnni")
       ct2_compile_kernels_for_isa(avx512 "-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq")
     endif()
   elseif(CT2_BUILD_ARCH STREQUAL "arm64")

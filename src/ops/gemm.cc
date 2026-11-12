@@ -76,7 +76,8 @@ namespace ctranslate2 {
                                                   const StorageView* weight_compensation) const {
 #if defined(CT2_X86_BUILD)
       bool supported = false;
-      CPU_ISA_DISPATCH((supported = ISA == cpu::CpuIsa::AVX2));
+      CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2
+                                     || ISA == cpu::CpuIsa::AVX2_VNNI)));
       if (!supported || !weight_compensation
           || _trans_a || !_trans_b || _a_is_packed || _b_is_packed || _beta != 0.f
           || input.dtype() != DataType::FLOAT32 || input.rank() < 1
@@ -114,6 +115,7 @@ namespace ctranslate2 {
 #endif
     }
 
+#ifndef CT2_WITH_CUDA
     template<>
     bool Gemm::try_weight_only_int8<Device::CUDA>(const StorageView&,
                                                    const StorageView&,
@@ -125,6 +127,7 @@ namespace ctranslate2 {
                                                    const StorageView*) const {
       return false;
     }
+#endif
 
     bool Gemm::try_weight_only_int8(const StorageView& input,
                                     const StorageView& weight,

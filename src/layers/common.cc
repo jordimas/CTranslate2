@@ -354,6 +354,7 @@ namespace ctranslate2 {
         const auto device = input.device();
 
         if (!affected_by_tp
+            && (device != Device::CUDA || _quantize_op.round_before_cast())
             && qscale
             && _output_type == input.dtype()
             && _gemm_op.try_weight_only_int8(input,

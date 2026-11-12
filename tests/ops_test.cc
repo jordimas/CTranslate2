@@ -6,6 +6,7 @@
 #include <set>
 #include "test_utils.h"
 #include "cpu/cpu_isa.h"
+#include "env.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/ops.h"
 #include "ctranslate2/primitives.h"
@@ -248,6 +249,61 @@ TEST(OpTest, QuantizeINT16) {
 
 class OpDeviceTest : public ::testing::TestWithParam<Device> {
 };
+
+TEST_P(OpDeviceTest, GemmWeightOnlyInt8GPU) {
+  const Device device = GetParam();
+  if (device != Device::CUDA || !read_bool_from_env("CT2_CUDA_FUSED_INT8", false))
+    GTEST_SKIP();
+  const dim_t n = 19;
+  const ops::Gemm gemm(1, 0, false, true);
+  for (dim_t m = 1; m <= 8; ++m) {
+    for (dim_t k : {1, 31, 65, 128, 132, 260, 1024}) {
+      SCOPED_TRACE("M=" + std::to_string(m) + " K=" + std::to_string(k));
+      std::vector<float> a(m * k), scales(n);
+      std::vector<int8_t> b(n * k);
+      for (dim_t i = 0; i < m * k; ++i)
+        a[i] = m > 1 && i < k ? 0.f : float((i * 13) % 31 - 15) / 7.f;
+      for (dim_t i = 0; i < n * k; ++i)
+        b[i] = int8_t((i * 17) % 256 - 128);
+      for (dim_t i = 0; i < n; ++i)
+        scales[i] = float(i + 2);
+      StorageView input({1, m, k}, a, device), weight({n, k}, b, device);
+      StorageView scale({n}, scales, device), bias({n}, 0.25f, device);
+      StorageView residual({1, m, n}, -0.5f, device);
+      StorageView quantized(DataType::INT8, device), input_scale(DataType::FLOAT32, device);
+      ops::Quantize()(input, quantized, input_scale);
+      const auto q = quantized.to(Device::CPU);
+      std::vector<int32_t> dots(m * n, 0);
+      for (dim_t r = 0; r < m; ++r)
+        for (dim_t c = 0; c < n; ++c)
+          for (dim_t i = 0; i < k; ++i)
+            dots[r * n + c] += int(q.data<int8_t>()[r * k + i]) * int(b[c * k + i]);
+      StorageView accum({1, m, n}, dots, device);
+      StorageView expected(DataType::FLOAT32, device), output(DataType::FLOAT32, device);
+      for (int act = -1; act <= int(ops::ActivationType::Sigmoid); ++act) {
+        const auto activation = static_cast<ops::ActivationType>(act);
+        const auto* pactivation = act < 0 ? nullptr : &activation;
+        ops::Dequantize{pactivation}(accum, input_scale, scale, false, true, expected, &bias);
+        ops::Add()(expected, residual, expected);
+        ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output,
+                                              pactivation, &bias, &residual));
+        expect_storage_eq(output, expected);
+      }
+      ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr));
+      ops::Dequantize()(accum, input_scale, scale, false, true, expected);
+      expect_storage_eq(output, expected);
+    }
+  }
+  StorageView input({9, 64}, 1.f, device), weight({n, 64}, int8_t(1), device);
+  StorageView scale({n}, 1.f, device), output(DataType::FLOAT32, device);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr));
+  input.resize({1, 64});
+  EXPECT_FALSE(ops::Gemm(1, 1, false, true).try_weight_only_int8(input, weight, scale, output, nullptr));
+  EXPECT_FALSE(ops::Gemm(0.5f, 0, false, true).try_weight_only_int8(input, weight, scale, output, nullptr));
+  input.resize({5, 64});
+  StorageView large_weight({8193, 64}, int8_t(1), device), large_scale({8193}, 1.f, device);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, large_weight, large_scale, output, nullptr));
+}
 
 class OpDeviceFPTest : public ::testing::TestWithParam<FloatType> {
 };

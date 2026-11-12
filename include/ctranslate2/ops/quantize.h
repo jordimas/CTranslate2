@@ -23,6 +23,8 @@ namespace ctranslate2 {
                       StorageView& output,
                       StorageView& scale) const;
 
+      bool round_before_cast() const { return _round_before_cast; }
+
     private:
       template <Device D, typename InT, typename OutT>
       void quantize(const StorageView& input,

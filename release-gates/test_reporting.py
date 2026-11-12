@@ -44,7 +44,7 @@ class SummaryTest(unittest.TestCase):
         with patch.object(gate, 'run_task', side_effect=result), contextlib.redirect_stdout(io.StringIO()):
             gate.evaluate_task('b', 'c', 't5gemma_generation', 50, 'cpu',
                                {'baseline': {}, 'candidate': {}}, summary=rows)
-        self.assertEqual(rows[-1][4:8], ['nonempty completions', '1', '1', '1 changed (first pair)'])
+        self.assertEqual(rows[-1][4:8], ['nonempty completions', '1/1', '1/1', '1 changed (first pair)'])
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
             report = pathlib.Path(tmp) / 'summary.md'
             gate.publish_summary(rows, 'ctranslate2==4.9.0', 'new.whl', 'PASS', report)
@@ -56,13 +56,28 @@ class SummaryTest(unittest.TestCase):
         with patch.object(gate, 'latest_version', return_value='4.9.0'), \
              patch.object(gate, 'make_venv', side_effect=['b', 'c']), \
              patch.object(gate, 'convert_models', return_value={}), \
-             patch.object(gate, 'evaluate_task', side_effect=ValueError('empty completion')), \
+             patch.object(gate, 'evaluate_task', side_effect=ValueError('runtime failure')), \
              patch.object(gate, 'publish_summary') as publish, \
              patch('sys.argv', ['run_gate.py']), \
              contextlib.redirect_stdout(io.StringIO()), \
-             self.assertRaisesRegex(ValueError, 'empty completion'):
+             self.assertRaisesRegex(ValueError, 'runtime failure'):
             gate.main()
         self.assertEqual(publish.call_args.args[3], 'ERROR (incomplete run)')
+
+    def test_prompt_failures_preserve_measurements_and_fail_quality(self):
+        rows = []
+        def result(py, *args, **kwargs):
+            return {'tokens_per_sec': 100, 'outputs': ['', 'hello'] if py == 'b' else ['ok', 'hello'],
+                    'prompt_errors': [{'prompt': 1, 'error': 'empty completion'}] if py == 'b' else []}
+        with patch.object(gate, 'run_task', side_effect=result) as run, \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            failed = gate.evaluate_task('b', 'c', 't5gemma_generation', 50, 'cpu',
+                                       {'baseline': {}, 'candidate': {}}, summary=rows)
+        self.assertTrue(failed)
+        self.assertEqual(run.call_count, 6)
+        self.assertEqual(rows[-1][5:7], ['1/2', '2/2'])
+        self.assertEqual(rows[-1][-1], 'FAIL; prompt errors')
+        self.assertIn('baseline prompt 1: ERROR: empty completion', output.getvalue())
 
 if __name__ == '__main__':
     unittest.main()

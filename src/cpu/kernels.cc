@@ -38,7 +38,6 @@
 #  define CT2_FFAST_MATH_END _Pragma("GCC pop_options")
 #endif
 
-#include "cpu/activation.h"
 #include "cpu/cpu_info.h"
 #include "cpu/parallel.h"
 #include "cpu/weight_only_int8.h"
@@ -148,6 +147,87 @@ namespace ctranslate2 {
                                             scalar_reduce_func);
     }
 
+    struct relu_func {
+      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
+        using VecType = Vec<float, TARGET_ISA>;
+        return VecType::max(v, VecType::load(0.f));
+      }
+    };
+
+    struct gelu_func {
+      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
+        using VecType = Vec<float, TARGET_ISA>;
+        auto u = VecType::mul(VecType::load(0.7071067811865475f), v);
+        u = VecType::add(VecType::load(1.f), VecType::erf(u));
+        u = VecType::mul(v, u);
+        u = VecType::mul(VecType::load(0.5f), u);
+        return u;
+      }
+    };
+
+    struct gelu_tanh_func {
+      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
+        using VecType = Vec<float, TARGET_ISA>;
+        auto u = VecType::mul(VecType::mul(v, v), v);
+        u = VecType::mul_add(VecType::load(0.044715f), u, v);
+        u = VecType::mul(VecType::load(0.7978845608028654f), u);
+        u = VecType::tanh(u);
+        u = VecType::add(VecType::load(1.f), u);
+        u = VecType::mul(v, u);
+        u = VecType::mul(VecType::load(0.5f), u);
+        return u;
+      }
+    };
+
+    struct gelu_sigmoid_func {
+      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
+        using VecType = Vec<float, TARGET_ISA>;
+        return VecType::div(v, VecType::add(VecType::load(1.f),
+                                            VecType::exp(VecType::mul(VecType::load(-1.702f), v))));
+      }
+    };
+
+    struct sigmoid_func {
+      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
+        using VecType = Vec<float, TARGET_ISA>;
+        return VecType::div(VecType::load(1.f), VecType::add(VecType::load(1.f), VecType::exp(VecType::neg(v))));
+      }
+    };
+
+    struct swish_func {
+      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
+        using VecType = Vec<float, TARGET_ISA>;
+        return VecType::div(v, VecType::add(VecType::load(1.f), VecType::exp(VecType::neg(v))));
+      }
+    };
+
+    struct tanh_func {
+      vec_type<float, TARGET_ISA> operator()(vec_type<float, TARGET_ISA> v) const {
+        using VecType = Vec<float, TARGET_ISA>;
+        return VecType::tanh(v);
+      }
+    };
+
+
+    template <typename Function>
+    static void with_activation(const ops::ActivationType* activation, const Function& func) {
+      if (!activation) {
+        func(identity());
+      } else {
+        switch (*activation) {
+        case ops::ActivationType::ReLU:        func(relu_func()); break;
+        case ops::ActivationType::GELU:        func(gelu_func()); break;
+        case ops::ActivationType::GELUTanh:    func(gelu_tanh_func()); break;
+        case ops::ActivationType::GELUSigmoid: func(gelu_sigmoid_func()); break;
+        case ops::ActivationType::Sigmoid:     func(sigmoid_func()); break;
+        case ops::ActivationType::Swish:       func(swish_func()); break;
+        case ops::ActivationType::Tanh:        func(tanh_func()); break;
+        }
+      }
+    }
+
+
+#ifndef CT2_COMPILE_WEIGHT_ONLY_INT8_VNNI
     template <CpuIsa ISA, typename T>
     void rcp(const T* x, T* y, dim_t size) {
       vectorized_unary_transform<ISA>(x, y, size, Vec<T, ISA>::rcp);
@@ -180,27 +260,27 @@ namespace ctranslate2 {
 
     template<>
     void gelu<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_func<TARGET_ISA>());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_func());
     }
 
     template<>
     void gelu_tanh<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_tanh_func<TARGET_ISA>());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_tanh_func());
     }
 
     template<>
     void gelu_sigmoid<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_sigmoid_func<TARGET_ISA>());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, gelu_sigmoid_func());
     }
 
     template<>
     void sigmoid<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, sigmoid_func<TARGET_ISA>());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, sigmoid_func());
     }
 
     template<>
     void swish<TARGET_ISA>(const float* x, float* y, dim_t size) {
-      vectorized_unary_transform<TARGET_ISA>(x, y, size, swish_func<TARGET_ISA>());
+      vectorized_unary_transform<TARGET_ISA>(x, y, size, swish_func());
     }
 
     template <CpuIsa ISA, typename T>
@@ -578,6 +658,18 @@ namespace ctranslate2 {
       });
     }
 
+#endif
+
+#ifdef CT2_COMPILE_WEIGHT_ONLY_INT8_VNNI
+    void weight_only_int8_dot_vnni(const int8_t* weight, const float* scale,
+                                  const int32_t* compensation, const uint8_t* input,
+                                  float* output, dim_t m, dim_t k, dim_t n,
+                                  const float* inv_scale, const float* bias, const float* residual,
+                                  const ops::ActivationType* activation) {
+      weight_only_int8_dot(weight, scale, compensation, input, output,
+                             m, k, n, inv_scale, bias, residual, activation);
+    }
+#else
     template<>
     void weight_only_int8_gemm<TARGET_ISA>(const float* input,
                                          const int8_t* weight,
@@ -681,7 +773,7 @@ namespace ctranslate2 {
                                            dim_t m,
                                            float* y,
                                            const ops::ActivationType* activation_type) {
-      with_activation<TARGET_ISA>(activation_type, [&](const auto& epilogue) {
+      with_activation(activation_type, [&](const auto& epilogue) {
         dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, epilogue);
       });
     }
@@ -719,6 +811,8 @@ namespace ctranslate2 {
         }
       });
     }
+
+#endif
 
   }
 }

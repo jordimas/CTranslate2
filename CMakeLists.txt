@@ -363,9 +363,8 @@ if(ENABLE_CPU_DISPATCH)
       check_cxx_compiler_flag("-mavxvnni" CT2_COMPILER_SUPPORTS_AVX_VNNI)
       if(CT2_COMPILER_SUPPORTS_AVX_VNNI)
         add_definitions(-DCT2_WITH_AVX_VNNI)
-        set_source_files_properties(src/cpu/weight_only_int8_vnni.cc
-          PROPERTIES COMPILE_FLAGS "-mavx2 -mfma -mavxvnni")
-        list(APPEND SOURCES src/cpu/weight_only_int8_vnni.cc)
+        ct2_compile_kernels_for_isa(weight_only_int8_vnni
+          "-mavx2 -mfma -mavxvnni -DCT2_COMPILE_WEIGHT_ONLY_INT8_VNNI")
       endif()
       ct2_compile_kernels_for_isa(avx512 "-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq")
     endif()

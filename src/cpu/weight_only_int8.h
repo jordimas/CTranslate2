@@ -1,10 +1,13 @@
 #pragma once
 
-#include "cpu/activation.h"
+#include "cpu/kernels.h"
 #include "cpu/parallel.h"
 
 namespace ctranslate2 {
   namespace cpu {
+
+    template <typename Function>
+    static void with_activation(const ops::ActivationType* activation, const Function& func);
 
 #if defined(__AVX2__) && !defined(__AVX512F__)
 #if !defined(__AVXVNNI__)
@@ -95,7 +98,7 @@ namespace ctranslate2 {
               v = VecType::add(v, VecType::load(bias + first, count));
             if (residual)
               v = VecType::add(v, VecType::load(residual + r * n + first, count));
-            with_activation<CpuIsa::AVX2>(activation, [&](const auto& epilogue) {
+            with_activation(activation, [&](const auto& epilogue) {
               VecType::store(epilogue(v), output + r * n + first, count);
             });
           }

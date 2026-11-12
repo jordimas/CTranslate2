@@ -675,10 +675,12 @@ namespace ctranslate2 {
                                          float* output, dim_t k, dim_t n,
                                          const float* inv_scale, const float* bias, const float* residual,
                                          const ops::ActivationType* activation) {
-      // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
-      constexpr int chains = M <= 4 ? 2 : 1;
       using VecType = Vec<float, TARGET_ISA>;
       constexpr dim_t width = VecType::width;
+#if !defined(__AVXVNNI__)
+      // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
+      constexpr int chains = M <= 4 ? 2 : 1;
+#endif
       // Buffer output channels so activations use full SIMD vectors even for M=1.
       parallel_for(0, (n + width - 1) / width, 1, [&](dim_t begin, dim_t end) {
         for (dim_t tile = begin; tile < end; ++tile) {
@@ -687,6 +689,28 @@ namespace ctranslate2 {
           float values[M][VecType::width] = {};
           for (dim_t lane = 0; lane < count; ++lane) {
             const dim_t c = first + lane;
+#if defined(__AVXVNNI__)
+            // vpdpbusd fuses u8*s8 widen+madd+add; one accumulator per row.
+            __m256i acc[M];
+            for (int r = 0; r < M; ++r)
+              acc[r] = _mm256_setzero_si256();
+            const int8_t* row = weight + c * k;
+            dim_t j = 0;
+            for (; j + 32 <= k; j += 32) {
+              const __m256i w = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row + j));
+              for (int r = 0; r < M; ++r) {
+                const __m256i x = _mm256_loadu_si256(
+                    reinterpret_cast<const __m256i*>(input + r * k + j));
+                acc[r] = _mm256_dpbusd_avx_epi32(acc[r], x, w);
+              }
+            }
+            for (int r = 0; r < M; ++r) {
+              int32_t sum = reduce_int32(acc[r]) + compensation[c];
+              for (dim_t t = j; t < k; ++t)
+                sum += int32_t(input[r * k + t]) * row[t];
+              values[r][lane] = float(sum) * inv_scale[r] / scale[c];
+            }
+#else
             // Over-allocate to 2*M (compile-time constant); only chains*M entries used.
             __m256i acc[2 * M];
             for (int i = 0; i < chains * M; ++i)
@@ -718,6 +742,7 @@ namespace ctranslate2 {
                 sum += int32_t(input[r * k + t]) * row[t];
               values[r][lane] = float(sum) * inv_scale[r] / scale[c];
             }
+#endif
           }
           for (int r = 0; r < M; ++r) {
             auto v = VecType::load(values[r]);

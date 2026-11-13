@@ -71,10 +71,10 @@ def convert_models(py, out_root):
     return dirs
 
 
-def run_task(py, task, limit, device, model_dir=None):
-    cmd = [py, str(ROOT / "tasks.py"), "run", task, "--device", device]
-    if limit is not None:
-        cmd += ["--limit", str(limit)]
+def run_task(py, task, limit, device, model_dir=None, command="run"):
+    cmd = [py, str(ROOT / "tasks.py"), command, task, "--device", device]
+    if command == "run":
+        cmd += ["--limit", str(limit if limit is not None else 0)]
     if model_dir is not None:
         cmd += ["--model-dir", model_dir]
     env = dict(os.environ, OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
@@ -82,6 +82,22 @@ def run_task(py, task, limit, device, model_dir=None):
                TOKENIZERS_PARALLELISM="false")
     out = subprocess.check_output(cmd, env=env).decode()
     return json.loads([l for l in out.splitlines() if l.strip()][-1])
+
+
+def select_compute_types(base_py, cand_py, task, device, model_dirs):
+    resolved = {}
+    for label, py in (("baseline", base_py), ("candidate", cand_py)):
+        resolved[label] = run_task(py, task, None, device,
+                                   model_dirs[label].get(task), command="resolve")
+        for requested in ("default", "auto"):
+            effective = resolved[label].get(requested)
+            if not isinstance(effective, str) or not effective or effective in ("default", "auto"):
+                raise ValueError(f"{task}: {label} invalid resolved {requested} type: {effective!r}")
+            print(f"[gate] {task}: {label} requested={requested} effective={effective}", flush=True)
+    if all(types["auto"] == types["default"] for types in resolved.values()):
+        print(f"[gate] {task}: skipping auto; it matches default on both wheels", flush=True)
+        return ("default",)
+    return ("default", "auto")
 
 
 def validate_metrics(task, result, label):
@@ -205,26 +221,12 @@ def main():
             "candidate": convert_models(cand_py, os.path.join(tmp, "candidate-models")),
         }
 
-        supported_types = []
-        for py in (base_py, cand_py):
-            code = ("import ctranslate2, json, sys; "
-                    "print(json.dumps(sorted(ctranslate2.get_supported_compute_types(sys.argv[1]))))")
-            supported_types.append(set(json.loads(subprocess.check_output(
-                [py, "-c", code, args.device]))))
-        compute_types = sorted(supported_types[0] & supported_types[1])
-        if not compute_types:
-            raise ValueError("No compute types supported by both baseline and candidate")
-        print(f"[gate] supported compute types: baseline={sorted(supported_types[0])} "
-              f"candidate={sorted(supported_types[1])}", flush=True)
-
         failed = False
-        for compute_type in compute_types:
-            os.environ["CT2_COMPUTE_TYPE"] = compute_type
-            for task in RULES:
+        for task in RULES:
+            task_limit = args.bleu_limit if task == "opus_bleu" else limit
+            for compute_type in select_compute_types(base_py, cand_py, task, args.device, model_dirs):
+                os.environ["CT2_COMPUTE_TYPE"] = compute_type
                 print(f"[gate] {task}: compute_type={compute_type}", flush=True)
-                task_limit = args.bleu_limit if task == "opus_bleu" else limit
-                if task == "t5gemma_generation":
-                    task_limit = 50
                 failed |= evaluate_task(base_py, cand_py, task, task_limit,
                                         args.device, model_dirs)
 

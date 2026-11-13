@@ -22,18 +22,24 @@ class CompletionComparisonTest(unittest.TestCase):
             self.assertEqual(compare_completions(
                 {"outputs": ["same"]}, {"outputs": ["same"]}), 0)
 
+    def test_empty_completions_are_allowed(self):
+        for baseline, candidate, expected in (
+            ([""], [""], 0),
+            (["one"], [""], 1),
+            ([""], ["one"], 1),
+            (["one"], [" "], 1),
+        ):
+            with self.subTest(baseline=baseline, candidate=candidate), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(compare_completions(
+                    {"outputs": baseline}, {"outputs": candidate}), expected)
+
     def test_invalid_completions_fail(self):
         for baseline, candidate in [([], []), (["one"], []),
                                     (["one"], [None])]:
             with self.subTest(baseline=baseline, candidate=candidate):
                 with self.assertRaises(ValueError):
                     compare_completions({"outputs": baseline}, {"outputs": candidate})
-
-    def test_empty_completions_are_compared(self):
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(compare_completions(
-                {"outputs": ["", "one", " "]},
-                {"outputs": ["", "", "two"]}), 2)
 
 
 if __name__ == "__main__":

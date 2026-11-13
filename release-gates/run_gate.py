@@ -205,13 +205,28 @@ def main():
             "candidate": convert_models(cand_py, os.path.join(tmp, "candidate-models")),
         }
 
+        supported_types = []
+        for py in (base_py, cand_py):
+            code = ("import ctranslate2, json, sys; "
+                    "print(json.dumps(sorted(ctranslate2.get_supported_compute_types(sys.argv[1]))))")
+            supported_types.append(set(json.loads(subprocess.check_output(
+                [py, "-c", code, args.device]))))
+        compute_types = sorted(supported_types[0] & supported_types[1])
+        if not compute_types:
+            raise ValueError("No compute types supported by both baseline and candidate")
+        print(f"[gate] supported compute types: baseline={sorted(supported_types[0])} "
+              f"candidate={sorted(supported_types[1])}", flush=True)
+
         failed = False
-        for task in RULES:
-            task_limit = args.bleu_limit if task == "opus_bleu" else limit
-            if task == "t5gemma_generation":
-                task_limit = 50
-            failed |= evaluate_task(base_py, cand_py, task, task_limit,
-                                    args.device, model_dirs)
+        for compute_type in compute_types:
+            os.environ["CT2_COMPUTE_TYPE"] = compute_type
+            for task in RULES:
+                print(f"[gate] {task}: compute_type={compute_type}", flush=True)
+                task_limit = args.bleu_limit if task == "opus_bleu" else limit
+                if task == "t5gemma_generation":
+                    task_limit = 50
+                failed |= evaluate_task(base_py, cand_py, task, task_limit,
+                                        args.device, model_dirs)
 
     sys.exit(1 if failed else 0)
 

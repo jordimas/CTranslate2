@@ -5,8 +5,6 @@
 namespace ctranslate2 {
   namespace ops {
 
-    // `weight_compensation` is required by CPU (u8 activations) and ignored by
-    // CUDA (s8 activations); each caller enforces its own policy.
     inline bool weight_only_int8_shape_ok(bool trans_a, bool trans_b,
                                           bool a_is_packed, bool b_is_packed,
                                           float beta,

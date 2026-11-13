@@ -89,8 +89,8 @@ namespace ctranslate2 {
                                 StorageView& output,
                                 const ActivationType* activation,
                                 const StorageView* bias,
-                                const StorageView* residual,
-                                const StorageView* weight_compensation) const;
+                                const StorageView* residual) const;
+
     };
 
   }

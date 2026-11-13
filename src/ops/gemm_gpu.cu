@@ -93,8 +93,7 @@ namespace ctranslate2 {
                                                 StorageView& output,
                                                 const ActivationType* activation,
                                                 const StorageView* bias,
-                                                const StorageView* residual,
-                                                const StorageView*) const {
+                                                const StorageView* residual) const {
       dim_t m, k, n;
       if (_alpha != 1.f
           || output.dtype() != input.dtype() || output.device() != Device::CUDA

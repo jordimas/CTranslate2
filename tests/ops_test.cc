@@ -167,6 +167,29 @@ TEST(OpTest, GemmWeightOnlyInt8DispatchAndFallback) {
                                             nullptr, nullptr, nullptr, &compensation));
 }
 
+TEST(OpTest, GemmWeightOnlyInt8MatchesShiftedQuantization) {
+  bool supported = false;
+#if defined(CT2_X86_BUILD)
+  CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2)));
+#endif
+  if (!supported)
+    GTEST_SKIP();
+  // Adding 128 rounds 0.500001 to an exact tie (128.5). Rounding before
+  // the shift instead produces 129 and changes the integer dot product.
+  StorageView input({1, 2}, std::vector<float>{127.f, 0.500001f});
+  StorageView weight({2, 2}, std::vector<int8_t>{0, 1, 1, 0});
+  StorageView scale({2}, 1.f), input_scale, quantized(DataType::INT8);
+  ops::Quantize(ops::Quantize::ScaleType::GLOBAL, true)(input, quantized, input_scale);
+  const auto* q = reinterpret_cast<const uint8_t*>(quantized.data<int8_t>());
+  StorageView accum({1, 2}, std::vector<int32_t>{int(q[1]) - 128, int(q[0]) - 128});
+  StorageView expected, output;
+  ops::Dequantize()(accum, input_scale, scale, false, true, expected);
+  const auto compensation = ops::Gemm::compensate_u8_input(weight, true, 2, 2, 1.f);
+  ASSERT_TRUE(ops::Gemm(1, 0, false, true).try_weight_only_int8(
+    input, weight, scale, output, nullptr, nullptr, nullptr, &compensation));
+  expect_storage_eq(output, expected);
+}
+
 TEST(OpTest, QuantizeINT16) {
   StorageView scale;
   StorageView input({4}, std::vector<float>{0.1f, -0.5f, 2.0f, 0.0f});

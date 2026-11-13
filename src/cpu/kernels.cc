@@ -679,22 +679,15 @@ namespace ctranslate2 {
                                          const float* bias, const float* residual,
                                          const ops::ActivationType* activation) {
 #if defined(__AVX2__) && !defined(__AVX512F__)
-      using VecType = Vec<float, TARGET_ISA>;
       float inv_scale[8];
       for (dim_t r = 0; r < m; ++r) {
         const float* row = input + r * k;
-        const float amax = reduce_amax<TARGET_ISA>(row, k);
-        const float act_scale = amax > 0.f ? 127.f / amax : 1.f;
+        // Match Quantize's unsigned path exactly: the shift must precede
+        // rounding, since adding 128 can round a float onto a half-integer.
+        const float act_scale = quantize_s8_row(
+          row, reinterpret_cast<int8_t*>(scratch + r * k), k,
+          /*shift_to_uint8=*/true, Vec<float, TARGET_ISA>::round);
         inv_scale[r] = 1.f / act_scale;
-        const auto factor = VecType::load(act_scale);
-        for (dim_t j = 0; j < k; j += VecType::width) {
-          const dim_t count = std::min(dim_t(VecType::width), k - j);
-          auto value = VecType::round(VecType::mul(VecType::load(row + j, count), factor));
-          // Round before shifting, matching signed activation quantization.
-          value = VecType::add(value, VecType::load(128.f));
-          value = VecType::min(VecType::max(value, VecType::load(0.f)), VecType::load(255.f));
-          VecType::convert_and_store(value, scratch + r * k + j, count);
-        }
       }
       weight_only_int8_dot(weight, scale, compensation, scratch, output,
                              m, k, n, inv_scale, bias, residual, activation);

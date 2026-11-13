@@ -1,5 +1,7 @@
 #pragma once
 
+#include <spdlog/spdlog.h>
+
 #include "cpu/cpu_info.h"
 #include "cpu/kernels.h"
 #include "cpu/parallel.h"
@@ -114,6 +116,15 @@ namespace ctranslate2 {
                                       float* output, dim_t m, dim_t k, dim_t n,
                                       const float* inv_scale, const float* bias, const float* residual,
                                       const ops::ActivationType* activation) {
+      static const bool logged = [] {
+#if defined(__AVXVNNI__)
+        spdlog::info("Using fused weight-only INT8 CPU kernel (AVX-VNNI)");
+#else
+        spdlog::info("Using fused weight-only INT8 CPU kernel (AVX2)");
+#endif
+        return true;
+      }();
+      (void)logged;
       // Fixed M keeps accumulators in registers, especially for beam-size-five decoding.
 #define CT2_WEIGHT_ONLY_CASE(M) \
       case M: weight_only_int8_dot_rows<M>(weight, scale, compensation, input, output, \

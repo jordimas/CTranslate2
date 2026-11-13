@@ -38,6 +38,7 @@ jobs:
       - name: Run release gate
         shell: bash
         env:
+          CT2_VERBOSE: "1"
           CANDIDATE_WHEEL_PATTERN: ${{ matrix.wheel }}
         run: >-
           python release-gates/run_gate.py

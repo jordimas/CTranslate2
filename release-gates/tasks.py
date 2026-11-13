@@ -97,7 +97,7 @@ def run_opus_bleu(limit=500, device="cpu", model_dir=None):
 
     with contextlib.ExitStack() as stack:
         model_path = _converted_dir(stack, model_dir, convert_opus_bleu)
-        translator = ctranslate2.Translator(model_path, device=device,
+        translator = ctranslate2.Translator(model_path, device=device, compute_type="int8",
                                              intra_threads=CPU_THREADS, inter_threads=1)
         tokenized = [tokenizer.convert_ids_to_tokens(tokenizer.encode(s))
                      for s in sources]
@@ -131,7 +131,7 @@ def run_t5gemma_generation(limit=50, device="cpu", model_dir=None):
               for p in prompts]
     with contextlib.ExitStack() as stack:
         model_path = _converted_dir(stack, model_dir, convert_t5gemma_generation)
-        translator = ctranslate2.Translator(model_path, device=device, compute_type="float32",
+        translator = ctranslate2.Translator(model_path, device=device, compute_type="int8",
                                              intra_threads=CPU_THREADS, inter_threads=1)
         results, elapsed = run_and_measure(
             translator.translate_batch, inputs, warmup_size=8,

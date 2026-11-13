@@ -39,9 +39,11 @@ namespace ctranslate2 {
       constexpr dim_t width = VecType::width;
       // Buffer output channels so activations use full SIMD vectors even for M=1.
       parallel_for(0, (n + width - 1) / width, 1, [&](dim_t begin, dim_t end) {
+        constexpr dim_t block_size = 32;
 #if defined(__AVXVNNI__)
         constexpr int chains = 1;
 #else
+        constexpr dim_t half_block_size = block_size / 2;
         // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
         constexpr int chains = M <= 4 ? 2 : 1;
 #endif
@@ -58,7 +60,7 @@ namespace ctranslate2 {
             dim_t j = 0;
 #if defined(__AVXVNNI__)
             // vpdpbusd fuses u8*s8 widen+madd+add; one accumulator per row.
-            for (; j + 32 <= k; j += 32) {
+            for (; j + block_size <= k; j += block_size) {
               const __m256i w = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row + j));
               for (int r = 0; r < M; ++r) {
                 const __m256i x = _mm256_loadu_si256(
@@ -67,21 +69,21 @@ namespace ctranslate2 {
               }
             }
 #else
-            for (; j + 32 <= k; j += 32) {
+            for (; j + block_size <= k; j += block_size) {
               const auto w0 = load_weight_s16(row + j);
-              const auto w1 = load_weight_s16(row + j + 16);
+              const auto w1 = load_weight_s16(row + j + half_block_size);
               for (int r = 0; r < M; ++r) {
                 const uint8_t* x = input + r * k + j;
                 acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(x), w0));
                 acc[(chains - 1) * M + r] = _mm256_add_epi32(acc[(chains - 1) * M + r],
-                    _mm256_madd_epi16(load_input_u16(x + 16), w1));
+                    _mm256_madd_epi16(load_input_u16(x + half_block_size), w1));
               }
             }
-            if (j + 16 <= k) {
+            if (j + half_block_size <= k) {
               const auto w = load_weight_s16(row + j);
               for (int r = 0; r < M; ++r)
                 acc[r] = _mm256_add_epi32(acc[r], _mm256_madd_epi16(load_input_u16(input + r * k + j), w));
-              j += 16;
+              j += half_block_size;
             }
 #endif
             for (int r = 0; r < M; ++r) {

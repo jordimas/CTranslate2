@@ -38,10 +38,8 @@
 #  define CT2_FFAST_MATH_END _Pragma("GCC pop_options")
 #endif
 
-#include "cpu/cpu_info.h"
 #include "cpu/parallel.h"
 #include "cpu/weight_only_int8.h"
-#include "env.h"
 #include "type_dispatch.h"
 
 namespace ctranslate2 {
@@ -666,7 +664,7 @@ namespace ctranslate2 {
                                   float* output, dim_t m, dim_t k, dim_t n,
                                   const float* inv_scale, const float* bias, const float* residual,
                                   const ops::ActivationType* activation) {
-      weight_only_int8_dot(weight, scale, compensation, input, output,
+      weight_only_int8_dot_impl(weight, scale, compensation, input, output,
                              m, k, n, inv_scale, bias, residual, activation);
     }
 #else
@@ -698,16 +696,6 @@ namespace ctranslate2 {
           VecType::convert_and_store(value, scratch + r * k + j, count);
         }
       }
-#if defined(CT2_WITH_AVX_VNNI)
-      // An explicit ISA override keeps the AVX2 baseline available for testing.
-      static const bool use_vnni = cpu_supports_avx2_vnni()
-        && read_string_from_env("CT2_FORCE_CPU_ISA").empty();
-      if (use_vnni) {
-        weight_only_int8_dot_vnni(weight, scale, compensation, scratch, output,
-                                  m, k, n, inv_scale, bias, residual, activation);
-        return;
-      }
-#endif
       weight_only_int8_dot(weight, scale, compensation, scratch, output,
                              m, k, n, inv_scale, bias, residual, activation);
 #else

@@ -1,7 +1,9 @@
 #pragma once
 
+#include "cpu/cpu_info.h"
 #include "cpu/kernels.h"
 #include "cpu/parallel.h"
+#include "env.h"
 
 namespace ctranslate2 {
   namespace cpu {
@@ -105,7 +107,7 @@ namespace ctranslate2 {
         }
       });
     }
-    static void weight_only_int8_dot(const int8_t* weight, const float* scale,
+    static void weight_only_int8_dot_impl(const int8_t* weight, const float* scale,
                                       const int32_t* compensation, const uint8_t* input,
                                       float* output, dim_t m, dim_t k, dim_t n,
                                       const float* inv_scale, const float* bias, const float* residual,
@@ -122,6 +124,26 @@ namespace ctranslate2 {
       }
 #undef CT2_WEIGHT_ONLY_CASE
     }
+#ifndef CT2_COMPILE_WEIGHT_ONLY_INT8_VNNI
+    static void weight_only_int8_dot(const int8_t* weight, const float* scale,
+                                     const int32_t* compensation, const uint8_t* input,
+                                     float* output, dim_t m, dim_t k, dim_t n,
+                                     const float* inv_scale, const float* bias, const float* residual,
+                                     const ops::ActivationType* activation) {
+#if defined(CT2_WITH_AVX_VNNI)
+      // An explicit ISA override keeps the AVX2 baseline available for testing.
+      static const bool use_vnni = cpu_supports_avx2_vnni()
+        && read_string_from_env("CT2_FORCE_CPU_ISA").empty();
+      if (use_vnni) {
+        weight_only_int8_dot_vnni(weight, scale, compensation, input, output,
+                                  m, k, n, inv_scale, bias, residual, activation);
+        return;
+      }
+#endif
+      weight_only_int8_dot_impl(weight, scale, compensation, input, output,
+                                 m, k, n, inv_scale, bias, residual, activation);
+    }
+#endif
 #endif
 
   }

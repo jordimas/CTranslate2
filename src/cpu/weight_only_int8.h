@@ -35,14 +35,14 @@ namespace ctranslate2 {
                                          const ops::ActivationType* activation) {
       using VecType = Vec<float, CpuIsa::AVX2>;
       constexpr dim_t width = VecType::width;
-#if defined(__AVXVNNI__)
-      constexpr int chains = 1;
-#else
-      // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
-      constexpr int chains = M <= 4 ? 2 : 1;
-#endif
       // Buffer output channels so activations use full SIMD vectors even for M=1.
       parallel_for(0, (n + width - 1) / width, 1, [&](dim_t begin, dim_t end) {
+#if defined(__AVXVNNI__)
+        constexpr int chains = 1;
+#else
+        // Widen byte products to avoid INT16 saturation; limit registers for M=5..8.
+        constexpr int chains = M <= 4 ? 2 : 1;
+#endif
         for (dim_t tile = begin; tile < end; ++tile) {
           const dim_t first = tile * width;
           const dim_t count = std::min(width, n - first);

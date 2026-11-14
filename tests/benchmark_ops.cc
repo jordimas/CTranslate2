@@ -1,6 +1,8 @@
 #include "benchmark_utils.h"
 
+#include <cstdint>
 #include <numeric>
+#include <vector>
 
 #include "ctranslate2/ops/ops.h"
 
@@ -172,6 +174,68 @@ void benchmark_conv_transpose1d(Device device) {
   BENCHMARK(conv_op(x, weight, bias, y), 100);
 }
 
+void benchmark_dense_int8_m1(Device device) {
+  if (device != Device::CPU) {
+    std::cerr << "dense_int8_m1 is CPU-only" << std::endl;
+    return;
+  }
+  struct Shape { dim_t k; dim_t n; const char* label; };
+  const Shape shapes[] = {
+    {1024, 1024, "K=1024 N=1024 (attn)"},
+    {1024, 3072, "K=1024 N=3072 (QKV)"},
+    {1024, 4096, "K=1024 N=4096 (FFN up)"},
+    {4096, 1024, "K=4096 N=1024 (FFN down)"},
+  };
+
+  const ops::Quantize quantize;
+
+  for (const auto& sh : shapes) {
+    const dim_t k = sh.k;
+    const dim_t n = sh.n;
+    std::cerr << "\n### " << sh.label << " ###" << std::endl;
+
+    // Random int8 weight [N, K] (trans_b=true layout)
+    StorageView weight_fp({n, k}, rand_vector(n * k), device);
+    StorageView weight(DataType::INT8, device);
+    StorageView weight_scale(DataType::FLOAT32, device);
+    quantize(weight_fp, weight, weight_scale);
+
+    StorageView compensation = ops::Gemm::compensate_u8_input(weight, true, k, n, 1.f);
+
+    for (dim_t m : {1, 4, 5, 8}) {
+      std::cerr << "-- m=" << m << " --" << std::endl;
+      StorageView input({m, k}, rand_vector(m * k), device);
+      StorageView output(device);
+
+      // Fast path: fused AVX2 weight-only int8.
+      ops::Gemm gemm_op(1.f, 0.f, /*trans_a=*/false, /*trans_b=*/true);
+      auto fused = [&]() {
+        return gemm_op.try_weight_only_int8(input, weight, weight_scale, output,
+                                            nullptr, nullptr, nullptr, &compensation);
+      };
+      if (fused()) {
+        BENCHMARK(fused(), 2000);
+      } else {
+        std::cerr << "Fused kernel unavailable for the selected ISA" << std::endl;
+      }
+
+      // Fallback path: quantize input, int8 GEMM, dequantize.
+      StorageView qinput(DataType::INT8, device);
+      StorageView qinput_scale(DataType::FLOAT32, device);
+      StorageView qoutput(DataType::INT32, device);
+      StorageView dq_output(device);
+      ops::Dequantize dequantize_op;
+      auto fallback = [&]() {
+        quantize(input, qinput, qinput_scale);
+        gemm_op(qinput, weight, qoutput);
+        dequantize_op(qoutput, qinput_scale, weight_scale,
+                      /*trans_a=*/false, /*trans_b=*/true, dq_output);
+      };
+      BENCHMARK(fallback(), 2000);
+    }
+  }
+}
+
 void benchmark_gated_delta_net(Device device) {
   StorageView query({1, 1, 4, 128}, 0.01f, device);
   StorageView key({1, 1, 4, 128}, 0.01f, device);
@@ -236,6 +300,8 @@ int main(int argc, char* argv[]) {
     benchmark_conv_transpose1d(device);
   else if (op == "gated_delta_net")
     benchmark_gated_delta_net(device);
+  else if (op == "dense_int8_m1")
+    benchmark_dense_int8_m1(device);
 
   return 0;
 }

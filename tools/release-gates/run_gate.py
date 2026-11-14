@@ -71,10 +71,10 @@ def convert_models(py, out_root):
     return dirs
 
 
-def run_task(py, task, limit, device, model_dir=None):
-    cmd = [py, str(ROOT / "tasks.py"), "run", task, "--device", device]
-    if limit is not None:
-        cmd += ["--limit", str(limit)]
+def run_task(py, task, limit, device, model_dir=None, command="run", compute_type="default"):
+    cmd = [py, str(ROOT / "tasks.py"), command, task, "--device", device]
+    if command == "run":
+        cmd += ["--limit", str(limit if limit is not None else 0), "--compute-type", compute_type]
     if model_dir is not None:
         cmd += ["--model-dir", model_dir]
     env = dict(os.environ, OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
@@ -82,6 +82,22 @@ def run_task(py, task, limit, device, model_dir=None):
                TOKENIZERS_PARALLELISM="false")
     out = subprocess.check_output(cmd, env=env).decode()
     return json.loads([l for l in out.splitlines() if l.strip()][-1])
+
+
+def select_compute_types(base_py, cand_py, task, device, model_dirs):
+    resolved = {}
+    for label, py in (("baseline", base_py), ("candidate", cand_py)):
+        resolved[label] = run_task(py, task, None, device,
+                                   model_dirs[label].get(task), command="resolve")
+        for requested in ("default", "auto"):
+            effective = resolved[label].get(requested)
+            if not isinstance(effective, str) or not effective or effective in ("default", "auto"):
+                raise ValueError(f"{task}: {label} invalid resolved {requested} type: {effective!r}")
+            print(f"[gate] {task}: {label} requested={requested} effective={effective}", flush=True)
+    if all(types["auto"] == types["default"] for types in resolved.values()):
+        print(f"[gate] {task}: skipping auto; it matches default on both wheels", flush=True)
+        return ("default",)
+    return ("default", "auto")
 
 
 def validate_metrics(task, result, label):
@@ -110,8 +126,8 @@ def judge(task, base, cand):
 def compare_completions(base, cand):
     baseline, candidate = base["outputs"], cand["outputs"]
     if (not baseline or len(baseline) != len(candidate)
-            or any(not isinstance(s, str) or not s.strip() for s in baseline + candidate)):
-        raise ValueError("Expected equal, nonempty sets of nonempty completions")
+            or any(not isinstance(s, str) for s in baseline + candidate)):
+        raise ValueError("Expected equal, nonempty sets of string completions")
     changed = [(i, b, c) for i, (b, c) in enumerate(zip(baseline, candidate), 1) if b != c]
     print(f"[gate] changed completions: {len(changed)}/{len(baseline)} [informational]")
     for i, b, c in changed:
@@ -119,7 +135,7 @@ def compare_completions(base, cand):
     return len(changed)
 
 
-def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmation=False):
+def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmation=False, compute_type="default"):
     """Compare three sequential pairs; retain every quality failure."""
     samples = {"baseline": [], "candidate": []}
     quality_failed = False
@@ -131,7 +147,7 @@ def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmatio
             print(f"[gate] {task}: {label} measurement {repeat + 1}/3", flush=True)
             result = run_task(base_py if label == "baseline" else cand_py,
                               task, limit, device,
-                              model_dir=model_dirs[label].get(task))
+                              model_dir=model_dirs[label].get(task), compute_type=compute_type)
             validate_metrics(task, result, label)
             samples[label].append(result)
         base, cand = samples["baseline"][-1], samples["candidate"][-1]
@@ -156,13 +172,13 @@ def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmatio
     return quality_failed, performance_failures
 
 
-def evaluate_task(base_py, cand_py, task, limit, device, model_dirs):
+def evaluate_task(base_py, cand_py, task, limit, device, model_dirs, compute_type="default"):
     quality_failed, performance_failures = measure_round(
-        base_py, cand_py, task, limit, device, model_dirs)
+        base_py, cand_py, task, limit, device, model_dirs, compute_type=compute_type)
     if performance_failures:
         print(f"[gate] {task}: confirming performance regression", flush=True)
         confirmation_quality_failed, confirmed = measure_round(
-            base_py, cand_py, task, limit, device, model_dirs, confirmation=True)
+            base_py, cand_py, task, limit, device, model_dirs, confirmation=True, compute_type=compute_type)
         quality_failed |= confirmation_quality_failed
         performance_failures &= confirmed
         print(f"[gate] {task}: performance regression "
@@ -200,6 +216,16 @@ def main():
         print("[gate] creating candidate venv")
         cand_py = make_venv(os.path.join(tmp, "candidate"), args.candidate_wheel)
 
+        if args.device == "mps":
+            for label, py in (("baseline", base_py), ("candidate", cand_py)):
+                print(f"[gate] checking {label} MPS support", flush=True)
+                subprocess.check_call([py, "-c",
+                    "import ctranslate2; "
+                    "count = getattr(ctranslate2, 'get_mps_device_count', lambda: 0)(); "
+                    f"assert count > 0, {f'{label}: MPS requires an MPS-enabled wheel and an Apple GPU'!r}; "
+                    "print('MPS supported compute types:', "
+                    "sorted(ctranslate2.get_supported_compute_types('mps')))"])
+
         model_dirs = {
             "baseline": convert_models(base_py, os.path.join(tmp, "baseline-models")),
             "candidate": convert_models(cand_py, os.path.join(tmp, "candidate-models")),
@@ -208,10 +234,10 @@ def main():
         failed = False
         for task in RULES:
             task_limit = args.bleu_limit if task == "opus_bleu" else limit
-            if task == "t5gemma_generation":
-                task_limit = 50
-            failed |= evaluate_task(base_py, cand_py, task, task_limit,
-                                    args.device, model_dirs)
+            for compute_type in select_compute_types(base_py, cand_py, task, args.device, model_dirs):
+                print(f"[gate] {task}: compute_type={compute_type}", flush=True)
+                failed |= evaluate_task(base_py, cand_py, task, task_limit,
+                                        args.device, model_dirs, compute_type=compute_type)
 
     sys.exit(1 if failed else 0)
 

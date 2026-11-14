@@ -1,8 +1,12 @@
 #include "ctranslate2/ops/gemm.h"
 
+#include <vector>
+
 #include "ctranslate2/ops/bias_add.h"
 
+#include "cpu/kernels.h"
 #include "dispatch.h"
+#include "ops/weight_only_int8.h"
 
 namespace ctranslate2 {
   namespace ops {
@@ -62,17 +66,7 @@ namespace ctranslate2 {
       return false;
     }
 
-    template<>
-    bool Gemm::try_weight_only_int8<Device::CPU>(const StorageView&,
-                                                  const StorageView&,
-                                                  const StorageView&,
-                                                  StorageView&,
-                                                  const ActivationType*,
-                                                  const StorageView*,
-                                                  const StorageView*) const {
-      return false;
-    }
-
+#ifndef CT2_WITH_CUDA
     template<>
     bool Gemm::try_weight_only_int8<Device::CUDA>(const StorageView&,
                                                    const StorageView&,
@@ -83,6 +77,7 @@ namespace ctranslate2 {
                                                    const StorageView*) const {
       return false;
     }
+#endif
 
     bool Gemm::try_weight_only_int8(const StorageView& input,
                                     const StorageView& weight,
@@ -90,16 +85,42 @@ namespace ctranslate2 {
                                     StorageView& output,
                                     const ActivationType* activation,
                                     const StorageView* bias,
-                                    const StorageView* residual) const {
+                                    const StorageView* residual,
+                                    const StorageView* weight_compensation) const {
+      if (input.device() == Device::CPU) {
+#if defined(CT2_X86_BUILD)
+        bool supported = false;
+        CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2)));
+        dim_t m, k, n;
+        if (!supported || _alpha != 1.f || !weight_compensation
+            || weight_compensation->dtype() != DataType::INT32
+            || weight_compensation->device() != Device::CPU
+            || output.dtype() != DataType::FLOAT32 || output.device() != Device::CPU
+            || !weight_only_int8_shape_ok(_trans_a, _trans_b, _a_is_packed, _b_is_packed,
+                                          _beta, Device::CPU, input, weight, scale,
+                                          bias, residual, m, k, n)
+            || weight_compensation->size() != n)
+          return false;
+
+        resize_weight_only_int8_output(input, n, output);
+        std::vector<uint8_t> scratch(m * k);
+        CPU_ISA_DISPATCH((cpu::weight_only_int8_gemm<ISA>(input.data<float>(), weight.data<int8_t>(),
+                           scale.data<float>(), weight_compensation->data<int32_t>(),
+                           scratch.data(), output.data<float>(), m, k, n,
+                           bias ? bias->data<float>() : nullptr,
+                           residual ? residual->data<float>() : nullptr, activation)));
+        return true;
+#else
+        (void)weight_compensation;
+        return false;
+#endif
+      }
+
       bool supported = false;
       DEVICE_DISPATCH(input.device(),
-                      supported = try_weight_only_int8<D>(input,
-                                                          weight,
-                                                          scale,
-                                                          output,
-                                                          activation,
-                                                          bias,
-                                                          residual));
+                      if constexpr (D != Device::CPU)
+                        supported = try_weight_only_int8<D>(input, weight, scale, output,
+                                                            activation, bias, residual));
       return supported;
     }
 

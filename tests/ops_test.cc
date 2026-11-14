@@ -5,6 +5,7 @@
 #include <limits>
 #include <set>
 #include "test_utils.h"
+#include "cpu/cpu_isa.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/ops.h"
 #include "ctranslate2/primitives.h"
@@ -122,6 +123,73 @@ TEST(OpTest, GemmInt16) {
   expect_storage_eq(y, expected);
 };
 
+// Keep dot products scalar so the reference does not depend on GEMM's int8 backend.
+static StorageView weight_only_int8_reference(const StorageView& input,
+                                             const StorageView& weight,
+                                             StorageView& input_scale) {
+  StorageView quantized(DataType::INT8, input.device());
+  ops::Quantize()(input, quantized, input_scale);
+  const auto q = quantized.to(Device::CPU);
+  const auto w = weight.to(Device::CPU);
+  const dim_t k = input.dim(-1), m = input.size() / k, n = weight.dim(0);
+  std::vector<int32_t> dots(m * n, 0);
+  for (dim_t r = 0; r < m; ++r)
+    for (dim_t c = 0; c < n; ++c)
+      for (dim_t i = 0; i < k; ++i)
+        dots[r * n + c] += int(q.data<int8_t>()[r * k + i]) * int(w.data<int8_t>()[c * k + i]);
+  Shape shape(input.shape());
+  shape.back() = n;
+  return StorageView(shape, dots, input.device());
+}
+
+TEST(OpTest, GemmWeightOnlyInt8DispatchAndFallback) {
+  StorageView input({1, 3}, 1.f), scale({2}, 1.f), output(DataType::FLOAT32);
+  StorageView weight({2, 3}, int8_t(1));
+  StorageView compensation({2}, int32_t(-384));
+  ops::Gemm op(1.f, 0.f, false, true);
+  bool supported = false;
+#if defined(CT2_X86_BUILD)
+  CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2)));
+#endif
+  EXPECT_EQ(op.try_weight_only_int8(input, weight, scale, output,
+                                   nullptr, nullptr, nullptr, &compensation), supported);
+  EXPECT_FALSE(op.try_weight_only_int8(input, weight, scale, output, nullptr));
+  for (const auto& unsupported : {ops::Gemm(1, 1, false, true),
+                                ops::Gemm(0.75f, 0, false, true),
+                                ops::Gemm(1, 0, false, false)})
+    EXPECT_FALSE(unsupported.try_weight_only_int8(input, weight, scale, output,
+                                                 nullptr, nullptr, nullptr, &compensation));
+  StorageView large_input({9, 3}, 1.f);
+  EXPECT_FALSE(op.try_weight_only_int8(large_input, weight, scale, output,
+                                     nullptr, nullptr, nullptr, &compensation));
+  ops::Gemm packed_op(1.f, 0.f, false, true, false, true);
+  EXPECT_FALSE(packed_op.try_weight_only_int8(input, weight, scale, output,
+                                            nullptr, nullptr, nullptr, &compensation));
+}
+
+TEST(OpTest, GemmWeightOnlyInt8MatchesShiftedQuantization) {
+  bool supported = false;
+#if defined(CT2_X86_BUILD)
+  CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2)));
+#endif
+  if (!supported)
+    GTEST_SKIP();
+  // Adding 128 rounds 0.500001 to an exact tie (128.5). Rounding before
+  // the shift instead produces 129 and changes the integer dot product.
+  StorageView input({1, 2}, std::vector<float>{127.f, 0.500001f});
+  StorageView weight({2, 2}, std::vector<int8_t>{0, 1, 1, 0});
+  StorageView scale({2}, 1.f), input_scale, quantized(DataType::INT8);
+  ops::Quantize(ops::Quantize::ScaleType::GLOBAL, true)(input, quantized, input_scale);
+  const auto* q = reinterpret_cast<const uint8_t*>(quantized.data<int8_t>());
+  StorageView accum({1, 2}, std::vector<int32_t>{int(q[1]) - 128, int(q[0]) - 128});
+  StorageView expected, output;
+  ops::Dequantize()(accum, input_scale, scale, false, true, expected);
+  const auto compensation = ops::Gemm::compensate_u8_input(weight, true, 2, 2, 1.f);
+  ASSERT_TRUE(ops::Gemm(1, 0, false, true).try_weight_only_int8(
+    input, weight, scale, output, nullptr, nullptr, nullptr, &compensation));
+  expect_storage_eq(output, expected);
+}
+
 TEST(OpTest, QuantizeINT16) {
   StorageView scale;
   StorageView input({4}, std::vector<float>{0.1f, -0.5f, 2.0f, 0.0f});
@@ -139,6 +207,101 @@ class OpDeviceTest : public ::testing::TestWithParam<Device> {
 
 class OpDeviceFPTest : public ::testing::TestWithParam<FloatType> {
 };
+
+TEST_P(OpDeviceFPTest, GemmWeightOnlyInt8SmallRowsAndTails) {
+  const Device device = GetParam().device;
+  const DataType dtype = GetParam().dtype;
+  if (device == Device::CPU) {
+    bool supported = false;
+#if defined(CT2_X86_BUILD)
+    CPU_ISA_DISPATCH((supported = (ISA == cpu::CpuIsa::AVX2)));
+#endif
+    if (!supported)
+      GTEST_SKIP();
+  } else if (device != Device::CUDA || dtype == DataType::BFLOAT16) {
+    GTEST_SKIP();
+  }
+  const dim_t n = 19;
+  const ops::Gemm gemm(1, 0, false, true);
+  for (dim_t m = 1; m <= 8; ++m) {
+    for (dim_t k : {1, 15, 31, 63, 64, 65, 127, 128, 129, 132, 260, 1024}) {
+      SCOPED_TRACE("M=" + std::to_string(m) + " K=" + std::to_string(k));
+      std::vector<float> a(m * k), scales(n);
+      std::vector<int8_t> b(n * k);
+      for (dim_t r = 0; r < m; ++r)
+        for (dim_t t = 0; t < k; ++t)
+          a[r * k + t] = m > 1 && r == 0 ? 0.f : float((t * 13 + r * 7) % 31 - 15) / (r + 1);
+      for (dim_t c = 0; c < n; ++c) {
+        scales[c] = float(c + 2);
+        for (dim_t t = 0; t < k; ++t)
+          b[c * k + t] = int8_t((c * 17 + t * 11) % 256 - 128);
+      }
+      auto input = StorageView({1, m, k}, a, device).to(dtype);
+      StorageView weight({n, k}, b, device), scale({n}, scales, device);
+      StorageView compensation(DataType::INT32, device);
+      if (device == Device::CPU)
+        compensation = ops::Gemm::compensate_u8_input(weight, true, k, n, 1.f);
+      const auto* pcompensation = device == Device::CPU ? &compensation : nullptr;
+      auto bias = StorageView({n}, 0.1f, device).to(dtype);
+      auto residual = StorageView({1, m, n}, -0.3f, device).to(dtype);
+      StorageView input_scale(DataType::FLOAT32, device);
+      const auto accum = weight_only_int8_reference(input, weight, input_scale);
+      StorageView expected(dtype, device), output(dtype, device);
+      const ops::ActivationType activations[] = {
+        ops::ActivationType::ReLU, ops::ActivationType::GELUTanh,
+        ops::ActivationType::Swish, ops::ActivationType::GELU,
+        ops::ActivationType::GELUSigmoid, ops::ActivationType::Tanh,
+        ops::ActivationType::Sigmoid,
+      };
+      // A null activation covers the unfused epilogue as well.
+      for (size_t i = 0; i <= std::size(activations); ++i) {
+        const auto* pactivation = i == 0 ? nullptr : &activations[i - 1];
+        for (int flags = 0; flags < 4; ++flags) {
+          SCOPED_TRACE("activation=" + std::to_string(pactivation ? int(*pactivation) : -1)
+                       + " flags=" + std::to_string(flags));
+          const auto* pbias = flags & 1 ? &bias : nullptr;
+          const auto* presidual = flags & 2 ? &residual : nullptr;
+          // CPU adds the residual before activation; CUDA adds it afterwards.
+          ops::Dequantize{device == Device::CUDA ? pactivation : nullptr}(
+            accum, input_scale, scale, false, true, expected, pbias);
+          if (presidual)
+            ops::Add()(expected, *presidual, expected);
+          if (device == Device::CPU && pactivation)
+            ops::get_activation_op(*pactivation)(expected, expected);
+          ASSERT_TRUE(gemm.try_weight_only_int8(input, weight, scale, output,
+                                                pactivation, pbias, presidual, pcompensation));
+          expect_storage_eq(output, expected);
+        }
+      }
+    }
+  }
+}
+
+TEST_P(OpDeviceFPTest, GemmWeightOnlyInt8GPUFallback) {
+  const Device device = GetParam().device;
+  const DataType dtype = GetParam().dtype;
+  if (device != Device::CUDA || dtype == DataType::BFLOAT16)
+    GTEST_SKIP();
+  const dim_t n = 19;
+  const ops::Gemm gemm(1, 0, false, true);
+  auto input = StorageView({9, 64}, 1.f, device).to(dtype);
+  StorageView weight({n, 64}, int8_t(1), device);
+  StorageView scale({n}, 1.f, device), output(dtype, device);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr));
+  input.resize({1, 64});
+  EXPECT_FALSE(ops::Gemm(1, 1, false, true).try_weight_only_int8(input, weight, scale, output, nullptr));
+  EXPECT_FALSE(ops::Gemm(0.5f, 0, false, true).try_weight_only_int8(input, weight, scale, output, nullptr));
+  const auto other_dtype = dtype == DataType::FLOAT16 ? DataType::FLOAT32 : DataType::FLOAT16;
+  StorageView wrong_output(other_dtype, device);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, wrong_output, nullptr));
+  auto wrong_bias = StorageView({n}, 0.1f, device).to(other_dtype);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr, &wrong_bias));
+  auto wrong_residual = StorageView({1, n}, 0.1f, device).to(other_dtype);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, weight, scale, output, nullptr, nullptr, &wrong_residual));
+  input.resize({5, 64});
+  StorageView large_weight({8193, 64}, int8_t(1), device), large_scale({8193}, 1.f, device);
+  EXPECT_FALSE(gemm.try_weight_only_int8(input, large_weight, large_scale, output, nullptr));
+}
 
 
 TEST_P(OpDeviceFPTest, MedianFilter) {

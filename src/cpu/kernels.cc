@@ -39,6 +39,7 @@
 #endif
 
 #include "cpu/parallel.h"
+#include "cpu/weight_only_int8.h"
 #include "type_dispatch.h"
 
 namespace ctranslate2 {
@@ -206,6 +207,25 @@ namespace ctranslate2 {
     };
 
 
+    template <typename Function>
+    static void with_activation(const ops::ActivationType* activation, const Function& func) {
+      if (!activation) {
+        func(identity());
+      } else {
+        switch (*activation) {
+        case ops::ActivationType::ReLU:        func(relu_func()); break;
+        case ops::ActivationType::GELU:        func(gelu_func()); break;
+        case ops::ActivationType::GELUTanh:    func(gelu_tanh_func()); break;
+        case ops::ActivationType::GELUSigmoid: func(gelu_sigmoid_func()); break;
+        case ops::ActivationType::Sigmoid:     func(sigmoid_func()); break;
+        case ops::ActivationType::Swish:       func(swish_func()); break;
+        case ops::ActivationType::Tanh:        func(tanh_func()); break;
+        }
+      }
+    }
+
+
+#ifndef CT2_COMPILE_WEIGHT_ONLY_INT8_VNNI
     template <CpuIsa ISA, typename T>
     void rcp(const T* x, T* y, dim_t size) {
       vectorized_unary_transform<ISA>(x, y, size, Vec<T, ISA>::rcp);
@@ -636,6 +656,48 @@ namespace ctranslate2 {
       });
     }
 
+#endif
+
+#ifdef CT2_COMPILE_WEIGHT_ONLY_INT8_VNNI
+    void weight_only_int8_dot_vnni(const int8_t* weight, const float* scale,
+                                  const int32_t* compensation, const uint8_t* input,
+                                  float* output, dim_t m, dim_t k, dim_t n,
+                                  const float* inv_scale, const float* bias, const float* residual,
+                                  const ops::ActivationType* activation) {
+      weight_only_int8_dot_impl(weight, scale, compensation, input, output,
+                             m, k, n, inv_scale, bias, residual, activation);
+    }
+#else
+    template<>
+    void weight_only_int8_gemm<TARGET_ISA>(const float* input,
+                                         const int8_t* weight,
+                                         const float* scale,
+                                         const int32_t* compensation,
+                                         uint8_t* scratch,
+                                         float* output,
+                                         dim_t m, dim_t k, dim_t n,
+                                         const float* bias, const float* residual,
+                                         const ops::ActivationType* activation) {
+#if defined(__AVX2__) && !defined(__AVX512F__)
+      float inv_scale[8];
+      for (dim_t r = 0; r < m; ++r) {
+        const float* row = input + r * k;
+        // Match Quantize's unsigned path exactly: the shift must precede
+        // rounding, since adding 128 can round a float onto a half-integer.
+        const float act_scale = quantize_s8_row(
+          row, reinterpret_cast<int8_t*>(scratch + r * k), k,
+          /*shift_to_uint8=*/true, Vec<float, TARGET_ISA>::round);
+        inv_scale[r] = 1.f / act_scale;
+      }
+      weight_only_int8_dot(weight, scale, compensation, scratch, output,
+                             m, k, n, inv_scale, bias, residual, activation);
+#else
+      (void)input; (void)weight; (void)scale; (void)compensation;
+      (void)scratch; (void)output; (void)m; (void)k; (void)n;
+      (void)bias; (void)residual; (void)activation;
+#endif
+    }
+
     template<>
     void quantize_s8<TARGET_ISA>(const float* x,
                                  int8_t* y,
@@ -692,33 +754,9 @@ namespace ctranslate2 {
                                            dim_t m,
                                            float* y,
                                            const ops::ActivationType* activation_type) {
-      if (!activation_type) {
-        dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, identity());
-      } else {
-        switch (*activation_type) {
-        case ops::ActivationType::ReLU:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, relu_func());
-          break;
-        case ops::ActivationType::GELU:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, gelu_func());
-          break;
-        case ops::ActivationType::GELUTanh:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, gelu_tanh_func());
-          break;
-        case ops::ActivationType::GELUSigmoid:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, gelu_sigmoid_func());
-          break;
-        case ops::ActivationType::Sigmoid:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, sigmoid_func());
-          break;
-        case ops::ActivationType::Swish:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, swish_func());
-          break;
-        case ops::ActivationType::Tanh:
-          dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, tanh_func());
-          break;
-        }
-      }
+      with_activation(activation_type, [&](const auto& epilogue) {
+        dequantize_gemm_output_row<with_bias>(c, a_scale, b_scale, bias, m, y, epilogue);
+      });
     }
 
     template<>
@@ -754,6 +792,8 @@ namespace ctranslate2 {
         }
       });
     }
+
+#endif
 
   }
 }

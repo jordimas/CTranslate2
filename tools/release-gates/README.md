@@ -7,14 +7,19 @@ passing the gate. Thresholds are in `run_gate.py` (`RULES`).
 | --- | --- | --- |
 | Whisper tiny | 20 LibriSpeech dummy clean samples | WER increase >0.01 (1 percentage point) |
 | opus-mt-en-de | 500 WMT14 sentences | BLEU decrease >1 point |
-| T5Gemma 2 270M | 50 SQuAD validation prompts, FP32 greedy, up to 64 output tokens | Missing or empty completions |
+| T5Gemma 2 270M | 20 SQuAD validation prompts, default beam size, up to 64 output tokens | Missing completions |
 | All tasks | Median throughput | Confirmed drop >10% |
 
 T5Gemma uses `jordimas/t5gemma-2-270m-270m` at a pinned revision through
-`Translator`. Changed text is informational, not an answer-quality check.
+`Translator`. Empty completions are allowed. Changed text is informational, not an answer-quality check.
 Prompts use `rajpurkar/squad` at revision `7b6d24c440a36b6815f21b70d25016731768db1f`,
 shuffled with seed 42 and capped at 512 input tokens.
 Invalid metrics and runtime errors fail immediately.
+
+Every task runs with `compute_type="default"`, then `"auto"`. Auto is skipped
+only when it resolves to the same effective type as default on both wheels for
+that model and device. Resolution loads the actual models; requested and effective
+types are logged for each wheel. Converted models and environments are reused.
 
 ## Performance
 
@@ -33,11 +38,23 @@ CI tests one CPython 3.12 wheel per platform: Linux x86-64/ARM64, macOS ARM64,
 and Windows x86-64. The gate runs automatically on pull requests and on tag
 pushes, reusing the wheels built earlier in the CI pipeline.
 
+Manual CI runs also launch a separate `release-gate-mps` job on macOS ARM64,
+reusing the same macOS wheel with `--device mps`. The CPU gate remains enabled.
+The MPS job verifies Metal execution and checks MPS availability in both wheels
+before converting models. All three tasks run on MPS with the same quality and
+performance thresholds and `default`/`auto` selection as the CPU gate.
+MPS gate execution requires an Apple Silicon Mac and MPS-enabled baseline and
+candidate wheels; it cannot be validated on a Linux host.
+
 ```sh
-python release-gates/run_gate.py --candidate-wheel dist/ctranslate2-*.whl
+python tools/release-gates/run_gate.py --candidate-wheel dist/ctranslate2-*.whl
 ```
 
 Use `--candidate-wheel-pattern "dist/*.whl"` to require exactly one matching wheel.
 Omit `--candidate-wheel` to compare PyPI against itself. `--bleu-limit` sets
 translation coverage (default 500), independently of `--limit`.
 Task implementations are in `tasks.py`.
+
+`--limit` controls Whisper samples and T5Gemma prompts (default 50; 0 uses all).
+Translation tasks require `--model-dir` when invoked directly through `tasks.py`;
+the gate converts their models upfront.

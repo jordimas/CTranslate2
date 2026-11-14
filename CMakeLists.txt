@@ -264,6 +264,7 @@ set(SOURCES
   src/vocabulary.cc
   src/vocabulary_map.cc
 )
+
 set(CUDA_SOURCES
   src/ops/causal_depthwise_conv1d_gpu.cu
   src/ops/conv_transpose1d_gpu.cu
@@ -280,6 +281,7 @@ set(CUDA_SOURCES
   src/ops/concat_split_slide_gpu.cu
   src/ops/conv1d_gpu.cu
   src/ops/dequantize_gpu.cu
+  src/ops/gemm_gpu.cu
   src/ops/drama/grouped_moe_gpu.cu
   src/ops/drama/drama_gpu.cu
   src/ops/drama/fish_dac_gpu.cu
@@ -326,6 +328,7 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(amd64)|(AMD64)")
   add_definitions(-DCT2_X86_BUILD)
   set(CT2_BUILD_ARCH "x86_64")
 
+
   if(BUILD_SHARED_LIBS)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
   endif()
@@ -356,6 +359,13 @@ if(ENABLE_CPU_DISPATCH)
     else()
       ct2_compile_kernels_for_isa(avx "-mavx")
       ct2_compile_kernels_for_isa(avx2 "-mavx2 -mfma")
+      include(CheckCXXCompilerFlag)
+      check_cxx_compiler_flag("-mavxvnni" CT2_COMPILER_SUPPORTS_AVX_VNNI)
+      if(CT2_COMPILER_SUPPORTS_AVX_VNNI)
+        add_definitions(-DCT2_WITH_AVX_VNNI)
+        ct2_compile_kernels_for_isa(weight_only_int8_vnni
+          "-mavx2 -mfma -mavxvnni -DCT2_COMPILE_WEIGHT_ONLY_INT8_VNNI")
+      endif()
       ct2_compile_kernels_for_isa(avx512 "-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq")
     endif()
   elseif(CT2_BUILD_ARCH STREQUAL "arm64")

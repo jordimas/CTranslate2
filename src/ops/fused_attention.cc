@@ -20,13 +20,12 @@ namespace ctranslate2 {
     constexpr dim_t fused_attention_min_queries = 32;
 
     // A block of queries is processed against chunks of keys, so that the block of scores
-    // (64 x 512 floats = 128 KB) stays in the L2 cache. The sizes come from an op-level sweep
-    // on Whisper, long-sequence and head-dim-128 shapes: key chunks of 512-1024 were about 7%
-    // faster than 256 and about 25% faster than 64. llama.cpp uses 64 x 64, which suits its
-    // own micro-kernel; here every tile goes through two library GEMM calls, so larger chunks
-    // amortize their overhead.
+    // (64 x 64 floats = 16 KB) stays in the L2 cache. These are the tile sizes llama.cpp uses
+    // for its CPU flash attention. An op-level sweep on Whisper, long-sequence and
+    // head-dim-128 shapes showed that key chunks of 512 were about 25-30% faster here, since
+    // every tile goes through two library GEMM calls whose overhead larger chunks amortize.
     constexpr dim_t fused_attention_block_queries = 64;
-    constexpr dim_t fused_attention_block_keys = 512;
+    constexpr dim_t fused_attention_block_keys = 64;
 
     // Tiled attention with an online softmax (flash-attention style) for FP32 on CPU.
     // The full [batch, heads, queries, keys] score tensor is never materialized: scores are

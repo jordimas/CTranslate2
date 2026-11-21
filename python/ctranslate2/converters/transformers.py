@@ -2262,10 +2262,15 @@ class Gemma2Loader(ModelLoader):
         queries_scale = np.float32(model.config.query_pre_attn_scalar**-0.5)
         window = getattr(model.config, "sliding_window", None)
         layer_types = getattr(model.config, "layer_types", None)
+        attention_softcap = getattr(model.config, "attn_logit_softcapping", None)
         if window:
             spec.decoder.sliding_window = np.int32(window)
         for i, layer_spec in enumerate(spec.decoder.layer):
             layer_spec.self_attention.queries_scale = queries_scale
+            if attention_softcap and attention_softcap > 0:
+                layer_spec.self_attention.attn_logit_softcapping = np.float32(
+                    attention_softcap
+                )
             sliding = layer_types[i] == "sliding_attention" if layer_types else i % 2 == 0
             if window:
                 layer_spec.self_attention.sliding_window = np.int32(

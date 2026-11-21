@@ -36,13 +36,14 @@ namespace ctranslate2 {
       constexpr dim_t block_queries = 64;
       constexpr dim_t block_keys = 256;
       constexpr dim_t min_queries = 32;  // Decoding steps stay on the batched GEMV path.
+      constexpr dim_t rank = 4;  // [batch, heads, time, depth]
 
       if (interleaved_queries
           || !cpu_fused_attention_enabled()
           || queries.dtype() != DataType::FLOAT32
           || keys.dtype() != DataType::FLOAT32
           || values.dtype() != DataType::FLOAT32
-          || queries.rank() != 4 || keys.rank() != 4 || values.rank() != 4
+          || queries.rank() != rank || keys.rank() != rank || values.rank() != rank
           || queries.dim(0) != keys.dim(0) || queries.dim(0) != values.dim(0)
           || queries.dim(1) != keys.dim(1) || queries.dim(1) != values.dim(1)
           || keys.dim(2) != values.dim(2)

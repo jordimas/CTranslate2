@@ -1595,6 +1595,42 @@ TEST_P(OpDeviceFPTest, Conv1DGroupNoBias) {
     expect_storage_eq(output.to_float32(), expected, error);
 }
 
+TEST(OpTest, FusedAttentionCPUMatchesMaterializedPath) {
+  // Sizes that are not multiples of the 64-query and 256-key tiles.
+  constexpr dim_t batch = 2, heads = 3, queries = 70, keys = 300, depth = 16;
+  constexpr float scale = 0.25f;
+
+  const auto make = [](dim_t length, float freq) {
+    std::vector<float> data(batch * heads * length * depth);
+    for (size_t i = 0; i < data.size(); ++i)
+      data[i] = std::sin(freq * static_cast<float>(i));
+    return StorageView({batch, heads, length, depth}, data);
+  };
+  const StorageView q = make(queries, 0.07f);
+  const StorageView k = make(keys, 0.05f);
+  const StorageView v = make(keys, 0.11f);
+
+  // Lengths cover empty, partial and full rows.
+  std::vector<int32_t> lengths_data(batch * heads * queries);
+  for (size_t i = 0; i < lengths_data.size(); ++i)
+    lengths_data[i] = (i * 37) % (keys + 1);
+  const StorageView lengths({batch * heads * queries}, lengths_data);
+
+  for (const StorageView* mask : {static_cast<const StorageView*>(nullptr), &lengths}) {
+    StorageView scores, probs, expected, actual;
+    ops::MatMul(false, true, scale)(q, k, scores);
+    ops::SoftMax()(scores, mask, probs);
+    ops::MatMul()(probs, v, expected);
+
+    ASSERT_TRUE(ops::FusedAttention()(q, k, v, mask, scale, false, actual));
+    expect_storage_eq(actual, expected, 1e-5f);
+  }
+
+  // Short query lengths are left to the regular path.
+  StorageView output;
+  EXPECT_FALSE(ops::FusedAttention()(make(8, 0.07f), k, v, nullptr, scale, false, output));
+}
+
 TEST_P(OpDeviceFPTest, Conv1DGroupNoBiasQuantized) {
 #ifdef CT2_WITH_DNNL
     GTEST_SKIP() << "Quantized convolution is not implemented for DNNL.";

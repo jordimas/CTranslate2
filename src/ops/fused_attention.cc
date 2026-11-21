@@ -13,6 +13,21 @@
 namespace ctranslate2 {
   namespace ops {
 
+    // Attention tensors are [batch, heads, time, depth].
+    constexpr dim_t fused_attention_rank = 4;
+
+    // Decoding steps (fewer queries) stay on the batched GEMV path.
+    constexpr dim_t fused_attention_min_queries = 32;
+
+    // A block of queries is processed against chunks of keys, so that the block of scores
+    // (64 x 512 floats = 128 KB) stays in the L2 cache. The sizes come from an op-level sweep
+    // on Whisper, long-sequence and head-dim-128 shapes: key chunks of 512-1024 were about 7%
+    // faster than 256 and about 25% faster than 64. llama.cpp uses 64 x 64, which suits its
+    // own micro-kernel; here every tile goes through two library GEMM calls, so larger chunks
+    // amortize their overhead.
+    constexpr dim_t fused_attention_block_queries = 64;
+    constexpr dim_t fused_attention_block_keys = 512;
+
     // Tiled attention with an online softmax (flash-attention style) for FP32 on CPU.
     // The full [batch, heads, queries, keys] score tensor is never materialized: scores are
     // computed for a block of queries and a chunk of keys at a time, which keeps them in the
@@ -33,17 +48,14 @@ namespace ctranslate2 {
                                                float queries_scale,
                                                bool interleaved_queries,
                                                StorageView& output) const {
-      constexpr dim_t block_queries = 64;
-      constexpr dim_t block_keys = 256;
-      constexpr dim_t min_queries = 32;  // Decoding steps stay on the batched GEMV path.
-      constexpr dim_t rank = 4;  // [batch, heads, time, depth]
 
       if (interleaved_queries
           || !cpu_fused_attention_enabled()
           || queries.dtype() != DataType::FLOAT32
           || keys.dtype() != DataType::FLOAT32
           || values.dtype() != DataType::FLOAT32
-          || queries.rank() != rank || keys.rank() != rank || values.rank() != rank
+          || queries.rank() != fused_attention_rank || keys.rank() != fused_attention_rank
+          || values.rank() != fused_attention_rank
           || queries.dim(0) != keys.dim(0) || queries.dim(0) != values.dim(0)
           || queries.dim(1) != keys.dim(1) || queries.dim(1) != values.dim(1)
           || keys.dim(2) != values.dim(2)
@@ -57,7 +69,7 @@ namespace ctranslate2 {
       const dim_t tk = keys.dim(2);
       const dim_t depth_v = values.dim(3);
 
-      if (tq < min_queries || tk == 0 || depth == 0 || depth_v == 0)
+      if (tq < fused_attention_min_queries || tk == 0 || depth == 0 || depth_v == 0)
         return false;
       if (values_lengths && values_lengths->size() != batch * heads * tq)
         return false;
@@ -71,17 +83,17 @@ namespace ctranslate2 {
       float* out_data = output.data<float>();
 
       using cpu_primitives = primitives<Device::CPU>;
-      const dim_t num_query_blocks = ceil_divide(tq, block_queries);
+      const dim_t num_query_blocks = ceil_divide(tq, fused_attention_block_queries);
 
       cpu::parallel_for(0, batch * heads * num_query_blocks, 1, [&](dim_t begin, dim_t end) {
-        std::vector<float> scores(block_queries * block_keys);
-        std::vector<float> row_max(block_queries);
-        std::vector<float> row_sum(block_queries);
+        std::vector<float> scores(fused_attention_block_queries * fused_attention_block_keys);
+        std::vector<float> row_max(fused_attention_block_queries);
+        std::vector<float> row_sum(fused_attention_block_queries);
 
         for (dim_t task = begin; task < end; ++task) {
           const dim_t bh = task / num_query_blocks;
-          const dim_t q0 = (task % num_query_blocks) * block_queries;
-          const dim_t nq = std::min(block_queries, tq - q0);
+          const dim_t q0 = (task % num_query_blocks) * fused_attention_block_queries;
+          const dim_t nq = std::min(fused_attention_block_queries, tq - q0);
 
           const float* q = q_data + (bh * tq + q0) * depth;
           const float* k = k_data + bh * tk * depth;
@@ -103,8 +115,8 @@ namespace ctranslate2 {
             row_sum[r] = 0.f;
           }
 
-          for (dim_t k0 = 0; k0 < max_length; k0 += block_keys) {
-            const dim_t nk = std::min(block_keys, max_length - k0);
+          for (dim_t k0 = 0; k0 < max_length; k0 += fused_attention_block_keys) {
+            const dim_t nk = std::min(fused_attention_block_keys, max_length - k0);
 
             cpu_primitives::gemm(/*a_is_packed=*/false, /*b_is_packed=*/false,
                                  /*transpose_a=*/false, /*transpose_b=*/true,
@@ -113,10 +125,10 @@ namespace ctranslate2 {
                                  q, depth,
                                  k + k0 * depth, depth,
                                  0.f,
-                                 scores.data(), block_keys);
+                                 scores.data(), fused_attention_block_keys);
 
             for (dim_t r = 0; r < nq; ++r) {
-              float* s = scores.data() + r * block_keys;
+              float* s = scores.data() + r * fused_attention_block_keys;
               const dim_t valid = std::max<dim_t>(0, std::min(nk, length_of(r) - k0));
 
               if (valid == 0) {
@@ -142,7 +154,7 @@ namespace ctranslate2 {
                                  /*transpose_a=*/false, /*transpose_b=*/false,
                                  nq, depth_v, nk,
                                  1.f,
-                                 scores.data(), block_keys,
+                                 scores.data(), fused_attention_block_keys,
                                  v + k0 * depth_v, depth_v,
                                  1.f,
                                  out, depth_v);

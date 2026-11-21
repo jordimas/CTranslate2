@@ -3,7 +3,6 @@
 #include "ctranslate2/ops/split.h"
 #include "ctranslate2/ops/fused_attention.h"
 #include "ctranslate2/ops/rms_norm.h"
-#include "ctranslate2/ops/tanh.h"
 #include "ctranslate2/utils.h"
 
 
@@ -217,12 +216,10 @@ namespace ctranslate2 {
                                Alibi* alibi,
                                StorageView* position_bias,
                                bool interleaved_queries,
-                               float attn_logit_softcapping,
                                dim_t sliding_window) {
       PROFILE("dot_product_attention");
 
-      if (attn_logit_softcapping <= 0.f
-          && sliding_window <= 0
+      if (sliding_window <= 0
           && !relative_position_keys
           && !relative_asymmetric_position_keys
           && !relative_position_values
@@ -266,7 +263,6 @@ namespace ctranslate2 {
                               alibi,
                               position_bias,
                               false,
-                              attn_logit_softcapping,
                               sliding_window);
         transpose_op(standard_output, output);
         return;
@@ -351,12 +347,6 @@ namespace ctranslate2 {
                                                                     scores.data<T>(),
                                                                     score_bias.size(),
                                                                     scores.size()));
-      }
-
-      if (attn_logit_softcapping > 0.f) {
-        ops::Mul()(scores, StorageView(1.f / attn_logit_softcapping).to(scores.dtype()), scores);
-        ops::Tanh()(scores, scores);
-        ops::Mul()(scores, StorageView(attn_logit_softcapping).to(scores.dtype()), scores);
       }
 
       if (alibi)
@@ -716,7 +706,6 @@ namespace ctranslate2 {
                             _alibi,
                             position_bias,
                             interleaved_beam_layout,
-                            _attn_logit_softcapping,
                             _self_attention && _is_decoder ? _sliding_window : 0);
 
       if (prefilling && cached_keys && cached_keys->dim(_cache_time_dim) > _sliding_window) {

@@ -57,6 +57,7 @@ jobs:
         shell: bash
         env:
           CT2_VERBOSE: "1"
+          CT2_CPU_FUSED_ATTENTION: "0"
           CANDIDATE_WHEEL_PATTERN: ${{ matrix.wheel }}
         run: >-
           python tools/release-gates/run_gate.py

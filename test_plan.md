@@ -81,6 +81,14 @@ Finding:
 - Not found yet: why the int8 path is affected and float32 is not. Candidates are rounding in the fused path's `gemm` with `beta = 1` accumulation over key chunks, `cpu_primitives::exp` on ARM, and how the quantized activations feed the Q/K/V products. This is not verified.
 - Not checked: whether the changed ARM transcripts are better or worse in absolute terms (the gate flags any WER increase beyond its tolerance).
 
+What llama.cpp does on ARM (read from the ggml copy vendored in `whisper.cpp/ggml/src/ggml-cpu`, commit `bd9e1a1`; not tested, upstream not consulted):
+- Same algorithm as the fused path: 64x64 query/key tiles (`GGML_FA_TILE_Q/KV`), online softmax, F32 accumulators for the output. The branch already borrows the 64x64 tile size.
+- The tiled path needs F32 Q, F32/F16 K and V of the same type, and at least 64 queries; otherwise it uses a per-row vec-dot path. On non-x86 SIMD builds it also needs `DV % f32_epr == 0` (`svcntw()` on SVE, NEON width otherwise); the fused path has no such check. Whisper's head dim is 64, so it should not matter here.
+- Q·Kᵀ uses its own fixed-order NEON microkernel (`simd-gemm.h`, 4x4 vectors) on K repacked as F32. The scale is a separate pass (`ggml_vec_scale_f32`). The fused path calls the platform `sgemm` (OpenBLAS in the ARM wheel) with the scale folded in, and accumulates with `beta = 1` across key chunks.
+- Softmax uses `ggml_v_expf` (NEON, from Arm's optimized routines, about 1.5 ulp; flushes to inf above 88.38 and to 0 below -103.97), four lanes at a time, and sums the row in double precision (`ggml_float`). The fused path uses `cpu_primitives::exp`; how its sum accumulates on ARM was not checked.
+- The ARM-optimized kernels (KleidiAI, `repack.cpp`, `arch/arm`) are for quantized weight matmul; no flash-attention code was found in `kleidiai.cpp` or `repack.cpp`. Attention does not depend on the weight quantization, so llama.cpp has no counterpart of the int8-only difference.
+- Conclusion: no ARM-specific attention trick to copy. The remaining differences are the `beta = 1` accumulation over 512-key chunks through OpenBLAS and the precision of the exp and the softmax sum. Untested experiment: 64-key chunk plus a double-precision sum on ARM (one CI run on the experiment branch).
+
 Options to resolve (none done yet): do not use the fused path for int8_float32 on ARM; find and fix the numeric difference in the fused kernel; relax the gate's WER tolerance.
 
 ### Machine: Apple M4 Pro (arm64, 8 performance + 4 efficiency cores, 24 GB, macOS 15)

@@ -83,6 +83,61 @@ Finding:
 
 Options to resolve (none done yet): do not use the fused path for int8_float32 on ARM; find and fix the numeric difference in the fused kernel; relax the gate's WER tolerance.
 
+### Machine: Apple M4 Pro (arm64, 8 performance + 4 efficiency cores, 24 GB, macOS 15)
+
+Branch = working tree of this branch (4.9.0 base plus the fused attention); master = `88e735ac` (4.9.1). Both built Release with `OPENMP_RUNTIME=COMP` (Homebrew libomp), `WITH_ACCELERATE=ON`, `WITH_RUY=ON`, in `~/dev/ct2-bench` (out of tree), and loaded through Python 3.13 extensions built against each install. The only C++ source difference between the two is `src/ops/fused_attention.cc`. This is not the CI configuration: float32 goes through Accelerate, not OpenBLAS; int8 goes through ruy, as on the CI ARM runner.
+
+Pinned by thread count only (no `taskset` on macOS): 4 threads, `audio/15GdH1.mp3` from 1:00, 60 s, beam 5, language `ca`, 1 warm-up + 3 timed runs, no reference transcript (WER is fused vs unfused only).
+
+| family | model | compute | branch fused (s) | branch unfused (s) | master (s) | fused vs branch unfused | fused vs master | quality (fused vs unfused) |
+|--------|-------|---------|------------------|--------------------|------------|-------------------------|-----------------|----------------------------|
+| Whisper | medium | int8_float32 | 20.61 ± 0.09 | 28.54 ± 0.58 | 32.36 ± 0.18 | 1.38x | 1.57x | WER 0.0207, differ |
+| Whisper | medium | float32 | 28.97 ± 1.36 | 39.25 ± 2.28 | 38.37 ± 2.06 | 1.35x | 1.32x | identical |
+| Whisper | large-v3 | int8_float32 | 85.24 ± 6.81 | 51.99 ± 0.30 | 47.09 ± 0.48 | 0.61x | 0.55x | WER 0.0654, differ |
+| Whisper | large-v3 | float32 | 44.27 ± 0.71 | 59.77 ± 1.02 | 60.98 ± 0.83 | 1.35x | 1.38x | identical |
+| Translation | nllb-200-distilled-600M | int8_float32 | 3.89 ± 0.00 | 4.53 ± 0.01 | 4.58 ± 0.09 | 1.16x | 1.18x | WER 0.0391, differ |
+| Translation | nllb-200-distilled-600M | float32 | 7.44 ± 0.13 | 8.42 ± 0.13 | 8.31 ± 0.09 | 1.13x | 1.12x | identical |
+
+The master column uses the `unfused` rows (the fused switch does nothing on master; the `fused` rows were within noise: 32.50, 40.09, 48.03, 60.61, 4.64, 8.39 s). Not run: xlm-roberta-base and gemma-3-4b-it (not in the local HF cache, not downloaded).
+
+Findings:
+- The ARM WER problem reproduces here. With int8_float32 the fused transcripts differ from the unfused ones on Whisper medium (WER 0.0207), Whisper large-v3 (0.0654) and NLLB (0.0391); with float32 they are identical in all three. Same pattern as the CI ARM runner and the AMD machine, and ruy is the int8 GEMM in all of them. Master fused/unfused are identical in every row, as expected.
+- Whisper medium int8 is deterministic: 3 separate fused processes give the same transcript, 2 unfused give the same transcript, and the two differ (145 words each, 60 s). At 20 s all of fused/unfused/1 thread/4 threads were identical, so the difference needs longer audio (later windows condition on earlier text).
+- Whisper large-v3 int8 fused is not deterministic: 3 separate processes (same command, 4 threads, 60 s) gave 175, 158 and 156 words and 45 s, 75 s and 88 s, against 153 words and a steady 52 s for unfused. The first matrix run (91.1, 86.8, 77.8 s) and a rerun (51.4, 83.4, 70.1 s) were erratic as well. The slow runs look like longer decodes, not a slower attention. A different transcript on every run points to something other than rounding (a race, or uninitialised or aliased scratch memory in the fused path) and is worth checking before the rounding candidates listed under the ARM runner. Not checked: whether it depends on the thread count (only 4 threads tried on large-v3), and why medium does not show it.
+- Speed with fused on is 1.35-1.38x for Whisper float32 and medium int8, and 1.12-1.18x for NLLB, except large-v3 int8, where it is slower because of the point above.
+- Thread count matters a lot on this machine. At 8 and 12 threads master slows down (medium int8, 10 s of audio: 5.4 s at 4 threads, about 15-16 s at 8 and 12 threads), so the baseline gets worse as threads increase (probably OpenMP threads contending with Accelerate; not verified). At 8 threads the fused path avoids it (medium int8, 20 s of audio: fused 7.99 s, unfused 30.02 s on the branch, 30.44 s on master, so 3.8x), which is mostly a baseline artifact. 4 threads gives the best baseline for master and is used for the table.
+- Branch unfused is not always equal to master unfused (medium int8 28.54 vs 32.36 s, large-v3 int8 51.99 vs 47.09 s). The branch is on the 4.9.0 base and master is 4.9.1, and the only source difference is the fused attention file, so the cause was not isolated.
+- Setup notes: NLLB needed `transformers<5` (5.24 `NllbTokenizer` has no `build_inputs_with_special_tokens`, which the script calls). `faster-whisper` 1.2.1 needs `av<17` to decode mp3; the audio was extracted with `ffmpeg` to a `.f32` file instead.
+
+Release-gate `whisper_wer` on the M4 Pro (not reproduced): the gate's own worker (`tools/release-gates/tasks.py run whisper_wer`, Whisper tiny, 2 threads, `faster-whisper==1.0.2`, same LibriSpeech dummy clean set) run against the branch with the fused path on and off and against master, WER against the references:
+
+| samples | compute | master | branch, fused off | branch, fused on |
+|---------|---------|--------|-------------------|------------------|
+| 20 (gate setting) | `default` (float32) | 0.1942 | 0.1942 | 0.1942 |
+| 20 (gate setting) | `auto` (int8_float32) | 0.1987 | 0.1987 | **0.1897** |
+| all | `default` (float32) | 0.2330 | - | 0.2330 |
+| all | `auto` (int8_float32) | 0.2383 | 0.2383 | **0.2313** |
+
+- The float32 WER (0.1942) equals the CI baseline on the ARM runner exactly, so the setup follows the gate. The int8 baseline differs from CI (0.1987 vs 0.1853), as expected with another platform and build (Accelerate/ruy vs OpenBLAS/ruy).
+- Here the fused path changes the int8 transcripts but lowers the WER (-0.0090 on 20 samples, -0.0070 on all), while on the CI ARM runner it raised it by +0.0156. With 20 samples (about 1,100 words) a 0.0156 change is about 17 words, so the sign of the change on this sample is not a measure of quality in either direction. This suggests the CI failure may be a different transcript that happens to land above the 0.01 tolerance on that sample, not a systematic degradation, but this is not shown: the CI runner was not reproduced, and the M4 Pro uses a different float32 GEMM and a different build.
+- This does not explain the Whisper large-v3 int8 non-determinism above, which is a separate problem.
+
+### Local reproduction of the CI ARM configuration (Linux aarch64 container on the M4 Pro)
+
+Built the same way as the CI aarch64 wheel, in `quay.io/pypa/manylinux_2_28_aarch64` (native arm64 via Docker Desktop, 12 CPUs): OpenBLAS 0.3.26 (`TARGET=ARMV8 USE_OPENMP=1`), CMake 3.24 with `-DOPENMP_RUNTIME=COMP -DWITH_OPENBLAS=ON -DWITH_RUY=ON`, CPython 3.12 wheel repaired with `auditwheel` (the steps of `python/tools/prepare_build_environment_linux.sh`), from the working tree of this branch. Then, in `python:3.12-slim`, the gate's own worker (`tools/release-gates/tasks.py run whisper_wer`, 2 threads, `faster-whisper==1.0.2`) with the released `ctranslate2==4.9.0` from PyPI as baseline (as the gate does) and this wheel as candidate:
+
+| samples | compute | baseline PyPI 4.9.0 | candidate, fused off | candidate, fused on |
+|---------|---------|---------------------|----------------------|---------------------|
+| 20 (gate setting) | `default` (float32) | 0.1942 | 0.1942 | 0.1942 |
+| 20 (gate setting) | `auto` (int8_float32) | 0.1897 | 0.1897 | **0.1830** |
+| all | `default` (float32) | 0.2330 | 0.2330 | 0.2330 |
+| all | `auto` (int8_float32) | 0.2330 | 0.2330 | 0.2330 |
+
+- The CI regression is not reproduced with the CI build configuration either: with the fused path on, the int8 WER goes down (-0.0067 on 20 samples) or stays equal (all samples), not up by +0.0156. Fused off gives the baseline exactly, as in CI.
+- The float32 baseline (0.1942) equals the CI value; the int8 baseline (0.1897) does not (CI: 0.1853), so the int8 numerics depend on something that differs between this container and the CI runner.
+- Remaining differences from the CI runner: CPU (the container exposes `asimddp`, `bf16`, no `i8mm`, no SVE; the runner's CPU features were not checked), the exact candidate revision (CI ran `ef20cc8d8`; this is the working tree), and dependency versions (installed unpinned except `faster-whisper`). Which of these matters was not isolated.
+- To reproduce on the real runner, run the same worker there with the fused path on and off and diff the transcripts sample by sample; the sign of a 20-sample WER change is not informative by itself.
+
 ## Conclusion
 
 (Fill in after all machines have run.)

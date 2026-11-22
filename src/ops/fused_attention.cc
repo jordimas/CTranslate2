@@ -1,12 +1,12 @@
 #include "ctranslate2/ops/fused_attention.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdlib>
-#include <limits>
 #include <vector>
 
 #include "ctranslate2/primitives.h"
+#include "cpu/cpu_isa.h"
+#include "cpu/kernels.h"
 #include "cpu/parallel.h"
 #include "device_dispatch.h"
 
@@ -19,18 +19,20 @@ namespace ctranslate2 {
     // Decoding steps (fewer queries) stay on the batched GEMV path.
     constexpr dim_t fused_attention_min_queries = 32;
 
-    // A block of queries is processed against chunks of keys, so that the block of scores
-    // (64 x 64 floats = 16 KB) stays in the L2 cache. These are the tile sizes llama.cpp uses
-    // for its CPU flash attention. An op-level sweep on Whisper, long-sequence and
-    // head-dim-128 shapes showed that key chunks of 512 were about 25-30% faster here, since
-    // every tile goes through two library GEMM calls whose overhead larger chunks amortize.
-    constexpr dim_t fused_attention_block_queries = 64;
-    constexpr dim_t fused_attention_block_keys = 64;
+    // The scores of a block of queries against all the keys are kept in the L2 cache. The block
+    // has at most 64 queries, fewer when the keys are many so that the scores stay within
+    // fused_attention_scores_bytes.
+    constexpr dim_t fused_attention_max_block_queries = 64;
+    constexpr dim_t fused_attention_min_block_queries = 8;
+    constexpr dim_t fused_attention_scores_bytes = 256 * 1024;
 
-    // Tiled attention with an online softmax (flash-attention style) for FP32 on CPU.
-    // The full [batch, heads, queries, keys] score tensor is never materialized: scores are
-    // computed for a block of queries and a chunk of keys at a time, which keeps them in the
-    // L2 cache instead of writing then re-reading hundreds of MB per layer.
+    // Block-wise attention for FP32 on CPU. The full [batch, heads, queries, keys] score
+    // tensor is never materialized: it is computed, normalized and multiplied by the values one
+    // block of queries at a time, which avoids writing then re-reading hundreds of MB per layer.
+    // The operations are those of the regular path (scaled QK^T, the same softmax kernel, then
+    // multiplication by the values), only applied to a block of queries at a time. An online
+    // softmax (rescaling partial results, as in flash attention) would round differently, and
+    // with int8 weights those differences flip quantized activations and change transcripts.
     static bool cpu_fused_attention_enabled() {
       static const bool enabled = []() {
         const char* v = std::getenv("CT2_CPU_FUSED_ATTENTION");
@@ -82,86 +84,66 @@ namespace ctranslate2 {
       float* out_data = output.data<float>();
 
       using cpu_primitives = primitives<Device::CPU>;
-      const dim_t num_query_blocks = ceil_divide(tq, fused_attention_block_queries);
+      const dim_t block_queries = std::max(
+        fused_attention_min_block_queries,
+        std::min(fused_attention_max_block_queries,
+                 fused_attention_scores_bytes / (tk * dim_t(sizeof (float))) / 8 * 8));
+      const dim_t num_query_blocks = ceil_divide(tq, block_queries);
 
       cpu::parallel_for(0, batch * heads * num_query_blocks, 1, [&](dim_t begin, dim_t end) {
-        std::vector<float> scores(fused_attention_block_queries * fused_attention_block_keys);
-        std::vector<float> row_max(fused_attention_block_queries);
-        std::vector<float> row_sum(fused_attention_block_queries);
+        std::vector<float> scores(block_queries * tk);
+        std::vector<int32_t> block_lengths(lengths ? block_queries : 0);
 
         for (dim_t task = begin; task < end; ++task) {
           const dim_t bh = task / num_query_blocks;
-          const dim_t q0 = (task % num_query_blocks) * fused_attention_block_queries;
-          const dim_t nq = std::min(fused_attention_block_queries, tq - q0);
+          const dim_t q0 = (task % num_query_blocks) * block_queries;
+          const dim_t nq = std::min(block_queries, tq - q0);
 
           const float* q = q_data + (bh * tq + q0) * depth;
           const float* k = k_data + bh * tk * depth;
           const float* v = v_data + bh * tk * depth_v;
-          float* out = out_data + (bh * tq + q0) * depth_v;  // Also the running accumulator.
-          const int32_t* row_lengths = lengths ? lengths + bh * tq + q0 : nullptr;
-          const auto length_of = [&](dim_t r) -> dim_t {
-            return row_lengths ? std::min<dim_t>(row_lengths[r], tk) : tk;
-          };
+          float* out = out_data + (bh * tq + q0) * depth_v;
 
           // Keys beyond the longest row of this block do not contribute (e.g. causal masks).
-          dim_t max_length = 0;
-          for (dim_t r = 0; r < nq; ++r)
-            max_length = std::max(max_length, length_of(r));
-
-          std::fill(out, out + nq * depth_v, 0.f);
-          for (dim_t r = 0; r < nq; ++r) {
-            row_max[r] = -std::numeric_limits<float>::infinity();
-            row_sum[r] = 0.f;
-          }
-
-          for (dim_t k0 = 0; k0 < max_length; k0 += fused_attention_block_keys) {
-            const dim_t nk = std::min(fused_attention_block_keys, max_length - k0);
-
-            cpu_primitives::gemm(/*a_is_packed=*/false, /*b_is_packed=*/false,
-                                 /*transpose_a=*/false, /*transpose_b=*/true,
-                                 nq, nk, depth,
-                                 queries_scale,
-                                 q, depth,
-                                 k + k0 * depth, depth,
-                                 0.f,
-                                 scores.data(), fused_attention_block_keys);
-
+          dim_t max_length = tk;
+          if (lengths) {
+            max_length = 0;
             for (dim_t r = 0; r < nq; ++r) {
-              float* s = scores.data() + r * fused_attention_block_keys;
-              const dim_t valid = std::max<dim_t>(0, std::min(nk, length_of(r) - k0));
-
-              if (valid == 0) {
-                std::fill(s, s + nk, 0.f);
-                continue;
-              }
-
-              // Online softmax: exp(-inf - new_max) is 0, which zeroes the (empty)
-              // accumulator on the first chunk.
-              const float new_max = std::max(row_max[r], cpu_primitives::max(s, valid));
-              const float correction = std::exp(row_max[r] - new_max);
-              cpu_primitives::add(-new_max, s, s, valid);
-              cpu_primitives::exp(s, s, valid);
-              std::fill(s + valid, s + nk, 0.f);
-
-              row_sum[r] = row_sum[r] * correction + cpu_primitives::sum(s, valid);
-              if (correction != 1.f)
-                cpu_primitives::mul(correction, out + r * depth_v, depth_v);
-              row_max[r] = new_max;
+              const dim_t length = std::max<dim_t>(0, std::min<dim_t>(lengths[bh * tq + q0 + r], tk));
+              block_lengths[r] = static_cast<int32_t>(length);
+              max_length = std::max(max_length, length);
             }
-
-            cpu_primitives::gemm(/*a_is_packed=*/false, /*b_is_packed=*/false,
-                                 /*transpose_a=*/false, /*transpose_b=*/false,
-                                 nq, depth_v, nk,
-                                 1.f,
-                                 scores.data(), fused_attention_block_keys,
-                                 v + k0 * depth_v, depth_v,
-                                 1.f,
-                                 out, depth_v);
           }
 
-          for (dim_t r = 0; r < nq; ++r)
-            cpu_primitives::mul(row_sum[r] > 0.f ? 1.f / row_sum[r] : 0.f,
-                                out + r * depth_v, depth_v);
+          if (max_length == 0) {
+            std::fill(out, out + nq * depth_v, 0.f);
+            continue;
+          }
+
+          cpu_primitives::gemm(/*a_is_packed=*/false, /*b_is_packed=*/false,
+                               /*transpose_a=*/false, /*transpose_b=*/true,
+                               nq, max_length, depth,
+                               queries_scale,
+                               q, depth,
+                               k, depth,
+                               0.f,
+                               scores.data(), max_length);
+
+          CPU_ISA_DISPATCH((cpu::softmax<ISA>(scores.data(),
+                                              lengths ? block_lengths.data() : nullptr,
+                                              scores.data(),
+                                              nq,
+                                              max_length,
+                                              /*log=*/false)));
+
+          cpu_primitives::gemm(/*a_is_packed=*/false, /*b_is_packed=*/false,
+                               /*transpose_a=*/false, /*transpose_b=*/false,
+                               nq, depth_v, max_length,
+                               1.f,
+                               scores.data(), max_length,
+                               v, depth_v,
+                               0.f,
+                               out, depth_v);
         }
       });
 

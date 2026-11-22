@@ -1596,7 +1596,7 @@ TEST_P(OpDeviceFPTest, Conv1DGroupNoBias) {
 }
 
 TEST(OpTest, FusedAttentionCPUMatchesMaterializedPath) {
-  // Sizes that are not multiples of the 64-query and 256-key tiles.
+  // Sizes that are not multiples of the block of queries.
   constexpr dim_t batch = 2, heads = 3, queries = 70, keys = 300, depth = 16;
   constexpr float scale = 0.25f;
 

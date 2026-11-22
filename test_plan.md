@@ -59,6 +59,30 @@ Notes:
 - Medium int8_float32 transcripts differ between fused and unfused (WER 0.007); the others have WER 0. Large-v3 int8_float32 text differs only in ways the WER ignores.
 - Branch unfused is not always equal to master unfused (medium int8: 8.79 vs 7.90 s); likely run-to-run noise, not checked.
 
+### Machine: GitHub Actions `ubuntu-22.04-arm` (aarch64, OpenBLAS), release gate
+
+The CI release gate (`tools/release-gates/run_gate.py`, `--limit 20`) compares the released `ctranslate2==4.9.0` from PyPI (baseline) with the wheel built from the code under test (candidate), on Whisper WER, Opus BLEU and T5Gemma tokens/s. Each measurement is repeated 3 times. Only the ARM job fails; the x86_64, macOS arm64 and Windows gates pass.
+
+`whisper_wer`, WER baseline -> candidate (median of 3; the 3 runs of each side are identical, so the difference is deterministic, not noise):
+
+| candidate code | compute `default` (float32) | compute `auto` (int8_float32) | gate |
+|----------------|-----------------------------|-------------------------------|------|
+| master + CI-only changes (upstream PR 2170, run 44931865129) | 0.1942 -> 0.1942 | 0.1853 -> 0.1853 | ok |
+| this branch, fused attention on (fork run 44942740078, `ef20cc8d8`) | 0.1942 -> 0.1942 | 0.1853 -> **0.2009** (+0.0156) | **FAIL** |
+| this branch, `CT2_CPU_FUSED_ATTENTION=0` (fork run 44981387047, branch `exp/arm-fused-attention-off`) | 0.1942 -> 0.1942 | 0.1853 -> 0.1853 | ok |
+
+Inverse real-time factor, `auto`: 14.88 -> 15.16 with the fused path on (+1.9%), 14.01 -> 14.05 with it off. Opus BLEU and T5Gemma tokens/s pass in every run.
+
+Finding:
+- The fused attention is what changes the ARM WER: the same code with the switch off gives the baseline WER exactly, and master gives the baseline WER exactly.
+- It only shows with int8 weights (`auto` resolves to int8_float32 on ARM). In float32 the transcripts are identical, as on the AMD machine.
+- This is the ARM counterpart of the AMD results above, where int8_float32 transcripts also differ between fused and unfused (Whisper medium WER 0.0070, NLLB WER 0.0156) and float32 is identical. On ARM the difference lands on the gate's WER tolerance.
+- The cost/benefit on ARM is about +1.9% speed for +0.0156 WER on this sample, which the gate rejects.
+- Not found yet: why the int8 path is affected and float32 is not. Candidates are rounding in the fused path's `gemm` with `beta = 1` accumulation over key chunks, `cpu_primitives::exp` on ARM, and how the quantized activations feed the Q/K/V products. This is not verified.
+- Not checked: whether the changed ARM transcripts are better or worse in absolute terms (the gate flags any WER increase beyond its tolerance).
+
+Options to resolve (none done yet): do not use the fused path for int8_float32 on ARM; find and fix the numeric difference in the fused kernel; relax the gate's WER tolerance.
+
 ## Conclusion
 
 (Fill in after all machines have run.)

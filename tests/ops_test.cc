@@ -1629,6 +1629,10 @@ TEST(OpTest, FusedAttentionCPUMatchesMaterializedPath) {
   // Short query lengths are left to the regular path.
   StorageView output;
   EXPECT_FALSE(ops::FusedAttention()(make(8, 0.07f), k, v, nullptr, scale, false, output));
+
+  // So many keys that a block of queries does not fit the cache: left to the regular path.
+  const StorageView many_keys = make(3000, 0.05f);
+  EXPECT_FALSE(ops::FusedAttention()(q, many_keys, many_keys, nullptr, scale, false, output));
 }
 
 TEST_P(OpDeviceFPTest, Conv1DGroupNoBiasQuantized) {

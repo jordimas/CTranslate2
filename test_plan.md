@@ -155,6 +155,25 @@ Throwaway workflow on the fork (branch `exp/arm-wer-diagnosis`, not meant to be 
 - The gate tolerance is 0.01 WER, and 20 clips are 448 words (one word is 0.0022), so a net change of 7 words is enough to fail it.
 - Not checked: the cause of the int8 difference on this CPU, and whether the Whisper large-v3 non-determinism seen on the M4 Pro (OpenMP, Accelerate) also happens on this runner; the tiny model gave identical output across processes here.
 
+### Fix: block-wise softmax in the fused attention
+
+The online softmax of the first kernel rounds differently from the regular path. With int8 weights the attention output is quantized to int8 before the next GEMM, which turns those rounding differences into different quantized activations and different transcripts. The kernel now computes, for a block of queries, the scores against all the keys, normalizes them with the same `cpu::softmax` kernel as the regular path and multiplies by the values (one GEMM each). The block has up to 64 queries and fewer for many keys (256 KB of scores); with more than 2048 keys (block under 32 queries) the fused path is not used and the regular path runs, as before the fused attention existed.
+
+Check on the CI recipe (manylinux_2_28 aarch64, OpenBLAS 0.3.26 ARMV8, ruy, OpenMP; container on the M4 Pro): Whisper tiny encoder output of 4 samples, fused vs unfused, and the gate's `whisper_wer` task (released 4.9.0 as baseline):
+
+| | float32 | int8_float32 |
+|---|---|---|
+| old kernel (online softmax), encoder output vs unfused | differs in 98% of values, max 1.0e-3 | differs in 100% of values, max 2.87 |
+| new kernel, encoder output vs unfused | bit-identical | bit-identical |
+| new kernel, gate WER (20 samples / all), fused on vs baseline | 0.1942 / 0.2330, equal | 0.1897 / 0.2330, equal |
+
+- On the M4 Pro (Accelerate, 4 threads), Whisper large-v3 int8_float32, 60 s of audio: 3 separate fused processes give the same transcript as unfused (153 words, identical); the old kernel gave a different transcript each time. Fused 38.7 s vs unfused 47.6 s. Why the old kernel was not deterministic was not identified; it does not happen with the new one.
+- The int8 WER change is of the size of rounding noise. On unmodified master (M4 Pro, int8_float32, all 73 samples), adding 1e-6 or 1e-5 amplitude noise to the audio changes 13-24 transcripts and moves the WER of the gate's first 20 samples with a standard deviation of 0.006-0.008 (range -0.018 to +0.009 around the unperturbed 0.1987; 12 runs per amplitude). The CI change of +0.0156 is about 2 standard deviations. The 0.01 tolerance on 20 samples is close to that noise.
+- Speed, new vs old kernel vs unfused (4 threads): Whisper medium, 60 s, M4 Pro, new kernel: int8_float32 22.39 +- 0.29 s (unfused 29.36, 1.31x; old kernel 20.61 s), float32 31.29 +- 3.32 s (unfused 39.42, 1.26x; old kernel 28.97 s). Whisper small encoder only, M4 Pro: float32 384 ms unfused, 343 ms old, 342 ms new; int8_float32 727, 666, 648 ms. Same encoder on the CI recipe (OpenBLAS aarch64): float32 1017 ms unfused, 1042-1064 old, 1000-1003 new; int8_float32 567, 578, 537 ms.
+- Op level (one attention op, M4 Pro, 4 threads), where the regular path reuses its buffers between runs and so is faster than in the model: the regular path is faster than the fused one for Whisper shapes (0.86-0.87x), equal for 512x512 and 1.12x for causal prefill. The first versions of the new kernel were 0.55-0.20x for 4096-16384 keys (blocks of 8-16 queries), which is why those lengths now use the regular path.
+- Limits: the bit-identical result needs a GEMM whose per-element result does not depend on the number of rows, which holds for OpenBLAS (checked above). Accelerate gives identical transcripts end to end (Whisper medium, large-v3, NLLB, WER 0.0000, fused vs unfused); MKL and oneDNN were not checked, and neither were x86 timings. The AMD, M4 Pro and CI tables above, except where stated, are from the first kernel and have not been repeated.
+- Not done yet: the ARM release gate on the CI runner with this kernel (pushed, result pending).
+
 ## Conclusion
 
 (Fill in after all machines have run.)

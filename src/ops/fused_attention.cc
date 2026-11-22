@@ -21,9 +21,10 @@ namespace ctranslate2 {
 
     // The scores of a block of queries against all the keys are kept in the L2 cache. The block
     // has at most 64 queries, fewer when the keys are many so that the scores stay within
-    // fused_attention_scores_bytes.
+    // fused_attention_scores_bytes. With so many keys that the block would have fewer than 32
+    // queries (more than 2048 keys), the GEMMs get too thin and the regular path is faster.
     constexpr dim_t fused_attention_max_block_queries = 64;
-    constexpr dim_t fused_attention_min_block_queries = 8;
+    constexpr dim_t fused_attention_min_block_queries = 32;
     constexpr dim_t fused_attention_scores_bytes = 256 * 1024;
 
     // Block-wise attention for FP32 on CPU. The full [batch, heads, queries, keys] score
@@ -75,6 +76,12 @@ namespace ctranslate2 {
       if (values_lengths && values_lengths->size() != batch * heads * tq)
         return false;
 
+      const dim_t block_queries = std::min(
+        fused_attention_max_block_queries,
+        fused_attention_scores_bytes / (tk * dim_t(sizeof (float))) / 8 * 8);
+      if (block_queries < fused_attention_min_block_queries)
+        return false;
+
       output.resize({batch, heads, tq, depth_v});
 
       const float* q_data = queries.data<float>();
@@ -84,10 +91,6 @@ namespace ctranslate2 {
       float* out_data = output.data<float>();
 
       using cpu_primitives = primitives<Device::CPU>;
-      const dim_t block_queries = std::max(
-        fused_attention_min_block_queries,
-        std::min(fused_attention_max_block_queries,
-                 fused_attention_scores_bytes / (tk * dim_t(sizeof (float))) / 8 * 8));
       const dim_t num_query_blocks = ceil_divide(tq, block_queries);
 
       cpu::parallel_for(0, batch * heads * num_query_blocks, 1, [&](dim_t begin, dim_t end) {

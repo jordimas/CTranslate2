@@ -59,6 +59,28 @@ Notes:
 - Medium int8_float32 transcripts differ between fused and unfused (WER 0.007); the others have WER 0. Large-v3 int8_float32 text differs only in ways the WER ignores.
 - Branch unfused is not always equal to master unfused (medium int8: 8.79 vs 7.90 s); likely run-to-run noise, not checked.
 
+#### Rerun with the final block-wise kernel (2026-11-22, branch `d4403ff8d`, same source as `bc96a06c7`)
+
+Same machine and setup as above (16 threads, `taskset -c 0-30:2`, `OMP_PROC_BIND=true OMP_PLACES=cores`, 60 s of audio), branch and master built and run one after the other. Master (`build/plan_master`) has no fused path, so its unfused row is the baseline. Mean +- std in seconds, 3 timed runs unless stated. The change is the time of the fused branch (negative = faster). NLLB, XLM-R and Gemma ran with transformers 4.57.6 because `tools/benchmark_encoder_fuse.py` fails on the transformers 5 `NllbTokenizer` (no `build_inputs_with_special_tokens`). The page `perf.html` has the same table.
+
+| family | model | compute | branch unfused | branch fused | fused vs unfused | master unfused | fused vs master | quality (fused vs unfused) |
+|--------|-------|---------|----------------|--------------|------------------|----------------|-----------------|----------------------------|
+| Whisper | medium | int8_float32 | 9.39 +- 0.05 | 8.31 +- 0.03 | -11.5% | 10.11 +- 0.21 (5 runs) | -17.8% | identical |
+| Whisper | medium | float32 | 13.19 +- 0.06 | 12.52 +- 0.01 | -5.1% | 12.61 +- 0.05 | -0.7% | identical |
+| Whisper | large-v3 | int8_float32 | 14.45 +- 0.05 | 13.11 +- 0.05 | -9.3% | 15.46 +- 0.03 | -15.2% | identical |
+| Whisper | large-v3 | float32 | 25.90 +- 0.17 | 23.47 +- 0.08 | -9.4% | 23.22 +- 0.08 | +1.1% | identical |
+| Translation | nllb-200-distilled-600M | int8_float32 | 9.41 +- 0.02 | 9.26 +- 0.01 | -1.6% | 9.33 +- 0.01 | -0.8% | identical |
+| Translation | nllb-200-distilled-600M | float32 | 17.68 +- 0.01 | 17.55 +- 0.05 | -0.7% | 17.94 +- 0.07 | -2.2% | identical |
+| Encoder | xlm-roberta-base | int8_float32 | 0.92 +- 0.03 | 0.77 +- 0.00 | -16.3% | 0.93 +- 0.04 | -17.2% | max diff 0 |
+| Encoder | xlm-roberta-base | float32 | 1.85 +- 0.01 | 1.73 +- 0.01 | -6.5% | 1.87 +- 0.01 | -7.5% | max diff 0 |
+| Decoder | gemma-3-4b-it | int8_float32 | 33.70 +- 0.05 | 33.57 +- 0.10 | -0.4% | 34.04 +- 0.14 | -1.4% | identical |
+
+- Every fused vs unfused comparison gives identical outputs (WER 0.0000, or max difference 0 for the encoder). The first-kernel table above had WER differences on Whisper medium int8 (0.0070) and NLLB int8 (0.0156); they are gone, as the block-wise softmax is meant to give.
+- Gains against master are real for the Whisper int8 and XLM-R int8 rows (15-18%); float32, NLLB and Gemma are within 0-2% of master, which is inside the noise. The earlier 1.29x for large-v3 float32 came from a noisy unfused row.
+- The large-v3 float32 row is not settled. A first 3-run pass gave the numbers above; a 5-run repeat gave 30.73 +- 5.62 (unfused) and 28.44 +- 7.42 (fused), 22.5% slower than master, with a load average of about 16 from other jobs on the machine. Both builds slowed together, which points to interference, but this was not proven. It needs a rerun on an idle machine, alternating the builds.
+- Master medium int8_float32 had std 7.11 s in the first pass (one slow run); the 5-run repeat gave 10.11 +- 0.21 and replaces it.
+- Still one machine, one thread count (16) and one workload per family. Not checked: other thread counts, small batches, Intel, FP16/BF16, T5/ALiBi.
+
 ### Machine: GitHub Actions `ubuntu-22.04-arm` (aarch64, OpenBLAS), release gate
 
 The CI release gate (`tools/release-gates/run_gate.py`, `--limit 20`) compares the released `ctranslate2==4.9.0` from PyPI (baseline) with the wheel built from the code under test (candidate), on Whisper WER, Opus BLEU and T5Gemma tokens/s. Each measurement is repeated 3 times. Only the ARM job fails; the x86_64, macOS arm64 and Windows gates pass.
@@ -179,8 +201,25 @@ Check on the CI recipe (manylinux_2_28 aarch64, OpenBLAS 0.3.26 ARMV8, ruy, Open
 - The int8 WER change is of the size of rounding noise. On unmodified master (M4 Pro, int8_float32, all 73 samples), adding 1e-6 or 1e-5 amplitude noise to the audio changes 13-24 transcripts and moves the WER of the gate's first 20 samples with a standard deviation of 0.006-0.008 (range -0.018 to +0.009 around the unperturbed 0.1987; 12 runs per amplitude). The CI change of +0.0156 is about 2 standard deviations. The 0.01 tolerance on 20 samples is close to that noise.
 - Speed, final kernel vs old kernel vs unfused (4 threads). Whisper medium, 60 s, M4 Pro: int8_float32 21.76 +- 0.35 s (unfused 29.11 s, 1.34x; old kernel 20.61 s; master 32.36 s), float32 30.34 +- 1.96 s (unfused 38.17 s, 1.26x; old kernel 28.97 s); fused and unfused outputs identical. Whisper small encoder only, CI recipe (OpenBLAS aarch64 container): float32 1012-1031 ms unfused, 1055-1060 old kernel, 991-1012 final; int8_float32 556-561 ms, 576 old, 511-516 final. Whisper small encoder only, M4 Pro, 64-query blocks: float32 384 ms unfused, 343 old, 342 new; int8_float32 727, 666, 648 ms.
 - Op level (one attention op, 4 threads, ratio of regular to fused time, so above 1 is faster). The regular path allocates its [batch, heads, queries, keys] score tensor in every layer and the CPU allocator does not cache (plain `posix_memalign`), so on macOS each layer pays page faults on a block of 100+ MB (16 heads, 1500 keys: 18.7 ms with the tensors reused between runs, 31.3 ms with fresh ones, as in a layer). "reuse" below keeps the tensors allocated between runs (an artificial best case for the regular path), "fresh" allocates them in every run. The first kernel used blocks of 64 queries (256 KB of scores) and was slower than the regular path in reuse mode (0.7-0.87x for Whisper and NLLB shapes on the M4, 0.88-0.93x on OpenBLAS aarch64); the packing overhead of the many small blocks was the cause, and 256-query blocks remove it. Final kernel, M4 Pro / OpenBLAS aarch64 container: Whisper encoder 16 heads 0.99-1.00x reuse, 1.6-2.2x fresh / 1.06x, 1.14x; 20 heads 0.97-0.99x, 1.9x / 1.08x, 1.09x; NLLB encoder 0.97-1.03x, 1.3-1.7x / 1.00x, 1.10x; cross-attention with 448 queries 0.99-1.03x, 1.2x / 1.03x, 1.08x; causal prefill 512x512, head dim 128: 1.2-1.3x, 1.3-1.4x / 1.24x, 1.36x; causal 4096x4096: 1.3x, 1.7-1.8x / 1.9x; 16384 keys: regular path. At 12 threads the worst case was 0.98x (M4) and 1.03x (container). The 3% spread between repeated runs is noise. So most of the end-to-end gain on the M4 comes from not materializing the score tensor, not from faster attention arithmetic; on the CI recipe the allocation costs little (+0.7 ms for the same case) and the gain is small. Not measured: x86 (MKL, oneDNN) timings, and machines with many threads, where fewer, larger blocks could balance worse (72 tasks for Whisper small on 32 threads).
-- Limits: the bit-identical result needs a GEMM whose per-element result does not depend on the number of rows, which holds for OpenBLAS (checked above). Accelerate gives identical transcripts end to end (Whisper medium, large-v3, NLLB, WER 0.0000, fused vs unfused); MKL and oneDNN were not checked, and neither were x86 timings. The AMD, M4 Pro and CI tables above, except where stated, are from the first kernel and have not been repeated. x86 timings are the open item: the gain there came from the old kernel and was not measured with the new one.
-- Not done yet: the ARM release gate on the CI runner with this kernel (pushed, result pending).
+- Limits: the bit-identical result needs a GEMM whose per-element result does not depend on the number of rows, which holds for OpenBLAS (checked above). Accelerate gives identical transcripts end to end (Whisper medium, large-v3, NLLB, WER 0.0000, fused vs unfused); MKL and oneDNN were not checked, and neither were x86 timings. The AMD (first table), M4 Pro and first ARM CI tables above are from the first kernel unless stated. x86 timings with the new kernel are now in the AMD "Rerun with the final block-wise kernel" table; the fused and unfused outputs are identical there (MKL and oneDNN), apart from the large-v3 float32 timing noted in that section.
+- ARM release gate on the CI runner with this kernel: passes, see the next section.
+
+### Release gate with the block-wise kernel (fork run 45018654845, commit `bc96a06c7`)
+
+All four gates (x86_64 Linux, Windows, Linux ARM, macOS arm64) end in success. Baseline = `ctranslate2==4.9.0` from PyPI, candidate = the wheel of this branch; median of 3, `default` = float32, `auto` = int8_float32. Speed is `rtf_inverse` (Whisper) and tokens/s (Opus, T5Gemma), change of the candidate against the baseline.
+
+| gate | Whisper WER default | Whisper WER auto | Whisper speed default / auto | Opus BLEU float32 / int8 | T5Gemma speed float32 / int8 |
+|------|---------------------|------------------|------------------------------|--------------------------|------------------------------|
+| Linux x86_64 | 0.1942 -> 0.1942 | 0.1897 -> 0.1897 | +10.8% / +15.3% | identical | +7.3% / +21.9% |
+| Windows | 0.1942 -> 0.1942 | 0.1987 -> 0.1987 | +8.3% / +13.4% | identical | +0.6% / +0.6% |
+| **Linux ARM** | 0.1942 -> 0.1942 | **0.1853 -> 0.1853** | +4.4% / +7.2% | identical | -0.6% / -2.4% |
+| macOS arm64 | 0.1942 -> 0.1942 | 0.1920 -> 0.1942 (+0.0022) | -2.3% / +3.2% | 29.2039 -> 29.2039 / 29.2644 -> 29.2841 | +0.6% / +1.4% (see below) |
+
+- The ARM failure is gone: `auto` WER is 0.1853 -> 0.1853, where the old kernel gave 0.1853 -> 0.2009 (run 44942740078) and failed the gate. This matches the diagnosis above: the old online softmax rounded differently, and with int8 weights that changed the quantized activations. The new kernel was bit-identical to the unfused path in the container check; the runner result confirms it on the real CPU (`i8mm`, SVE).
+- macOS: the first T5Gemma float32 pass was flagged (17.51 -> 15.10 tokens/s, -13.8%, 3 samples ranging 13.9-21.3). The gate's confirmation step repeated it with 5 samples and found no regression (16.20 -> 16.29, +0.6%). The job passed. The small `auto` WER change on macOS (+0.0022, one word) is inside the gate tolerance.
+- The speed changes are against PyPI 4.9.0, so they include everything merged since 4.9.0, not only the fused attention. Each metric is 3 runs on shared runners; the T5Gemma x86 gain (+21.9%) is larger than I would attribute to this change.
+- Not checked: which of the commits between `ef20cc8d8` and `bc96a06c7` matters on ARM (the plan above attributes it to the block-wise softmax), and a gate run with `CT2_CPU_FUSED_ATTENTION=0` on this commit to confirm the fused path runs on ARM for Whisper.
+- The llama.cpp comparison above is superseded for the ARM WER question: the cause was the online softmax of the old kernel, not the `beta = 1` accumulation or the exp precision, so the untested 64-key-chunk experiment is not needed for it.
 
 ## Conclusion
 

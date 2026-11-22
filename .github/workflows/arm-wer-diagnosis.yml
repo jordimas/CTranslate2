@@ -1,0 +1,77 @@
+name: arm-wer-diagnosis
+
+# Diagnostic only: re-run the release-gate Whisper task on the ARM runner with the wheel of a
+# previous run, dump per-sample transcripts for baseline / fused off / fused on, and capture the CPU.
+
+on:
+  push:
+    branches: [exp/arm-wer-diagnosis]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  WHEEL_RUN_ID: "44942740078"   # fork run that failed the gate (ef20cc8d8)
+  WHEEL_ARTIFACT: python-wheels-Linux-aarch64
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Capture the CPU
+        run: |
+          mkdir -p out
+          { uname -a; lscpu; grep -m1 Features /proc/cpuinfo; } | tee out/cpu.txt
+
+      - name: Download the candidate wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$WHEEL_RUN_ID" --repo "$GITHUB_REPOSITORY" -n "$WHEEL_ARTIFACT" -D candidate-wheels && ls -l candidate-wheels
+
+      - name: Create the baseline and candidate environments
+        run: |
+          # Same pins as the gate, minus the packages the Whisper task does not use.
+          grep -E '^(faster-whisper|requests|jiwer|datasets|soundfile)==' tools/release-gates/requirements.txt > /tmp/req.txt
+          python -m venv base && python -m venv cand
+          base/bin/pip install -q ctranslate2==4.9.0 -r /tmp/req.txt
+          cand/bin/pip install -q candidate-wheels/*cp312-cp312-manylinux*aarch64.whl -r /tmp/req.txt
+          base/bin/pip list 2>/dev/null | grep -i -E "ctranslate2|faster|tokenizers|numpy" | tee out/versions_base.txt
+          cand/bin/pip list 2>/dev/null | grep -i -E "ctranslate2|faster|tokenizers|numpy" | tee out/versions_cand.txt
+
+      - name: Dump transcripts
+        env:
+          OMP_NUM_THREADS: "2"
+          MKL_NUM_THREADS: "2"
+          OPENBLAS_NUM_THREADS: "2"
+          TOKENIZERS_PARALLELISM: "false"
+        run: |
+          dump() { # venv fused compute limit repeat output
+            CT2_CPU_FUSED_ATTENTION=$2 $1/bin/python tools/release-gates/dump_transcripts.py \
+              --compute-type $3 --limit $4 --repeat $5 --output out/$6.json
+          }
+          for C in auto default; do
+            dump base 1 $C 20 1 base_${C}_20
+            dump cand 0 $C 20 1 fusedoff_${C}_20
+            dump cand 1 $C 20 1 fusedon_${C}_20
+          done
+          # Whole sample set, int8 only.
+          dump base 1 auto 0 1 base_auto_all
+          dump cand 0 auto 0 1 fusedoff_auto_all
+          dump cand 1 auto 0 1 fusedon_auto_all
+          # Determinism of the fused path: 3 more processes, and 3 passes inside one process.
+          for i in 2 3 4; do dump cand 1 auto 20 1 fusedon_auto_20_proc$i; done
+          dump cand 1 auto 20 3 fusedon_auto_20_x3
+
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: arm-wer-diagnosis
+          path: out/

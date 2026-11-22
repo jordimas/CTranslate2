@@ -1597,7 +1597,7 @@ TEST_P(OpDeviceFPTest, Conv1DGroupNoBias) {
 
 TEST(OpTest, FusedAttentionCPUMatchesMaterializedPath) {
   // Sizes that are not multiples of the block of queries.
-  constexpr dim_t batch = 2, heads = 3, queries = 70, keys = 300, depth = 16;
+  constexpr dim_t batch = 2, heads = 3, queries = 600, keys = 300, depth = 16;
   constexpr float scale = 0.25f;
 
   const auto make = [](dim_t length, float freq) {
@@ -1631,7 +1631,7 @@ TEST(OpTest, FusedAttentionCPUMatchesMaterializedPath) {
   EXPECT_FALSE(ops::FusedAttention()(make(8, 0.07f), k, v, nullptr, scale, false, output));
 
   // So many keys that a block of queries does not fit the cache: left to the regular path.
-  const StorageView many_keys = make(3000, 0.05f);
+  const StorageView many_keys = make(10000, 0.05f);
   EXPECT_FALSE(ops::FusedAttention()(q, many_keys, many_keys, nullptr, scale, false, output));
 }
 

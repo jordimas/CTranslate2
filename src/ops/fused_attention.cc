@@ -19,13 +19,14 @@ namespace ctranslate2 {
     // Decoding steps (fewer queries) stay on the batched GEMV path.
     constexpr dim_t fused_attention_min_queries = 32;
 
-    // The scores of a block of queries against all the keys are kept in the L2 cache. The block
-    // has at most 64 queries, fewer when the keys are many so that the scores stay within
-    // fused_attention_scores_bytes. With so many keys that the block would have fewer than 32
-    // queries (more than 2048 keys), the GEMMs get too thin and the regular path is faster.
-    constexpr dim_t fused_attention_max_block_queries = 64;
-    constexpr dim_t fused_attention_min_block_queries = 32;
-    constexpr dim_t fused_attention_scores_bytes = 256 * 1024;
+    // The scores of a block of queries against all the keys are kept in cache. Every block goes
+    // through two GEMMs that pack the keys and the values again, so large blocks are faster than
+    // small ones: up to 256 queries, fewer when the keys are many so that the scores stay within
+    // fused_attention_scores_bytes. With so many keys that the block would have fewer than 64
+    // queries (more than 8192 keys), the GEMMs get too thin and the regular path is faster.
+    constexpr dim_t fused_attention_max_block_queries = 256;
+    constexpr dim_t fused_attention_min_block_queries = 64;
+    constexpr dim_t fused_attention_scores_bytes = 2 * 1024 * 1024;
 
     // Block-wise attention for FP32 on CPU. The full [batch, heads, queries, keys] score
     // tensor is never materialized: it is computed, normalized and multiplied by the values one

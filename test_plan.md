@@ -138,6 +138,23 @@ Built the same way as the CI aarch64 wheel, in `quay.io/pypa/manylinux_2_28_aarc
 - Remaining differences from the CI runner: CPU (the container exposes `asimddp`, `bf16`, no `i8mm`, no SVE; the runner's CPU features were not checked), the exact candidate revision (CI ran `ef20cc8d8`; this is the working tree), and dependency versions (installed unpinned except `faster-whisper`). Which of these matters was not isolated.
 - To reproduce on the real runner, run the same worker there with the fused path on and off and diff the transcripts sample by sample; the sign of a 20-sample WER change is not informative by itself.
 
+### ARM runner, per-sample diagnosis (GitHub Actions `ubuntu-22.04-arm`, run 45008753816)
+
+Throwaway workflow on the fork (branch `exp/arm-wer-diagnosis`, not meant to be merged) that runs the gate's own Whisper task on the real runner and dumps every transcript. Candidate = the wheel of the failing run 44942740078 (`ef20cc8d8`), baseline = `ctranslate2==4.9.0` from PyPI, `faster-whisper==1.0.2`, 2 threads, same pins as the gate. The runner CPU reports `asimddp`, `bf16`, `i8mm`, `sve`, `sve2`, `svei8mm` (full list in the run's `cpu.txt`); the local container had `asimddp` and `bf16` only.
+
+| samples | compute | baseline 4.9.0 | candidate, fused off | candidate, fused on |
+|---------|---------|----------------|----------------------|---------------------|
+| 20 | `default` (float32) | 0.1942 (87/448) | 0.1942 | 0.1942 |
+| 20 | `auto` (int8_float32) | 0.1853 (83/448) | 0.1853 | **0.2009** (90/448) |
+| all (73) | `auto` (int8_float32) | 0.2296 (264/1150) | 0.2296 | **0.2374** (273/1150) |
+
+- **The CI failure reproduces on the runner**, with the same numbers as the gate (baseline 0.1853, fused on 0.2009, +0.0156). Fused off gives the baseline exactly, and float32 is identical. It is deterministic: 4 separate processes and 3 passes in one process all gave the same transcripts.
+- It did not reproduce on the M4 Pro, native or in a container with the CI build recipe, where the int8 baseline was different (0.1897 in the container vs 0.1853 here). int8 results therefore depend on the CPU, and the missing `i8mm`/SVE in the container is the most visible difference. Which code path depends on them was not identified.
+- 6 of the first 20 clips change with the fused path: 3 get worse (clip 2: 4 to 6 errors, clip 4: 17 to 21, clip 7: 1 to 4), 2 get better (clips 13 and 17: 4 to 3), 1 changes without changing the error count. Net +7 errors in 448 words.
+- Over all 73 clips, 20 change: 8 get worse (+17 errors), 5 get better (-8), 7 are unchanged in error count. Net +9 errors in 1150 words (+0.0078 WER). More clips get worse than better, but the sample is small, so this is a mild, not clearly systematic, degradation.
+- The gate tolerance is 0.01 WER, and 20 clips are 448 words (one word is 0.0022), so a net change of 7 words is enough to fail it.
+- Not checked: the cause of the int8 difference on this CPU, and whether the Whisper large-v3 non-determinism seen on the M4 Pro (OpenMP, Accelerate) also happens on this runner; the tiny model gave identical output across processes here.
+
 ## Conclusion
 
 (Fill in after all machines have run.)

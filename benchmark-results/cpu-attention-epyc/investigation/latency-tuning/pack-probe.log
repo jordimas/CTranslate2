@@ -1,3 +1,0 @@
-limit=63 n=1280 k=1280 queries=1 bytes=1843200 packs=1 changed=0 regular_ms=0.034399 packed_ms=0.0197075 speedup=1.74548
-limit=63 n=1280 k=1280 queries=5 bytes=1843200 packs=1 changed=1280 regular_ms=0.030801 packed_ms=0.0211035 speedup=1.45952
-row=4 changed=1280 ref0=-109279 packed0=0

@@ -1,3 +1,0 @@
-Starting lifecycle_int8 regular
-Starting lifecycle_int8 compact
-Finished {'group': 'lifecycle_int8', 'config': {'model': 'medium', 'compute': 'int8_float32', 'threads': 8, 'workers': 1}, 'cases': 8, 'exact': True, 'peak_rss_ratio': 1.0107379207823666, 'post_run_rss_ratio': 1.1577763413057531, 'unloaded_rss_growth_kib': 593080, 'released_kib': [401792, 98924, 100588, 106172], 'last_cycle_unloaded_growth_kib': 258748, 'cleaned_rss_growth_kib': 9528, 'cleanup': {'before_kib': 2021980, 'after_kib': 179108, 'diagnostic_only': True, 'between_every_cycle': True}}

@@ -1,5 +1,0 @@
-CT2 hybrid INT8 packing active: packed queries<=5, raw fallback otherwise
-CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=0 PV=0
-encoder changed float bits 0
-CT2 hybrid INT8 packed compute active
-Full transcription 67.73977928800014 text exact True segments exact True

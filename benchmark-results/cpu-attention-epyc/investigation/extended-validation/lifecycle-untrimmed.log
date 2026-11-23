@@ -1,8 +1,0 @@
-Starting lifecycle_int8 regular
-Starting lifecycle_int8 compact
-Finished {'group': 'lifecycle_int8', 'config': {'model': 'medium', 'compute': 'int8_float32', 'threads': 8, 'workers': 1}, 'cases': 8, 'exact': True, 'peak_rss_ratio': 1.0417631262153904, 'post_run_rss_ratio': 1.0579598935952528, 'unloaded_rss_growth_kib': 599860, 'released_kib': [401208, 98664, 242808, 256628], 'last_cycle_unloaded_growth_kib': 274640, 'cleanup': {'before_kib': 1948372, 'after_kib': 165448, 'diagnostic_only': True}}
-Traceback (most recent call last):
-  File "/home/jupyter/CTranslate2/tools/onednn_attention_plan/whisper_matrix.py", line 183, in <module>
-    assert record['last_cycle_unloaded_growth_kib']<64*1024,'Reload RSS does not plateau'
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError: Reload RSS does not plateau

@@ -1,5 +1,0 @@
-[  2%] Built target utils
-[  9%] Built target cpu_features
-[ 10%] Building CXX object CMakeFiles/ctranslate2.dir/src/ops/fused_attention.cc.o
-[ 10%] Linking CXX shared library libctranslate2.so
-[100%] Built target ctranslate2

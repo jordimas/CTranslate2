@@ -1,7 +1,0 @@
-CT2 hybrid INT8 packing active: mode=compact raw_copy=0
-CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=0 PV=0
-CT2 hybrid INT8 packed compute active
-warm-up 54.95647747499606
-timed 0 54.82471534599608
-timed 1 54.760787997998705
-timed 2 54.25432749700121

@@ -14,3 +14,5 @@ python/dist/
 .cache
 docs/build/
 docs/python/
+/benchmark-results/
+/tools/onednn_attention_plan/

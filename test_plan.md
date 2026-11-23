@@ -1,5 +1,7 @@
 # Test plan: CPU fused attention
 
+Benchmark artifacts under `benchmark-results/` and experimental tools under `tools/onednn_attention_plan/` are retained locally and ignored by Git. Links to those paths refer to local files; the result tables below remain versioned.
+
 Goal: check that the CPU fused attention (branch `perf/cpu-attention-transpose-softmax`) speeds up Whisper end to end compared with `master`, without changing the transcripts.
 
 ## Models covered
@@ -416,6 +418,28 @@ The broader tests discovered two private-API limitations that are now guarded. F
 Unload testing initially failed a 64 MiB untrimmed-RSS growth gate for both ordinary and compact allocators. Those failed observations are preserved. After model destruction, explicit diagnostic `mkl_free_buffers` plus `malloc_trim` releases the retained memory; cleaned compact RSS grows about 9.3 MiB across four reload cycles and ends around 175 MiB. That demonstrates releasable allocator retention in this test, not a universal leak-free bound or an ordinary-unload RSS plateau. Cleanup is test-only and was not inserted into normal inference/unload.
 
 Detailed results, negative controls, limitations, source/library hashes and reproduction: [extended validation report](benchmark-results/cpu-attention-epyc/investigation/extended-validation/report.md). These results confirm the documented current CPU/library/model configurations, not arbitrary oneDNN versions, ISAs, GEMM modes or thread-context changes. Production sources/builds remain unchanged.
+
+
+#### All eight latency rows repeated three times (2026-11-23)
+
+Repeated the eight previously reported rows, using **one warm-up plus three timed transcriptions per mode**, one fresh process per configuration/mode, eight cores, temperature 0, and the same guarded compact library for both controls. Variant order reverses every other case. Model load and audio decoding are outside timing. Mean ± sample SD; negative percentage is lower latency, computed from the means.
+
+| Model / input | Beam | Regular mean ± SD, s | Compact mean ± SD, s | Latency change |
+|---|---|---|---|---|
+| Large-v3 INT8 / English 60 s | 5 | 58.03 ± 0.20 | 54.53 ± 0.12 | -6.0% |
+| Large-v3 INT8 / JFK | 1 | 4.95 ± 0.06 | 4.58 ± 0.04 | -7.4% |
+| Large-v3 INT8 / JFK | 5 | 5.94 ± 0.01 | 5.67 ± 0.51 | -4.7% |
+| Large-v3 INT8 / JFK | 8 | 6.67 ± 0.35 | 6.05 ± 0.07 | -9.3% |
+| Large-v3 INT8 / multi-window 75 s | 5 | 33.21 ± 0.72 | 30.81 ± 0.51 | -7.2% |
+| Large-v3 INT8 / long initial prompt | 5 | 6.52 ± 0.07 | 6.51 ± 0.61 | -0.2% |
+| Medium INT8 / English 60 s | 5 | 17.08 ± 0.42 | 15.55 ± 0.26 | -9.0% |
+| Large-v3 float32 / JFK | 5 | 7.69 ± 0.66 | 7.41 ± 0.14 | -3.5% |
+
+All eight warm-up/timed outputs per case match exactly: 64 transcriptions total, comparing tokens, text, timestamps, scores/probabilities and score bits. This is reference-output agreement, not ground-truth WER. Every row passes the peak/current RSS comparison gate; the large-v3 60-second row peaks at 3.28 GiB regular versus 3.44 GiB compact.
+
+The long-prompt mean is effectively flat; several other differences are small relative to their timing spread. Three samples from one process per mode do not establish population-level performance significance. The original large-v3 60-second row uses the default generation limit; all other rows retain the extended matrix's 128-new-token-per-window cap. These repeated measurements supersede their earlier single-pass observations.
+
+Full samples, per-case settings, all retained outputs, memory data, source/library/audio hashes and reproduction commands: [three-run repeated results](benchmark-results/cpu-attention-epyc/investigation/repeated-validation/report.md).
 
 ## Conclusion
 

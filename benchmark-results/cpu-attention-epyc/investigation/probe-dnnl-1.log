@@ -1,5 +1,0 @@
-attention changed=2810/192000 max=1.04308e-07 first=11136 last=191999
-QK full-vs-block changed=49712/4500000 max=1.66893e-06 first=261001 last=4169999
-PV same-probabilities full-vs-block changed=463/192000 max=5.21541e-08 first=93440 last=191999
-quantized changed=0/192000
-quantization-scales changed=16/1500 max=0.000488281 first=254 last=1499

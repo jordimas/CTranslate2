@@ -1,9 +1,0 @@
-[  2%] Built target utils
-[  9%] Built target cpu_features
-[  9%] Building CXX object CMakeFiles/ctranslate2.dir/src/layers/attention.cc.o
-/home/jupyter/CTranslate2/src/layers/attention.cc: In member function ‘void ctranslate2::layers::MultiHeadAttention::process_cross_attention(const ctranslate2::StorageView&, const ctranslate2::StorageView&, ctranslate2::StorageView&, ctranslate2::StorageView&, ctranslate2::StorageView&, ctranslate2::StorageView&, ctranslate2::StorageView*, ctranslate2::StorageView*, const ctranslate2::Padder*, const ctranslate2::Padder*, ctranslate2::dim_t&, bool, bool*) const’:
-/home/jupyter/CTranslate2/src/layers/attention.cc:499:28: warning: unused parameter ‘queries’ [-Wunused-parameter]
-  499 |         const StorageView& queries,
-      |         ~~~~~~~~~~~~~~~~~~~^~~~~~~
-[  9%] Linking CXX shared library libctranslate2.so
-[100%] Built target ctranslate2

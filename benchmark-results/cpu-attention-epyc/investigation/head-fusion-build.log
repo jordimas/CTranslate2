@@ -1,9 +1,0 @@
-[  2%] Built target utils
-[  9%] Built target cpu_features
-[ 10%] Building CXX object CMakeFiles/ctranslate2.dir/src/ops/fused_attention.cc.o
-/home/jupyter/CTranslate2/src/ops/fused_attention.cc: In member function ‘bool ctranslate2::ops::FusedAttention::compute(const ctranslate2::StorageView&, const ctranslate2::StorageView&, const ctranslate2::StorageView&, const ctranslate2::StorageView*, float, bool, ctranslate2::StorageView&) const [with ctranslate2::Device D = ctranslate2::Device::CPU]’:
-/home/jupyter/CTranslate2/src/ops/fused_attention.cc:90:16: warning: comparison of integer expressions of different signedness: ‘const dim_t’ {aka ‘const long int’} and ‘long unsigned int’ [-Wsign-compare]
-   90 |         if (tq > fused_attention_dnnl_scores_bytes / sizeof(float) / tk)
-      |             ~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[ 10%] Linking CXX shared library libctranslate2.so
-[100%] Built target ctranslate2

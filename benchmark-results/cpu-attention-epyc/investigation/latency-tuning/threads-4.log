@@ -1,1 +1,0 @@
-CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=0 PV=0

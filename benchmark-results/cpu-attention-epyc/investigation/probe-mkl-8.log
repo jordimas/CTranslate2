@@ -1,5 +1,0 @@
-attention changed=0/192000 max=0 first=-1 last=-1
-QK full-vs-block changed=0/4500000 max=0 first=-1 last=-1
-PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
-quantized changed=0/192000
-quantization-scales changed=0/1500 max=0 first=-1 last=-1

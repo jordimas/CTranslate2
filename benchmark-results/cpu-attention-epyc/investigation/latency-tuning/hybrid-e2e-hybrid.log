@@ -1,7 +1,0 @@
-CT2 hybrid INT8 packing active: packed queries<=5, raw fallback otherwise
-CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=0 PV=0
-CT2 hybrid INT8 packed compute active
-warm-up 54.07913060999999
-timed 0 53.24936698599777
-timed 1 54.03163023099478
-timed 2 54.01705400100036

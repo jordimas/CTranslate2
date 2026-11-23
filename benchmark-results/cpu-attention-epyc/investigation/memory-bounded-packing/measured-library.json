@@ -1,6 +1,0 @@
-{
-  "sha256": "3391f3492ef5e78eba015cfa493cf7d3b2f3c32fca662eb6edf8b951607dc50b",
-  "snapshot": "/tmp/ct2-attn-variants/memory-pack-measured/libctranslate2.so.4.9.0",
-  "mode": "compact",
-  "note": "Timing used explicit compact mode; the final build also makes compact the default and rejects unknown mode names."
-}

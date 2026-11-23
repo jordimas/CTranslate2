@@ -1,0 +1,52 @@
+[
+ {
+  "model": "large-v3",
+  "compute_type": "int8_float32",
+  "fused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked up at the sky, and I saw the stars, and I saw the stars that I had never seen before.",
+   "audio_seconds": 60.0,
+   "times": [
+    56.45525076099875,
+    56.45300800000405,
+    56.014913025996066
+   ]
+  },
+  "unfused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked up at the sky, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars,",
+   "audio_seconds": 60.0,
+   "times": [
+    58.78306883699406,
+    58.77562441799819,
+    58.53021702100523
+   ]
+  },
+  "speedup": 1.0424201038448067,
+  "quality": "WER(fused vs unfused) = 0.5380",
+  "identical": false
+ },
+ {
+  "model": "large-v3",
+  "compute_type": "float32",
+  "fused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge.",
+   "audio_seconds": 60.0,
+   "times": [
+    46.64546463899751,
+    47.79600489199947,
+    46.109452276999946
+   ]
+  },
+  "unfused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge.",
+   "audio_seconds": 60.0,
+   "times": [
+    50.39052995599923,
+    50.703877111998736,
+    48.426899743994
+   ]
+  },
+  "speedup": 1.0638230250545724,
+  "quality": "WER(fused vs unfused) = 0.0000",
+  "identical": true
+ }
+]

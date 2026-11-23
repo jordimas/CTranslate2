@@ -223,6 +223,65 @@ All four gates (x86_64 Linux, Windows, Linux ARM, macOS arm64) end in success. B
 - Not checked: which of the commits between `ef20cc8d8` and `bc96a06c7` matters on ARM (the plan above attributes it to the block-wise softmax), and a gate run with `CT2_CPU_FUSED_ATTENTION=0` on this commit to confirm the fused path runs on ARM for Whisper.
 - The llama.cpp comparison above is superseded for the ARM WER question: the cause was the online softmax of the old kernel, not the `beta = 1` accumulation or the exp precision, so the untested 64-key-chunk experiment is not needed for it.
 
+### Machine: AMD EPYC 7B13 (8 physical cores / 16 threads, 62 GiB RAM, Linux VM)
+
+**Temperature caveat for the original EPYC matrix:** these Whisper measurements used faster-whisper’s default temperature fallback sequence, not fixed temperature zero. The large-v3 rows are superseded by the controlled rerun below; the other Whisper rows have not been rerun.
+
+Run on 2026-11-22. Branch `877d7efe`; master baseline `origin/master` at `88e735ac` (4.9.1). The local `master` ref was older, so the baseline uses the locally available `origin/master` ref; no fetch was performed. Both built CPU-only, Release, GCC 10.2.1, `-msse4.1`, MKL 2025.3, oneDNN 3.1.1, `OPENMP_RUNTIME=COMP`, with separate install prefixes and Python extensions. Pinned to CPUs 0–7 (one logical CPU per physical core), 8 threads, `OMP_PROC_BIND=true OMP_PLACES=cores`. Linux 5.10.0-46-cloud-amd64, Python 3.11, Transformers 4.57.6.
+
+Whisper: local `english_60s.mp3`, exactly 60 s, language `en`, beam 5; this is different audio from the Catalan benchmarks above. One warm-up and 3 timed runs per mode, each mode in a separate process. Branch then master for each model, sequentially. NLLB and XLM-R: batch 4 × 512 tokens; NLLB greedy up to 128 output tokens; Gemma: batch 4 × 512 prompt tokens plus 32 generated tokens, int8 only. Means ± sample standard deviations in seconds. Master uses only the `unfused` rows.
+
+| model | compute | branch fused (s) | branch unfused (s) | master unfused (s) | speedup vs branch unfused | speedup vs master | quality (fused vs unfused) |
+|---|---|---|---|---|---|---|---|
+| medium | int8_float32 | 16.60 ± 0.68 | 16.78 ± 0.28 | 16.96 ± 0.34 | 1.01x | 1.02x | WER(fused vs unfused) = 0.0077 |
+| medium | float32 | 18.82 ± 0.38 | 20.56 ± 0.26 | 19.84 ± 0.40 | 1.09x | 1.05x | identical |
+| large-v3 | int8_float32 | 155.15 ± 5.65 | 152.48 ± 10.78 | 145.17 ± 16.71 | 0.98x | 0.94x | WER(fused vs unfused) = 0.4521 |
+| large-v3 | float32 | 141.33 ± 21.66 | 166.86 ± 5.85 | 162.30 ± 18.49 | 1.18x | 1.15x | WER(fused vs unfused) = 0.3946 |
+| nllb | int8_float32 | 5.52 ± 0.01 | 5.58 ± 0.03 | 6.05 ± 0.54 | 1.01x | 1.09x | WER(fused vs unfused) = 0.0625 |
+| nllb | float32 | 11.73 ± 0.86 | 11.97 ± 0.75 | 12.42 ± 0.17 | 1.02x | 1.06x | identical |
+| xlm-roberta | int8_float32 | 0.41 ± 0.00 | 0.46 ± 0.02 | 0.46 ± 0.02 | 1.12x | 1.12x | max \|fused - unfused\| = 2.73e-02 |
+| xlm-roberta | float32 | 0.66 ± 0.01 | 0.65 ± 0.00 | 0.65 ± 0.00 | 0.98x | 0.99x | max \|fused - unfused\| = 1.19e-07 |
+| gemma-3-4b | int8_float32 | 19.57 ± 0.82 | 19.82 ± 0.69 | 19.80 ± 0.59 | 1.01x | 1.01x | WER(fused vs unfused) = 0.0645 |
+
+Whisper real-time factor (elapsed seconds / audio seconds; lower is faster):
+
+| model | compute | branch fused RTF | branch unfused RTF | master RTF |
+|---|---|---|---|---|
+| medium | int8_float32 | 0.277 | 0.280 | 0.283 |
+| medium | float32 | 0.314 | 0.343 | 0.331 |
+| large-v3 | int8_float32 | 2.586 | 2.541 | 2.419 |
+| large-v3 | float32 | 2.355 | 2.781 | 2.705 |
+
+- CPU correctness checks: 370 passed, 18 skipped; the dedicated `OpTest.FusedAttentionCPUMatchesMaterializedPath` test passed separately.
+- The unchanged-output goal is not met on this machine. Medium int8 differs only by one comma (the script reports WER 0.0077 because it retains punctuation). NLLB int8 and Gemma int8 have token differences; their reported WER is over tokenizer pieces, not decoded natural-language words. XLM-R int8 has a maximum difference of 0.0273 in the pooled vectors. Medium and NLLB float32 outputs are identical; XLM-R float32 differs by 1.19e-7.
+- Large-v3 is unusually slow (141–167 s for 60 s of audio) and its retained transcripts have long, differing continuations after the passage transcribed by medium. Both float32 and int8 differ between fused and unfused. Timings are variable and include these different decode workloads, so they do not establish an attention speedup or regression. This run does not isolate the cause.
+- Crucially, master large-v3 also gives different transcripts between its two switch settings (which execute the same code): WER 0.3067 int8 and 0.2857 float32. All other master rows are identical between settings. Large-v3 therefore has a reproducibility problem beyond the branch fused path in this setup; its branch differences cannot be attributed solely to fusion.
+- Quality compares fused and unfused outputs, without a reference transcript; it does not measure absolute transcription accuracy. For XLM-R the benchmark compares mean-pooled hidden-state vectors, not every hidden-state element. For translation and generation it compares the first sequence of the repeated batch, and for all models it retains the last timed output.
+- Artifacts: `benchmark-results/cpu-attention-epyc/` contains raw JSON, logs, build/linkage details, environment metadata, and the runner scripts. Models and conversions are cached in `/tmp/ct2-cpu-plan-models` and `/tmp/ct2-cpu-plan-hf`.
+
+#### Large-v3 rerun with temperature fixed at zero (2026-11-23)
+
+Same CPU builds, affinity, threads, audio, language, beam size, one warm-up and three timed runs as the EPYC matrix above. The benchmark now explicitly passes `temperature=0.0` to Whisper, disabling nonzero-temperature sampling fallback. Only large-v3 was rerun. Original results are preserved in the preceding table and the original JSON files. The requirement is committed as `dcc918b0`; the libraries remain built from branch `877d7efe` and master `88e735ac`.
+
+| compute | branch fused (s) | branch unfused (s) | master unfused (s) | speedup vs branch unfused | speedup vs master | quality (branch fused vs unfused) |
+|---|---|---|---|---|---|---|
+| int8_float32 | 56.31 ± 0.25 | 58.70 ± 0.14 | 58.57 ± 0.26 | 1.04x | 1.04x | WER(fused vs unfused) = 0.5380 |
+| float32 | 46.85 ± 0.86 | 49.84 ± 1.23 | 50.03 ± 1.09 | 1.06x | 1.07x | identical |
+
+Real-time factors:
+
+| compute | branch fused RTF | branch unfused RTF | master RTF |
+|---|---|---|---|
+| int8_float32 | 0.938 | 0.978 | 0.976 |
+| float32 | 0.781 | 0.831 | 0.834 |
+
+- Fixing temperature substantially reduces runtime and timing variability relative to the original fallback-enabled runs. Float32 branch outputs are now identical. Int8 branch outputs still differ (WER 0.5380): they match through the passage transcribed by medium, then diverge in an added ending, with unfused repeating “I saw the stars” many times. Different decode workloads limit the interpretation of the int8 speedup.
+- This script retains only the last timed transcript per mode; it does not prove that every warm-up and timed repetition produces the same output.
+- Branch unfused and master unfused retained transcripts match exactly in both compute types. The remaining int8 output difference is between the branch fused path and these matching baselines.
+- Raw results, logs, and metadata: `benchmark-results/cpu-attention-epyc/temperature-zero/`.
+- Master `int8_float32` switch comparison (same code in both settings): WER(fused vs unfused) = 0.0000; outputs identical.
+- Master `float32` switch comparison (same code in both settings): WER(fused vs unfused) = 0.0000; outputs identical.
+
 ## Conclusion
 
 (Fill in after all machines have run.)

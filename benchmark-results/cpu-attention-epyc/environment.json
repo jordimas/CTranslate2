@@ -1,0 +1,28 @@
+{
+  "branch_revision": "877d7efeaeac9f475a83de924898ee5b15c11998",
+  "master_revision": "88e735ac42a2a97c7c10daec4e7ce9db49edf562",
+  "baseline_ref": "origin/master (local master is older)",
+  "platform": "Linux-5.10.0-46-cloud-amd64-x86_64-with-glibc2.31",
+  "cpu": "AMD EPYC 7B13",
+  "physical_cores": 8,
+  "logical_cpus": 16,
+  "affinity": "0-7",
+  "threads": 8,
+  "audio": "english_60s.mp3",
+  "audio_sha256": "a1925aded7cb39b48172fa16dcf41562e3cea55f28cf92af3d18737d8232267f",
+  "language": "en",
+  "seconds": 60,
+  "beam_size": 5,
+  "warmups": 1,
+  "timed_runs": 3,
+  "compiler": "GCC 10.2.1",
+  "backends": [
+    "MKL",
+    "oneDNN"
+  ],
+  "build_type": "Release",
+  "cpu_only": true,
+  "cxx_flags": "-msse4.1",
+  "openmp": "COMP",
+  "transformers": "4.57.6"
+}

@@ -14,6 +14,7 @@ standard deviation, real-time factor (Whisper only) and quality metrics. The qua
 metrics are the word error rate (WER) between the outputs of the two modes and whether
 they match exactly (for the encoder: the largest difference of the output vectors), plus
 the WER of each mode against --reference when given (Whisper only).
+Whisper uses temperature 0 with no higher-temperature sampling fallback.
 
 Models other than Whisper are converted from the Hugging Face cache on first use, which
 needs `transformers` and `torch` in the Python environment.
@@ -99,7 +100,8 @@ def worker(args):
                              cpu_threads=args.threads)
 
         def transcribe():
-            segments, _ = model.transcribe(audio, language=args.language, beam_size=args.beam_size)
+            segments, _ = model.transcribe(audio, language=args.language,
+                                          beam_size=args.beam_size, temperature=0.0)
             return " ".join(segment.text.strip() for segment in segments)
 
         times, text = timed(transcribe, args.runs)

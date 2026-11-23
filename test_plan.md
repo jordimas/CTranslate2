@@ -22,6 +22,8 @@ The non-Whisper models are converted from the Hugging Face cache on first use (n
 1. Build `master` and this branch (CPU build, same flags), and install each into its own prefix.
 2. Pin to one thread per physical core, then run the script against each build:
 
+   Whisper must pass `temperature=0.0` explicitly to `model.transcribe` (as `tools/benchmark_encoder_fuse.py` does). Do not use faster-whisper's default temperature sequence: it can retry with nonzero-temperature sampling, changing transcripts and decode times. Use the same fixed temperature for fused, unfused, and master runs, and record it with the results. Earlier results that did not fix the temperature must be identified as fallback-enabled and cannot establish deterministic output agreement.
+
    ```
    LD_LIBRARY_PATH=<prefix>/lib taskset -c <physical cores> \
        python tools/benchmark_encoder_fuse.py --audio <audio> --duration 60 \

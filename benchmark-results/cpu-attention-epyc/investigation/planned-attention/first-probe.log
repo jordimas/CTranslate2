@@ -1,0 +1,6 @@
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9959/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=162450/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1

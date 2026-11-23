@@ -1,0 +1,5 @@
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7
+warm-up 48.51451215900306
+timed 0 47.24215122900205
+timed 1 50.06124101400201
+timed 2 49.094667299999855

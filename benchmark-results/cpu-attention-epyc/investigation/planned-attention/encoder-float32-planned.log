@@ -1,0 +1,2 @@
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7
+{"times": [3.8306756199963274, 3.8635859499991057, 3.8571386089970474]}

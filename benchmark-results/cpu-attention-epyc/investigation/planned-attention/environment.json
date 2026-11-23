@@ -1,0 +1,90 @@
+{
+  "date": "2026-11-23",
+  "ct2_revision": "eb9f7fb051d94f9ec359342a7ce23ba4278932d3",
+  "cpu": "AMD EPYC 7B13",
+  "effective_onednn_isa": "AVX2",
+  "onednn_version": "3.1.1",
+  "platform": "Linux-5.10.0-46-cloud-amd64-x86_64-with-glibc2.31",
+  "affinity": "0-7",
+  "threads": 8,
+  "temperature": 0.0,
+  "beam": 5,
+  "language": "en",
+  "seconds": 60,
+  "warmups": 1,
+  "timed_runs": 3,
+  "plan_target": 256,
+  "effective_tiles": [
+    240,
+    240,
+    240,
+    240,
+    240,
+    240,
+    60
+  ],
+  "qk_full_column_major_shape": [
+    1500,
+    1500,
+    64
+  ],
+  "qk_microblock": [
+    24,
+    4
+  ],
+  "pv_full_column_major_shape": [
+    64,
+    1500,
+    1500
+  ],
+  "pv_blocks": [
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    60
+  ],
+  "sha256": {
+    "prototype_library": "ef601cdf60f769c47815056a6fab49c836cfb60601595893d646bc55d6632387",
+    "normal_build_library": "21261973734aa2d869b2d7ba92a7572cb65a6bff6993eee1a7af4f2446b49b5e",
+    "head_snapshot": "21261973734aa2d869b2d7ba92a7572cb65a6bff6993eee1a7af4f2446b49b5e",
+    "onednn_archive": "7f220d7ce1638be1a2b4653b3721668fbc4a9ff0a8c0004c30e1fc9e765191b6",
+    "onednn_source_tarball": "d1cd58f57b2308d362a9bc474acbc21524cb879cf5d8779b460c718f0fac82d6",
+    "audio": "a1925aded7cb39b48172fa16dcf41562e3cea55f28cf92af3d18737d8232267f"
+  },
+  "current_source_sha256": {
+    "tools/onednn_attention_plan/benchmark.py": "4048dbb456b8a181a9bd9a34549746d2ba272b263c3c30e8df4e09af2936932f",
+    "tools/onednn_attention_plan/README.md": "5878826f273ffc5cff30271c997e7fd70d17f65f3b5264ae3154ecf6cb1493b0",
+    "tools/onednn_attention_plan/plan.h": "7e6d2f6d954ee729ab2eb2a401e10ce0cdcd7ad093d4250bd3059ec00d5a8442",
+    "tools/onednn_attention_plan/validate.py": "59690aef6d5eb1a0e49c982edc7d2b018ddd94306b190219c536f9027583196c",
+    "tools/onednn_attention_plan/transcribe.py": "2e06b5931baae526d10188b297a30b775fdd039c905c01b3d4ef0c231869c263",
+    "tools/onednn_attention_plan/build.py": "f5d073bf81eee6910d89137bc931ee80ecc4c4f92e7e555be056ee749e0024f1",
+    "tools/onednn_attention_plan/plan.cc": "c87800c148817fc91cbd19b4562eea25f76c2d12f74aaa50ea0ec96416f8e019"
+  }
+}

@@ -1,0 +1,10 @@
+Starting int8_float32 regular
+Finished int8_float32 regular 58.43995681933544 0.1859732002443398
+Starting int8_float32 planned
+Finished int8_float32 planned 56.86671352100044 0.16927593803124302
+int8_float32 exact text: True exact segments: True
+Starting float32 planned
+Finished float32 planned 48.7993531810013 1.4325587686488461
+Starting float32 regular
+Finished float32 regular 49.04398810066535 1.1623482462963959
+float32 exact text: True exact segments: True

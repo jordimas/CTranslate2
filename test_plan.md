@@ -323,6 +323,49 @@ Same benchmark setup as the controlled EPYC rerun: 8 physical cores, beam 5, 60 
 
 Raw data, logs, shape probes, and validation runner: `benchmark-results/cpu-attention-epyc/investigation/head-fusion/`. As before, the benchmark retains only the last timed output in each mode; these comparisons do not establish corpus-level accuracy or bit identity on untested oneDNN versions and CPUs.
 
+#### Follow-up: performance exploration and framework-derived hypotheses (2026-11-23)
+
+The committed oneDNN whole-head compatibility fix remains unchanged during these experiments. Experimental libraries live under `/tmp/ct2-attn-variants/`. The detailed [framework comparison and hypothesis log](benchmark-results/cpu-attention-epyc/investigation/performance-exploration/framework-hypotheses.md) distinguishes source evidence, tested ideas and untested proposals; it is not a benchmark of those frameworks.
+
+Sources inspected: [PyTorch CPU FlashAttention](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/cpu/FlashAttentionKernel.cpp#L1106) uses workload-dependent tiles and capability checks; [OpenVINO oneDNN attention](https://github.com/openvinotoolkit/openvino/blob/master/src/plugins/intel_cpu/src/nodes/scaled_attn.cpp#L299) caches explicit BRGEMM plans, manages scratch and packs keys per KV head; [oneDNN Graph](https://github.com/uxlfoundation/oneDNN/blob/main/src/graph/backend/dnnl/kernels/sdp_decomp_config.cpp#L90) considers head/batch parallelism; [ONNX Runtime CPU attention](https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/contrib_ops/cpu/bert/attention_cpu_base.h#L274) exposes batch/row work to MLAS and combines mask/bias with softmax; [ggml CPU attention](https://github.com/ggml-org/llama.cpp/blob/master/ggml/src/ggml-cpu/ops.cpp#L8512) owns its tiled SIMD matmul and scratch layout. None establishes bit identity with CT2's existing oneDNN GEMMs.
+
+Hypotheses under investigation:
+
+- **H1, aligned uninitialized scratch:** avoid zero-initializing scores that GEMM overwrites. Initial paired op measurements show only a small (about 2–4%) gain over whole-head fusion. Allocation policy and alignment change together; no end-to-end benefit is assumed.
+- **H2, shape-specific query tiling:** 192- and 240-query tiles match the tested large-v3 encoder in both compute types, unlike 256-query tiles. For the 1500-query/key, depth-64 shape, both candidates passed a total of 240 randomized bitwise comparisons (120 each), using two thread counts and three input magnitudes. Other shapes have counterexamples, so these constants are not a general replacement. Full transcription checks completed: all eight outputs per compute type (warm-up plus three timed runs in each mode) have identical text and segment timestamps. Final encoder tensors also match bit-for-bit.
+- **H3, explicit BRGEMM and packing:** cache kernel plans and pack keys once across query blocks. This requires an appropriate API and numerical validation; our oneDNN 3.1.1 install lacks the newer public ukernel interface used in PyTorch's wrapper. A follow-up below implements the planning/packing architecture with the existing private SGEMM kernels; a new BRGEMM backend remains unimplemented.
+- **H4/H5, workspace lifetime and scheduling:** test bounded workspace reuse and adapt outer-head versus inner-GEMM parallelism. Persistent worker buffers need explicit release semantics, and changing threading can change rounding. Not implemented.
+- **H6, scale placement:** investigate GEMM alpha versus explicit post-GEMM scaling, which upstream attention kernels use. Changing this only in the fused path can introduce further reference differences; it is a hypothesis, not a validated fix.
+- **H7, end-to-end ceiling:** a one-pass int8 profile took 58.61 s, of which 9.35 s was encoding across three calls (15.95%). A 14.1% reduction in first-window encoder time would therefore suggest only about a 2% total-time reduction if representative. This is a projection; full-transcription timing is measured separately.
+
+
+Measured large-v3 follow-up results, same EPYC, oneDNN 3.1.1, eight cores, temperature 0, beam 5, one warm-up and three timed repetitions. Tile240 includes the aligned scratch change. Encoder timing is the first 30-second window; full transcription uses the entire 60-second clip.
+
+| compute | encoder regular → tile240 (s) | encoder time reduction | full regular → tile240 (s, mean ± sample SD) | full time reduction |
+|---|---|---|---|---|
+| int8_float32 | 2.893 → 2.485 | 14.1% | 57.69 ± 0.13 → 56.43 ± 0.31 | 2.2% |
+| float32 | 4.221 → 3.738 | 11.4% | 49.48 ± 1.21 → 47.69 ± 1.23 | 3.6% |
+
+These are local results on one CPU and clip; float32 variability is material relative to the gain. Relative to the committed whole-head fix, isolated encoder time falls 9.3% (int8) / 7.5% (float32). No production tile whitelist was introduced: other shapes have numerical counterexamples and other backend versions/ISAs remain unvalidated. The strongest longer-term hypothesis is **full-shape GEMM planning with explicit tiled execution and key packing**, following OpenVINO's architecture; it requires API work and its own parity tests. See [measurements, limitations and reproduction patches](benchmark-results/cpu-attention-epyc/investigation/performance-exploration/report.md).
+
+
+#### Prototype: full-shape planning with tiled execution (2026-11-23)
+
+Implemented an isolated [experimental adapter and runners](tools/onednn_attention_plan/README.md), leaving the production kernel unchanged. It links against the existing oneDNN 3.1.1 archive using matching private headers. QK creates a full-shape SGEMM plan, reuses its copy/compute kernels and packs keys once per head. PV explicitly preserves the reference no-copy strategy and its full-query block/tail schedule. It uses the original SGEMM arithmetic, not a new BRGEMM kernel. A 256-query workspace target groups the preplanned ranges into 240-query outer tiles plus a 60-query tail.
+
+Scope: unmasked 1500-query/key, depth-64 attention, scale 0.125, effective AVX2, oneDNN 3.1.1 and at least two batch/head entries. Other cases retain whole-head fusion. Matching private headers/archive are required; this is not a production dependency or dispatch policy.
+
+Validation: 228 randomized cases across seven outer targets, two thread counts and three input magnitudes match QK scores, attention, quantized bytes and scales exactly. Both fused-attention regressions pass. Real large-v3 final first-window encoder tensors match bit-for-bit in both compute types. The single-thread PV control still differs under generic 256-query blocking, demonstrating why internal block/tail boundaries belong in the plan.
+
+Fresh comparisons, eight physical cores, one encoder warm-up and three timed runs: planned operator 24.67 ms versus whole-head 29.02 ms (15.0% less elapsed time); encoder regular → planned is 2.884 → 2.569 s for int8_float32 (10.9% less) and 4.144 → 3.850 s for float32 (7.1% less). The earlier tile240 experiment remains faster than this conservative private-driver prototype. Full-transcription results (temperature 0, beam 5, one warm-up plus three timed runs, mean ± sample SD):
+
+| Compute | Regular mean ± SD, s | Planned mean ± SD, s | Time reduction | Speedup |
+|---|---|---|---|---|
+| int8_float32 | 58.44 ± 0.19 | 56.87 ± 0.17 | 2.7% | 1.028x |
+| float32 | 49.04 ± 1.16 | 48.80 ± 1.43 | 0.5% | 1.005x |
+
+All eight outputs per compute type have identical text and segment timestamps. The 0.5% float32 difference is within timing variability and is treated as flat. This is one CPU and one clip, not corpus-level accuracy or a general speedup. Detailed evidence, source/API limitations and reproduction commands are in [the planned execution report](benchmark-results/cpu-attention-epyc/investigation/planned-attention/report.md).
+
 ## Conclusion
 
 (Fill in after all machines have run.)

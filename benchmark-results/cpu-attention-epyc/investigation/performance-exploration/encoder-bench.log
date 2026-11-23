@@ -1,0 +1,20 @@
+Encoder int8_float32 regular
+{'times': [2.950614695000695, 2.8573791260059807, 2.8712790259960457], 'compute': 'int8_float32', 'variant': 'regular', 'changed': 0, 'max_diff': 0.0}
+Encoder int8_float32 head
+{'times': [2.7356369479966816, 2.7440861169961863, 2.7402706579960068], 'compute': 'int8_float32', 'variant': 'head', 'changed': 0, 'max_diff': 0.0}
+Encoder int8_float32 workspace
+{'times': [2.7005858789998456, 2.7156095879981876, 2.7044053680001525], 'compute': 'int8_float32', 'variant': 'workspace', 'changed': 0, 'max_diff': 0.0}
+Encoder int8_float32 tile192
+{'times': [2.707250227998884, 2.9459769550012425, 2.9600963840057375], 'compute': 'int8_float32', 'variant': 'tile192', 'changed': 0, 'max_diff': 0.0}
+Encoder int8_float32 tile240
+{'times': [2.48371333200339, 2.471886531006021, 2.4992641219942016], 'compute': 'int8_float32', 'variant': 'tile240', 'changed': 0, 'max_diff': 0.0}
+Encoder float32 regular
+{'times': [4.149234445998445, 4.258040973996685, 4.254261574002157], 'compute': 'float32', 'variant': 'regular', 'changed': 0, 'max_diff': 0.0}
+Encoder float32 head
+{'times': [4.0308626080004615, 3.973091827996541, 4.11331767700176], 'compute': 'float32', 'variant': 'head', 'changed': 0, 'max_diff': 0.0}
+Encoder float32 workspace
+{'times': [3.9265352290021838, 3.9702955890024896, 4.00210836900078], 'compute': 'float32', 'variant': 'workspace', 'changed': 0, 'max_diff': 0.0}
+Encoder float32 tile192
+{'times': [3.6872892629980925, 3.7325252930022543, 3.7548617709981045], 'compute': 'float32', 'variant': 'tile192', 'changed': 0, 'max_diff': 0.0}
+Encoder float32 tile240
+{'times': [3.7126629019985558, 3.7517550319971633, 3.749454101998708], 'compute': 'float32', 'variant': 'tile240', 'changed': 0, 'max_diff': 0.0}

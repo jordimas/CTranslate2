@@ -1,0 +1,112 @@
+[
+  {
+    "compute": "int8_float32",
+    "variant": "regular",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "int8_float32",
+    "variant": "head",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "int8_float32",
+    "variant": "workspace",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "int8_float32",
+    "variant": "tile192",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "int8_float32",
+    "variant": "tile240",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "float32",
+    "variant": "regular",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "float32",
+    "variant": "head",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "float32",
+    "variant": "workspace",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "float32",
+    "variant": "tile192",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  },
+  {
+    "compute": "float32",
+    "variant": "tile240",
+    "shape": [
+      1,
+      1500,
+      1280
+    ],
+    "changed_float_bits": 0,
+    "bitwise_identical": true
+  }
+]

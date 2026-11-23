@@ -1,0 +1,212 @@
+{
+  "randomized_exact_cases": 228,
+  "focused_regression_tests_passed": 2,
+  "end_to_end": [
+    {
+      "compute": "int8_float32",
+      "all_texts_identical": true,
+      "all_segments_identical": true,
+      "outputs_compared": 8,
+      "regular": {
+        "mean": 58.43995681933544,
+        "stdev": 0.1859732002443398,
+        "times": [
+          58.259294866002165,
+          58.42975434300024,
+          58.63082124900393
+        ]
+      },
+      "planned": {
+        "mean": 56.86671352100044,
+        "stdev": 0.16927593803124302,
+        "times": [
+          56.704192969998985,
+          56.85392781799601,
+          57.04201977500634
+        ]
+      },
+      "time_reduction_percent": 2.6920678658244324,
+      "speedup": 1.0276654513849128
+    },
+    {
+      "compute": "float32",
+      "all_texts_identical": true,
+      "all_segments_identical": true,
+      "outputs_compared": 8,
+      "regular": {
+        "mean": 49.04398810066535,
+        "stdev": 1.1623482462963959,
+        "times": [
+          49.71764064099989,
+          49.71249641999748,
+          47.70182724099868
+        ]
+      },
+      "planned": {
+        "mean": 48.7993531810013,
+        "stdev": 1.4325587686488461,
+        "times": [
+          47.24215122900205,
+          50.06124101400201,
+          49.094667299999855
+        ]
+      },
+      "time_reduction_percent": 0.4988071507600944,
+      "speedup": 1.0050130770946222
+    }
+  ],
+  "encoder": [
+    {
+      "times": [
+        2.9679839840027853,
+        2.847351524993428,
+        2.8361261150057544
+      ],
+      "compute": "int8_float32",
+      "variant": "regular",
+      "changed_float_bits": 0,
+      "mean": 2.8838205413339892,
+      "stdev": 0.07310346276850113
+    },
+    {
+      "times": [
+        2.7256243970041396,
+        2.7358005169953685,
+        3.0057719420001376
+      ],
+      "compute": "int8_float32",
+      "variant": "head",
+      "changed_float_bits": 0,
+      "mean": 2.8223989519998818,
+      "stdev": 0.15888715634293535
+    },
+    {
+      "times": [
+        2.4676905410015024,
+        2.430725332000293,
+        2.4365301110010478
+      ],
+      "compute": "int8_float32",
+      "variant": "tile240",
+      "changed_float_bits": 0,
+      "mean": 2.4449819946676143,
+      "stdev": 0.019879195714632363
+    },
+    {
+      "times": [
+        2.5926176099965232,
+        2.5497205199935706,
+        2.5660020890063606
+      ],
+      "compute": "int8_float32",
+      "variant": "planned",
+      "changed_float_bits": 0,
+      "mean": 2.569446739665485,
+      "stdev": 0.021655006264208465
+    },
+    {
+      "times": [
+        4.113099735994183,
+        4.1899946440025815,
+        4.1298799049982335
+      ],
+      "compute": "float32",
+      "variant": "regular",
+      "changed_float_bits": 0,
+      "mean": 4.144324761665,
+      "stdev": 0.040431387961552503
+    },
+    {
+      "times": [
+        4.135504115001822,
+        4.392221392001375,
+        4.187977594003314
+      ],
+      "compute": "float32",
+      "variant": "head",
+      "changed_float_bits": 0,
+      "mean": 4.238567700335504,
+      "stdev": 0.13562986109829536
+    },
+    {
+      "times": [
+        3.722297302003426,
+        3.740995430998737,
+        3.7672627110005124
+      ],
+      "compute": "float32",
+      "variant": "tile240",
+      "changed_float_bits": 0,
+      "mean": 3.7435184813342253,
+      "stdev": 0.022588632955877794
+    },
+    {
+      "times": [
+        3.8306756199963274,
+        3.8635859499991057,
+        3.8571386089970474
+      ],
+      "compute": "float32",
+      "variant": "planned",
+      "changed_float_bits": 0,
+      "mean": 3.850466726330827,
+      "stdev": 0.01744012525633924
+    }
+  ],
+  "operator": [
+    {
+      "variant": "head",
+      "repeat": 0,
+      "regular": 33.5379,
+      "fused": 28.5974
+    },
+    {
+      "variant": "head",
+      "repeat": 1,
+      "regular": 35.1338,
+      "fused": 29.3204
+    },
+    {
+      "variant": "head",
+      "repeat": 2,
+      "regular": 34.3938,
+      "fused": 29.1538
+    },
+    {
+      "variant": "tile",
+      "repeat": 0,
+      "regular": 32.2368,
+      "fused": 21.9967
+    },
+    {
+      "variant": "tile",
+      "repeat": 1,
+      "regular": 34.32,
+      "fused": 22.1507
+    },
+    {
+      "variant": "tile",
+      "repeat": 2,
+      "regular": 35.2938,
+      "fused": 22.238
+    },
+    {
+      "variant": "planned",
+      "repeat": 0,
+      "regular": 33.4013,
+      "fused": 24.5735
+    },
+    {
+      "variant": "planned",
+      "repeat": 1,
+      "regular": 32.8888,
+      "fused": 24.6114
+    },
+    {
+      "variant": "planned",
+      "repeat": 2,
+      "regular": 33.2584,
+      "fused": 24.8152
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <random>
 #include <vector>
@@ -15,15 +16,17 @@ void compare(const char* label, const StorageView& a, const StorageView& b) {
   size_t changed=0; double maxdiff=0; dim_t first=-1,last=-1;
   for(dim_t i=0;i<a.size();++i) {
     double diff=std::abs(double(a.data<float>()[i])-b.data<float>()[i]);
-    if(diff!=0) {if(first<0) first=i; last=i;}
-    changed += diff!=0; maxdiff=std::max(maxdiff,diff);
+    bool different=std::memcmp(a.data<float>()+i,b.data<float>()+i,sizeof(float))!=0;
+    if(different) {if(first<0) first=i; last=i;}
+    changed += different; maxdiff=std::max(maxdiff,diff);
   }
   std::cout<<label<<" changed="<<changed<<"/"<<a.size()<<" max="<<maxdiff<<" first="<<first<<" last="<<last<<"\n";
 }
 int main(int argc,char** argv) {
   omp_set_num_threads(argc>1?std::atoi(argv[1]):8);
   const dim_t h=2,t=argc>2?std::atoi(argv[2]):1500,d=argc>3?std::atoi(argv[3]):64;
-  std::mt19937 rng(123); std::normal_distribution<float> dist(0,1);
+  std::mt19937 rng(argc>4?std::atoi(argv[4]):123);
+  std::normal_distribution<float> dist(0,argc>5?std::atof(argv[5]):1);
   auto make=[&](){std::vector<float> data(h*t*d);for(auto& x:data)x=dist(rng);return StorageView({1,h,t,d},data);};
   auto q=make(),k=make(),v=make();
   StorageView scores,probs,expected,actual;

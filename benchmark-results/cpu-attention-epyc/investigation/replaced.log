@@ -1,0 +1,36 @@
+ATTN_DIAG call=0 queries=1500 keys=1500 changed=25431/1920000 max=7.15256e-07 quantized_flips=0
+ATTN_DIAG call=1 queries=1500 keys=1500 changed=23850/1920000 max=2.38419e-07 quantized_flips=0
+ATTN_DIAG call=2 queries=1500 keys=1500 changed=24327/1920000 max=3.12924e-07 quantized_flips=0
+ATTN_DIAG call=3 queries=1500 keys=1500 changed=23879/1920000 max=1.19209e-07 quantized_flips=0
+ATTN_DIAG call=4 queries=1500 keys=1500 changed=23713/1920000 max=2.98023e-07 quantized_flips=0
+ATTN_DIAG call=5 queries=1500 keys=1500 changed=24029/1920000 max=1.78814e-07 quantized_flips=0
+ATTN_DIAG call=6 queries=1500 keys=1500 changed=23591/1920000 max=2.98023e-07 quantized_flips=0
+ATTN_DIAG call=7 queries=1500 keys=1500 changed=24113/1920000 max=1.19209e-07 quantized_flips=0
+ATTN_DIAG call=8 queries=1500 keys=1500 changed=24143/1920000 max=2.98023e-07 quantized_flips=0
+ATTN_DIAG call=9 queries=1500 keys=1500 changed=23857/1920000 max=1.78814e-07 quantized_flips=0
+ATTN_DIAG call=10 queries=1500 keys=1500 changed=24435/1920000 max=4.06057e-07 quantized_flips=0
+ATTN_DIAG call=11 queries=1500 keys=1500 changed=23401/1920000 max=1.78814e-07 quantized_flips=0
+ATTN_DIAG call=12 queries=1500 keys=1500 changed=24232/1920000 max=1.19209e-07 quantized_flips=0
+ROUND_DIAG call=13 index=1533676 fused=-0.0192635097 ref=-0.0192635134 scale_a=337.42569 scale_b=337.42572 scaled_a=121.5 scaled_b=121.499992 q_a=122 q_b=121
+ATTN_DIAG call=13 queries=1500 keys=1500 changed=23982/1920000 max=3.57628e-07 quantized_flips=1
+ATTN_DIAG call=14 queries=1500 keys=1500 changed=23620/1920000 max=8.9407e-08 quantized_flips=0
+ROUND_DIAG call=15 index=982308 fused=-0.0676526204 ref=-0.0676525533 scale_a=184.767578 scale_b=184.767639 scaled_a=115.499992 scaled_b=115.5 q_a=115 q_b=116
+ATTN_DIAG call=15 queries=1500 keys=1500 changed=24435/1920000 max=4.17233e-07 quantized_flips=1
+ATTN_DIAG call=16 queries=1500 keys=1500 changed=25394/1920000 max=3.71278e-07 quantized_flips=0
+ATTN_DIAG call=17 queries=1500 keys=1500 changed=24259/1920000 max=3.27826e-07 quantized_flips=0
+ATTN_DIAG call=18 queries=1500 keys=1500 changed=24315/1920000 max=3.12924e-07 quantized_flips=0
+ATTN_DIAG call=19 queries=1500 keys=1500 changed=24066/1920000 max=2.68221e-07 quantized_flips=0
+ATTN_DIAG call=20 queries=1500 keys=1500 changed=24541/1920000 max=7.30157e-07 quantized_flips=0
+ATTN_DIAG call=21 queries=1500 keys=1500 changed=23901/1920000 max=2.98023e-07 quantized_flips=0
+ATTN_DIAG call=22 queries=1500 keys=1500 changed=25035/1920000 max=5.96046e-07 quantized_flips=0
+ATTN_DIAG call=23 queries=1500 keys=1500 changed=25394/1920000 max=1.72853e-06 quantized_flips=0
+ATTN_DIAG call=24 queries=1500 keys=1500 changed=25120/1920000 max=2.68221e-07 quantized_flips=0
+ATTN_DIAG call=25 queries=1500 keys=1500 changed=25367/1920000 max=6.55651e-07 quantized_flips=0
+ATTN_DIAG call=26 queries=1500 keys=1500 changed=25946/1920000 max=3.57628e-07 quantized_flips=0
+ATTN_DIAG call=27 queries=1500 keys=1500 changed=25670/1920000 max=5.36442e-07 quantized_flips=0
+ATTN_DIAG call=28 queries=1500 keys=1500 changed=25709/1920000 max=4.61936e-07 quantized_flips=0
+ATTN_DIAG call=29 queries=1500 keys=1500 changed=25753/1920000 max=6.4075e-07 quantized_flips=0
+ATTN_DIAG call=30 queries=1500 keys=1500 changed=26222/1920000 max=7.45058e-07 quantized_flips=0
+ROUND_DIAG call=31 index=982645 fused=0.158654094 ref=0.158654168 scale_a=78.7877884 scale_b=78.7878113 scaled_a=140.5 scaled_b=140.500015 q_a=140 q_b=141
+ATTN_DIAG call=31 queries=1500 keys=1500 changed=26305/1920000 max=7.7486e-07 quantized_flips=1
+encoded (1, 1500, 1280) seconds 9.703065670000797

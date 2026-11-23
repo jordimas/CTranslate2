@@ -282,6 +282,47 @@ Real-time factors:
 - Master `int8_float32` switch comparison (same code in both settings): WER(fused vs unfused) = 0.0000; outputs identical.
 - Master `float32` switch comparison (same code in both settings): WER(fused vs unfused) = 0.0000; outputs identical.
 
+#### EPYC int8 numerical diagnosis (2026-11-23)
+
+The remaining final-kernel difference was reproduced without decoding or sampling. This AMD build defaults to **oneDNN for both float32 and int8 GEMM**, despite being compiled with MKL too; verbose backend logs confirm it. A fixed-input attention probe shows that oneDNN changes float32 GEMM rounding when the query matrix is blocked (1500 rows versus blocks of at most 256). Attention outputs differ by about 1e-7 even with one thread. With `CT2_USE_MKL=1`, the same probe is bit-identical.
+
+On real large-v3 encoder inputs (first 30 s of the local audio), a same-input layer comparison records an int8 activation-byte change despite a maximum attention-output difference of only 2.16e-7 at that layer. Another captured example scales almost equal attention values to 121.500000 and 121.499992, which round to different unsigned bytes (122 and 121). Per-row quantization scales can also differ. These discrete changes propagate through later layers: final encoder max difference is 10.5271 for int8_float32 versus 0.00124416 for float32 on this input.
+
+Two controls localize the problem: replacing each fused attention result with its regular-path result restores the unfused int8 encoder bit-for-bit; forcing MKL also gives bit-identical fused/unfused int8 encoder outputs (all 1,920,000 elements). The uninstrumented installed library reproduces the instrumented fused encoder output exactly. The evidence supports shape-dependent float32 GEMM rounding amplified by activation quantization; a race is not needed to explain this reproduction. The block-wise softmax fix alone cannot guarantee equivalence across GEMM backends.
+
+Full 60-second large-v3 transcription with MKL forced, int8_float32, temperature 0 and beam 5 also gives identical fused/unfused transcripts (247 words; one separate process per setting). This verifies the workaround on this input, not its performance or generality.
+
+Detailed evidence, the quantization-boundary values, probe source, logs, and the temporary diagnostic patch are in [the investigation report](benchmark-results/cpu-attention-epyc/investigation/report.md). Diagnostic source changes were restored before implementing the follow-up conditional described below. The existing approximate attention unit test can pass while these small float differences cross int8 thresholds.
+
+#### Remedies considered for the oneDNN/int8 output difference
+
+- **Immediate compatibility workaround:** set `CT2_CPU_FUSED_ATTENTION=0` before starting the process. This retains the existing oneDNN backend and runs regular attention, giving the matching branch-unfused/master baseline seen above. It gives up the CPU fused-attention optimization for the process.
+- **Tested alternative backend:** set `CT2_USE_MKL=1` before starting the process, when the library was built with MKL. The EPYC fixed-input probe, int8 encoder, and full 60-second int8 transcript all match between fused and unfused with this setting. This changes both float32 and int8 GEMM backends, including other layers; its performance and compatibility on other inputs are not established. Do not select it automatically as a presumed speed improvement.
+- **Conservative source fallback considered:** bypass CPU fused attention for `int8_float32` models when the active float32 GEMM backend is oneDNN. Check the runtime-selected backend, not merely whether oneDNN was compiled in. The attention tensors themselves are float32 in both float32 and int8_float32 models, so the model's effective compute type would need to reach the dispatch decision; inspecting Q/K/V dtype alone cannot make this distinction. This would give up fusion for the affected int8 case. It was not implemented: the follow-up uses whole-head fusion on oneDNN instead, covering both compute types without needing a model-type flag.
+- **Longer-term optimization:** find a query-blocked GEMM strategy whose per-element results match regular attention across the relevant shapes and threading modes, then test both attention output and the resulting quantized bytes/scales. Merely adjusting the softmax precision or tolerance does not fix a difference already introduced in GEMM. Sweeps found block sizes that fix some shapes but fail others; no generally compatible query-blocked strategy has been validated here. The following conditional preserves the full GEMM dimensions instead.
+
+#### oneDNN conditional retaining fused attention (2026-11-23)
+
+Implemented a backend-specific path: oneDNN fuses the attention stages per whole head, keeping the full query and key dimensions of the regular GEMMs, including masked keys. Other backends keep the existing query-blocked kernel. This preserves fusion without switching GEMM providers. oneDNN score scratch is capped at 64 MiB per worker; shapes exceeding that cap fall back to regular attention. The existing limit of 8192 keys remains.
+
+For large-v3 (20 heads, 1500 queries/keys, 8 workers), score workspace is about 72 MB instead of the regular 180 MB tensor. This uses more scratch than query blocking (about 1.5 MB per worker for this shape), trading some memory savings for numerical compatibility.
+
+Validation on this EPYC / oneDNN 3.1.1 build: 30 fixed-input shapes match regular attention bit-for-bit; masked exact-comparison regression cases pass; real large-v3 encoder outputs match bit-for-bit in both int8_float32 and float32. The new regression fails against the original installed library and passes against the patched library. Full CPU suite: 371 passed, 18 skipped. Other hardware/backends were not rerun.
+
+Same benchmark setup as the controlled EPYC rerun: 8 physical cores, beam 5, 60 s of English audio, temperature 0, one warm-up and three timed runs. Non-Whisper workloads are unchanged. Medium was not rerun. Means ± sample standard deviations:
+
+| model | compute | fused (s) | unfused (s) | speedup | output agreement |
+|---|---|---|---|---|---|
+| large-v3 | int8_float32 | 57.73 ± 0.05 | 57.65 ± 0.20 | 1.00x | identical |
+| large-v3 | float32 | 49.12 ± 0.35 | 47.77 ± 1.93 | 0.97x | identical |
+| nllb | int8_float32 | 5.78 ± 0.30 | 5.80 ± 0.03 | 1.00x | identical |
+| nllb | float32 | 11.62 ± 0.62 | 11.90 ± 1.38 | 1.02x | identical |
+| xlm-roberta | int8_float32 | 0.43 ± 0.00 | 0.48 ± 0.02 | 1.10x | identical |
+| xlm-roberta | float32 | 0.66 ± 0.01 | 0.66 ± 0.00 | 1.00x | identical |
+| gemma-3-4b | int8_float32 | 20.08 ± 0.69 | 20.01 ± 0.66 | 1.00x | identical |
+
+Raw data, logs, shape probes, and validation runner: `benchmark-results/cpu-attention-epyc/investigation/head-fusion/`. As before, the benchmark retains only the last timed output in each mode; these comparisons do not establish corpus-level accuracy or bit identity on untested oneDNN versions and CPUs.
+
 ## Conclusion
 
 (Fill in after all machines have run.)

@@ -1,0 +1,7 @@
+model        compute       mode      avg (s)  std (s)    RTF
+large-v3     int8_float32  fused       57.73     0.05  0.962
+large-v3     int8_float32  unfused     57.65     0.20  0.961
+  -> fused is 1.00x vs unfused; WER(fused vs unfused) = 0.0000; outputs identical
+large-v3     float32       fused       49.12     0.35  0.819
+large-v3     float32       unfused     47.77     1.93  0.796
+  -> fused is 0.97x vs unfused; WER(fused vs unfused) = 0.0000; outputs identical

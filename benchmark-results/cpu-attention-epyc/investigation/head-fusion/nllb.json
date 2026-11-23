@@ -1,0 +1,48 @@
+[
+ {
+  "model": "nllb",
+  "compute_type": "int8_float32",
+  "fused": {
+   "text": "cat_Latn \u2581El \u2581Consell \u2581municipal \u2581es \u2581va \u2581reunir \u2581el \u2581martes \u2581a \u2581la \u2581tarda \u2581per \u2581discutir \u2581el \u2581nou \u2581pla \u2581de \u2581transport , \u2581que \u2581afeg iria \u2581tres \u2581l\u00ed nies \u2581de \u2581autob \u00fas \u2581i \u2581est end ria \u2581la \u2581xarxa \u2581de \u2581cic les \u2581als \u2581dist ri ctes \u2581del \u2581nord . \u2581V arios \u2581residents \u2581van \u2581parlar \u2581en \u2581favor , \u2581argument ant \u2581que \u2581el \u2581servei \u2581actual \u2581\u00e9s \u2581massa \u2581lent \u2581i \u2581massa \u2581inf re qu ent , \u2581mentre \u2581que \u2581els \u2581propiet aris \u2581de \u2581boti gues \u2581es \u2581preocupa ven \u2581per \u2581la \u2581p\u00e8rdua \u2581de \u2581places \u2581de \u2581apar cament \u2581prop \u2581del \u2581mercat . \u2581Despr\u00e9s \u2581de \u2581dos \u2581hores \u2581de \u2581debat , \u2581el \u2581Consell \u2581va \u2581acord ar \u2581est endre \u2581un \u2581debat \u2581d ' un \u2581any \u2581i \u2581revis ar \u2581els \u2581resultats \u2581abans \u2581de \u2581decidir \u2581sobre \u2581els \u2581canvis \u2581perman ents . \u2581El \u2581Consell",
+   "times": [
+    5.611877934003132,
+    5.594222414001706,
+    6.121683807003137
+   ]
+  },
+  "unfused": {
+   "text": "cat_Latn \u2581El \u2581Consell \u2581municipal \u2581es \u2581va \u2581reunir \u2581el \u2581martes \u2581a \u2581la \u2581tarda \u2581per \u2581discutir \u2581el \u2581nou \u2581pla \u2581de \u2581transport , \u2581que \u2581afeg iria \u2581tres \u2581l\u00ed nies \u2581de \u2581autob \u00fas \u2581i \u2581est end ria \u2581la \u2581xarxa \u2581de \u2581cic les \u2581als \u2581dist ri ctes \u2581del \u2581nord . \u2581V arios \u2581residents \u2581van \u2581parlar \u2581en \u2581favor , \u2581argument ant \u2581que \u2581el \u2581servei \u2581actual \u2581\u00e9s \u2581massa \u2581lent \u2581i \u2581massa \u2581inf re qu ent , \u2581mentre \u2581que \u2581els \u2581propiet aris \u2581de \u2581boti gues \u2581es \u2581preocupa ven \u2581per \u2581la \u2581p\u00e8rdua \u2581de \u2581places \u2581de \u2581apar cament \u2581prop \u2581del \u2581mercat . \u2581Despr\u00e9s \u2581de \u2581dos \u2581hores \u2581de \u2581debat , \u2581el \u2581Consell \u2581va \u2581acord ar \u2581est endre \u2581un \u2581debat \u2581d ' un \u2581any \u2581i \u2581revis ar \u2581els \u2581resultats \u2581abans \u2581de \u2581decidir \u2581sobre \u2581els \u2581canvis \u2581perman ents . \u2581El \u2581Consell",
+   "times": [
+    5.82880302099511,
+    5.786161270996672,
+    5.783164171996759
+   ]
+  },
+  "speedup": 1.0040596251864227,
+  "quality": "WER(fused vs unfused) = 0.0000",
+  "identical": true
+ },
+ {
+  "model": "nllb",
+  "compute_type": "float32",
+  "fused": {
+   "text": "cat_Latn \u2581El \u2581cons ell \u2581municipal \u2581es \u2581va \u2581reunir \u2581el \u2581martes \u2581a \u2581la \u2581tarda \u2581per \u2581discutir \u2581el \u2581nou \u2581pla \u2581de \u2581transport , \u2581que \u2581afeg iria \u2581tres \u2581l\u00ed nies \u2581de \u2581autob \u00fas \u2581i \u2581est end ria \u2581la \u2581xarxa \u2581de \u2581cic lis me \u2581als \u2581dist ri ctes \u2581del \u2581nord . \u2581Divers os \u2581residents \u2581van \u2581parlar \u2581a \u2581favor , \u2581argument ant \u2581que \u2581el \u2581servei \u2581actual \u2581\u00e9s \u2581massa \u2581lent \u2581i \u2581massa \u2581inf re qu ent , \u2581mentre \u2581que \u2581els \u2581propiet aris \u2581de \u2581boti gues \u2581es \u2581preocupa ven \u2581per \u2581la \u2581p\u00e8rdua \u2581de \u2581places \u2581de \u2581apar cament \u2581a \u2581prop \u2581del \u2581mercat . \u2581Despr\u00e9s \u2581de \u2581dos \u2581hores \u2581de \u2581debat , \u2581el \u2581cons ell \u2581es \u2581va \u2581acord ar \u2581a \u2581dur \u2581a \u2581terme \u2581un \u2581projecte \u2581de \u2581pilot \u2581i \u2581a \u2581afeg ir \u2581els \u2581resultats \u2581abans \u2581de \u2581decidir \u2581sobre \u2581els",
+   "times": [
+    12.053320526996686,
+    11.892884499000502,
+    10.90189099500276
+   ]
+  },
+  "unfused": {
+   "text": "cat_Latn \u2581El \u2581cons ell \u2581municipal \u2581es \u2581va \u2581reunir \u2581el \u2581martes \u2581a \u2581la \u2581tarda \u2581per \u2581discutir \u2581el \u2581nou \u2581pla \u2581de \u2581transport , \u2581que \u2581afeg iria \u2581tres \u2581l\u00ed nies \u2581de \u2581autob \u00fas \u2581i \u2581est end ria \u2581la \u2581xarxa \u2581de \u2581cic lis me \u2581als \u2581dist ri ctes \u2581del \u2581nord . \u2581Divers os \u2581residents \u2581van \u2581parlar \u2581a \u2581favor , \u2581argument ant \u2581que \u2581el \u2581servei \u2581actual \u2581\u00e9s \u2581massa \u2581lent \u2581i \u2581massa \u2581inf re qu ent , \u2581mentre \u2581que \u2581els \u2581propiet aris \u2581de \u2581boti gues \u2581es \u2581preocupa ven \u2581per \u2581la \u2581p\u00e8rdua \u2581de \u2581places \u2581de \u2581apar cament \u2581a \u2581prop \u2581del \u2581mercat . \u2581Despr\u00e9s \u2581de \u2581dos \u2581hores \u2581de \u2581debat , \u2581el \u2581cons ell \u2581es \u2581va \u2581acord ar \u2581a \u2581dur \u2581a \u2581terme \u2581un \u2581projecte \u2581de \u2581pilot \u2581i \u2581a \u2581afeg ir \u2581els \u2581resultats \u2581abans \u2581de \u2581decidir \u2581sobre \u2581els",
+   "times": [
+    10.303702593002527,
+    12.570210968995525,
+    12.81325968499732
+   ]
+  },
+  "speedup": 1.0240781368798395,
+  "quality": "WER(fused vs unfused) = 0.0000",
+  "identical": true
+ }
+]

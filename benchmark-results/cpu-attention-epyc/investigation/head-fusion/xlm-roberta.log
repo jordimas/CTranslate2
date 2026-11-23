@@ -1,0 +1,19 @@
+/home/jupyter/CTranslate2/.cache/cpu-plan/venv/lib/python3.11/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Token indices sequence length is longer than the specified maximum sequence length for this model (1386 > 512). Running this sequence through the model will result in indexing errors
+model        compute       mode      avg (s)  std (s)    RTF
+xlm-roberta  int8_float32  fused        0.43     0.00      -
+/home/jupyter/CTranslate2/.cache/cpu-plan/venv/lib/python3.11/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Token indices sequence length is longer than the specified maximum sequence length for this model (1386 > 512). Running this sequence through the model will result in indexing errors
+xlm-roberta  int8_float32  unfused      0.48     0.02      -
+  -> fused is 1.10x vs unfused; max |fused - unfused| = 0.00e+00; outputs identical
+/home/jupyter/CTranslate2/.cache/cpu-plan/venv/lib/python3.11/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Token indices sequence length is longer than the specified maximum sequence length for this model (1386 > 512). Running this sequence through the model will result in indexing errors
+xlm-roberta  float32       fused        0.66     0.01      -
+/home/jupyter/CTranslate2/.cache/cpu-plan/venv/lib/python3.11/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Token indices sequence length is longer than the specified maximum sequence length for this model (1386 > 512). Running this sequence through the model will result in indexing errors
+xlm-roberta  float32       unfused      0.66     0.00      -
+  -> fused is 1.00x vs unfused; max |fused - unfused| = 0.00e+00; outputs identical

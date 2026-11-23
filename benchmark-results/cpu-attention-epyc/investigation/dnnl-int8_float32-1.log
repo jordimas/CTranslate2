@@ -1,0 +1,43 @@
+[2026-11-23 06:41:11.506] [ctranslate2] [thread 44] [info] CPU: AuthenticAMD (SSE4.1=true, AVX=true, AVX2=true, AVX512=false)
+[2026-11-23 06:41:11.506] [ctranslate2] [thread 44] [info]  - Selected ISA: AVX2
+[2026-11-23 06:41:11.506] [ctranslate2] [thread 44] [info]  - Use Intel MKL: false
+[2026-11-23 06:41:11.506] [ctranslate2] [thread 44] [info]  - SGEMM backend: DNNL (packed: false)
+[2026-11-23 06:41:11.506] [ctranslate2] [thread 44] [info]  - GEMM_S16 backend: none (packed: false)
+[2026-11-23 06:41:11.506] [ctranslate2] [thread 44] [info]  - GEMM_S8 backend: DNNL (packed: false, u8s8 preferred: true)
+[2026-11-23 06:41:14.520] [ctranslate2] [thread 44] [info] Loaded model /tmp/ct2-cpu-plan-models/large-v3 on device cpu:0
+[2026-11-23 06:41:14.520] [ctranslate2] [thread 44] [info]  - Binary version: 6
+[2026-11-23 06:41:14.520] [ctranslate2] [thread 44] [info]  - Model specification revision: 3
+[2026-11-23 06:41:14.520] [ctranslate2] [thread 44] [info]  - Selected compute type: int8_float32
+ATTN_DIAG call=0 queries=1500 keys=1500 changed=25431/1920000 max=7.15256e-07 quantized_flips=0
+ATTN_DIAG call=1 queries=1500 keys=1500 changed=23884/1920000 max=3.12924e-07 quantized_flips=0
+ATTN_DIAG call=2 queries=1500 keys=1500 changed=24239/1920000 max=2.83122e-07 quantized_flips=0
+ATTN_DIAG call=3 queries=1500 keys=1500 changed=23949/1920000 max=1.19209e-07 quantized_flips=0
+ATTN_DIAG call=4 queries=1500 keys=1500 changed=23701/1920000 max=2.5332e-07 quantized_flips=0
+ATTN_DIAG call=5 queries=1500 keys=1500 changed=23878/1920000 max=1.49012e-07 quantized_flips=0
+ATTN_DIAG call=6 queries=1500 keys=1500 changed=23538/1920000 max=2.16067e-07 quantized_flips=1
+ATTN_DIAG call=7 queries=1500 keys=1500 changed=24106/1920000 max=1.19209e-07 quantized_flips=0
+ATTN_DIAG call=8 queries=1500 keys=1500 changed=23969/1920000 max=2.98023e-07 quantized_flips=0
+ATTN_DIAG call=9 queries=1500 keys=1500 changed=23841/1920000 max=1.78814e-07 quantized_flips=0
+ATTN_DIAG call=10 queries=1500 keys=1500 changed=24438/1920000 max=6.55651e-07 quantized_flips=0
+ATTN_DIAG call=11 queries=1500 keys=1500 changed=23578/1920000 max=2.08616e-07 quantized_flips=0
+ATTN_DIAG call=12 queries=1500 keys=1500 changed=24168/1920000 max=9.31323e-08 quantized_flips=0
+ATTN_DIAG call=13 queries=1500 keys=1500 changed=24011/1920000 max=2.98023e-07 quantized_flips=0
+ATTN_DIAG call=14 queries=1500 keys=1500 changed=23599/1920000 max=8.9407e-08 quantized_flips=0
+ATTN_DIAG call=15 queries=1500 keys=1500 changed=24278/1920000 max=5.66244e-07 quantized_flips=0
+ATTN_DIAG call=16 queries=1500 keys=1500 changed=25189/1920000 max=4.47035e-07 quantized_flips=0
+ATTN_DIAG call=17 queries=1500 keys=1500 changed=24404/1920000 max=3.57628e-07 quantized_flips=0
+ATTN_DIAG call=18 queries=1500 keys=1500 changed=24507/1920000 max=4.47035e-07 quantized_flips=0
+ATTN_DIAG call=19 queries=1500 keys=1500 changed=23944/1920000 max=2.68221e-07 quantized_flips=0
+ATTN_DIAG call=20 queries=1500 keys=1500 changed=24534/1920000 max=5.51343e-07 quantized_flips=0
+ATTN_DIAG call=21 queries=1500 keys=1500 changed=23947/1920000 max=2.38419e-07 quantized_flips=0
+ATTN_DIAG call=22 queries=1500 keys=1500 changed=25077/1920000 max=5.51343e-07 quantized_flips=0
+ATTN_DIAG call=23 queries=1500 keys=1500 changed=25443/1920000 max=8.04663e-07 quantized_flips=0
+ATTN_DIAG call=24 queries=1500 keys=1500 changed=25356/1920000 max=4.17233e-07 quantized_flips=0
+ATTN_DIAG call=25 queries=1500 keys=1500 changed=25381/1920000 max=7.00355e-07 quantized_flips=0
+ATTN_DIAG call=26 queries=1500 keys=1500 changed=26006/1920000 max=4.76837e-07 quantized_flips=0
+ATTN_DIAG call=27 queries=1500 keys=1500 changed=25667/1920000 max=3.57628e-07 quantized_flips=0
+ATTN_DIAG call=28 queries=1500 keys=1500 changed=25549/1920000 max=3.57628e-07 quantized_flips=0
+ATTN_DIAG call=29 queries=1500 keys=1500 changed=25850/1920000 max=6.55651e-07 quantized_flips=0
+ATTN_DIAG call=30 queries=1500 keys=1500 changed=26094/1920000 max=5.96046e-07 quantized_flips=0
+ATTN_DIAG call=31 queries=1500 keys=1500 changed=26360/1920000 max=7.59959e-07 quantized_flips=0
+encoded (1, 1500, 1280) seconds 8.001436576996639

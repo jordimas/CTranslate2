@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "ctranslate2/primitives.h"
+#include "cpu/backend.h"
 #include "cpu/cpu_isa.h"
 #include "cpu/kernels.h"
 #include "cpu/parallel.h"
@@ -27,6 +28,11 @@ namespace ctranslate2 {
     constexpr dim_t fused_attention_max_block_queries = 256;
     constexpr dim_t fused_attention_min_block_queries = 64;
     constexpr dim_t fused_attention_scores_bytes = 2 * 1024 * 1024;
+
+    // oneDNN can round GEMMs differently when their row count changes. Fuse whole
+    // heads instead of query blocks on this backend, preserving the regular GEMM
+    // dimensions. Bound the score scratch allocation per worker for long sequences.
+    constexpr dim_t fused_attention_dnnl_scores_bytes = 64 * 1024 * 1024;
 
     // Block-wise attention for FP32 on CPU. The full [batch, heads, queries, keys] score
     // tensor is never materialized: it is computed, normalized and multiplied by the values one
@@ -76,12 +82,23 @@ namespace ctranslate2 {
         return false;
       if (values_lengths && values_lengths->size() != batch * heads * tq)
         return false;
-
-      const dim_t block_queries = std::min(
-        fused_attention_max_block_queries,
-        fused_attention_scores_bytes / (tk * dim_t(sizeof (float))) / 8 * 8);
-      if (block_queries < fused_attention_min_block_queries)
+      if (tk > fused_attention_scores_bytes / dim_t(sizeof(float)) / fused_attention_min_block_queries)
         return false;
+
+      static const bool use_dnnl = cpu::get_gemm_backend(ComputeType::FLOAT32)
+        == cpu::GemmBackend::DNNL;
+      dim_t block_queries;
+      if (use_dnnl) {
+        if (tq > fused_attention_dnnl_scores_bytes / dim_t(sizeof(float)) / tk)
+          return false;
+        block_queries = tq;
+      } else {
+        block_queries = std::min(
+          fused_attention_max_block_queries,
+          fused_attention_scores_bytes / (tk * dim_t(sizeof (float))) / 8 * 8);
+        if (block_queries < fused_attention_min_block_queries)
+          return false;
+      }
 
       output.resize({batch, heads, tq, depth_v});
 
@@ -123,6 +140,10 @@ namespace ctranslate2 {
             std::fill(out, out + nq * depth_v, 0.f);
             continue;
           }
+
+          // Truncating masked keys would also change oneDNN's GEMM dimensions.
+          if (use_dnnl)
+            max_length = tk;
 
           cpu_primitives::gemm(/*a_is_packed=*/false, /*b_is_packed=*/false,
                                /*transpose_a=*/false, /*transpose_b=*/true,

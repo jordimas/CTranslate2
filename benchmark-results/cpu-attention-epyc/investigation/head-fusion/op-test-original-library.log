@@ -1,0 +1,68 @@
+Note: Google Test filter = OpTest.FusedAttentionCPUPreservesOneDNNGemmResults
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from OpTest
+[ RUN      ] OpTest.FusedAttentionCPUPreservesOneDNNGemmResults
+/home/jupyter/CTranslate2/tests/ops_test.cc:1672: Failure
+Expected equality of these values:
+  std::memcmp(actual.data<float>(), expected.data<float>(), expected.size() * sizeof(float))
+    Which is: -10
+  0
+Google Test trace:
+/home/jupyter/CTranslate2/tests/ops_test.cc:1664: queries=512 keys=512 depth=128 masked=false
+
+/home/jupyter/CTranslate2/tests/ops_test.cc:1672: Failure
+Expected equality of these values:
+  std::memcmp(actual.data<float>(), expected.data<float>(), expected.size() * sizeof(float))
+    Which is: 1
+  0
+Google Test trace:
+/home/jupyter/CTranslate2/tests/ops_test.cc:1664: queries=512 keys=512 depth=128 masked=true
+
+/home/jupyter/CTranslate2/tests/ops_test.cc:1672: Failure
+Expected equality of these values:
+  std::memcmp(actual.data<float>(), expected.data<float>(), expected.size() * sizeof(float))
+    Which is: -16
+  0
+Google Test trace:
+/home/jupyter/CTranslate2/tests/ops_test.cc:1664: queries=600 keys=300 depth=16 masked=false
+
+/home/jupyter/CTranslate2/tests/ops_test.cc:1672: Failure
+Expected equality of these values:
+  std::memcmp(actual.data<float>(), expected.data<float>(), expected.size() * sizeof(float))
+    Which is: -40
+  0
+Google Test trace:
+/home/jupyter/CTranslate2/tests/ops_test.cc:1664: queries=600 keys=300 depth=16 masked=true
+
+/home/jupyter/CTranslate2/tests/ops_test.cc:1672: Failure
+Expected equality of these values:
+  std::memcmp(actual.data<float>(), expected.data<float>(), expected.size() * sizeof(float))
+    Which is: 4
+  0
+Google Test trace:
+/home/jupyter/CTranslate2/tests/ops_test.cc:1664: queries=1500 keys=1500 depth=64 masked=false
+
+/home/jupyter/CTranslate2/tests/ops_test.cc:1672: Failure
+Expected equality of these values:
+  std::memcmp(actual.data<float>(), expected.data<float>(), expected.size() * sizeof(float))
+    Which is: -3
+  0
+Google Test trace:
+/home/jupyter/CTranslate2/tests/ops_test.cc:1664: queries=1500 keys=1500 depth=64 masked=true
+
+/home/jupyter/CTranslate2/tests/ops_test.cc:1681: Failure
+Value of: ops::FusedAttention()(long_queries, long_keys, long_keys, nullptr, 1.f, false, output)
+  Actual: true
+Expected: false
+
+[  FAILED  ] OpTest.FusedAttentionCPUPreservesOneDNNGemmResults (250 ms)
+[----------] 1 test from OpTest (250 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (250 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] OpTest.FusedAttentionCPUPreservesOneDNNGemmResults
+
+ 1 FAILED TEST

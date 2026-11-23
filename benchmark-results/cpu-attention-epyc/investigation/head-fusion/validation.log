@@ -1,0 +1,18 @@
+Encoder int8_float32-0
+Encoder int8_float32-1
+int8_float32 encoder changed 0 max 0.0
+Encoder float32-0
+Encoder float32-1
+float32 encoder changed 0 max 0.0
+Benchmark large-v3
+large-v3 int8_float32 WER(fused vs unfused) = 0.0000 identical True
+large-v3 float32 WER(fused vs unfused) = 0.0000 identical True
+Benchmark nllb
+nllb int8_float32 WER(fused vs unfused) = 0.0000 identical True
+nllb float32 WER(fused vs unfused) = 0.0000 identical True
+Benchmark xlm-roberta
+xlm-roberta int8_float32 max |fused - unfused| = 0.00e+00 identical True
+xlm-roberta float32 max |fused - unfused| = 0.00e+00 identical True
+Benchmark gemma-3-4b
+gemma-3-4b int8_float32 WER(fused vs unfused) = 0.0000 identical True
+VALIDATION COMPLETE

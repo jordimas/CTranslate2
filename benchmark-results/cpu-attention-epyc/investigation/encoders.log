@@ -1,0 +1,9 @@
+Starting dnnl-int8_float32-0
+Starting dnnl-int8_float32-1
+dnnl-int8_float32-1 changed 1920000 / 1920000 max 10.527070045471191
+Starting dnnl-float32-0
+Starting dnnl-float32-1
+dnnl-float32-1 changed 1890839 / 1920000 max 0.0012441575527191162
+Starting mkl-int8_float32-0
+Starting mkl-int8_float32-1
+mkl-int8_float32-1 changed 0 / 1920000 max 0.0

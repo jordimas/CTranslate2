@@ -1,0 +1,11 @@
+[2026-11-23 06:41:19.859] [ctranslate2] [thread 67] [info] CPU: AuthenticAMD (SSE4.1=true, AVX=true, AVX2=true, AVX512=false)
+[2026-11-23 06:41:19.859] [ctranslate2] [thread 67] [info]  - Selected ISA: AVX2
+[2026-11-23 06:41:19.859] [ctranslate2] [thread 67] [info]  - Use Intel MKL: false
+[2026-11-23 06:41:19.859] [ctranslate2] [thread 67] [info]  - SGEMM backend: DNNL (packed: false)
+[2026-11-23 06:41:19.859] [ctranslate2] [thread 67] [info]  - GEMM_S16 backend: none (packed: false)
+[2026-11-23 06:41:19.859] [ctranslate2] [thread 67] [info]  - GEMM_S8 backend: DNNL (packed: false, u8s8 preferred: true)
+[2026-11-23 06:41:23.074] [ctranslate2] [thread 67] [info] Loaded model /tmp/ct2-cpu-plan-models/large-v3 on device cpu:0
+[2026-11-23 06:41:23.074] [ctranslate2] [thread 67] [info]  - Binary version: 6
+[2026-11-23 06:41:23.074] [ctranslate2] [thread 67] [info]  - Model specification revision: 3
+[2026-11-23 06:41:23.074] [ctranslate2] [thread 67] [info]  - Selected compute type: float32
+encoded (1, 1500, 1280) seconds 7.629725062004582

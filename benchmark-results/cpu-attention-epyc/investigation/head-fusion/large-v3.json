@@ -1,0 +1,52 @@
+[
+ {
+  "model": "large-v3",
+  "compute_type": "int8_float32",
+  "fused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked up at the sky, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars,",
+   "audio_seconds": 60.0,
+   "times": [
+    57.77674623499479,
+    57.72680740600481,
+    57.680738187002135
+   ]
+  },
+  "unfused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked up at the sky, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars, and I saw the stars,",
+   "audio_seconds": 60.0,
+   "times": [
+    57.44945553100115,
+    57.6576304170012,
+    57.855895284003054
+   ]
+  },
+  "speedup": 0.9987221092995193,
+  "quality": "WER(fused vs unfused) = 0.0000",
+  "identical": true
+ },
+ {
+  "model": "large-v3",
+  "compute_type": "float32",
+  "fused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge.",
+   "audio_seconds": 60.0,
+   "times": [
+    49.192945185997814,
+    48.738738113999716,
+    49.429833693000546
+   ]
+  },
+  "unfused": {
+   "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning, yet I returned home feeling refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge. I looked around, and I found a small, quiet park with lots of trees and a narrow wooden bridge.",
+   "audio_seconds": 60.0,
+   "times": [
+    45.86070519799978,
+    47.73000627900183,
+    49.72202742900117
+   ]
+  },
+  "speedup": 0.9725248615132832,
+  "quality": "WER(fused vs unfused) = 0.0000",
+  "identical": true
+ }
+]

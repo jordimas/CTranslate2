@@ -1,0 +1,1195 @@
+CT2 hybrid INT8 packing active: mode=compact raw_copy=0
+BEGIN m=1 beta=0 pattern=0
+CT2 hybrid INT8 packed compute active
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=0 beta=0 changed=95 padding=0
+BEGIN m=1 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=0 beta=1 changed=95 padding=0
+BEGIN m=1 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=0 beta=-1 changed=95 padding=0
+BEGIN m=1 beta=0.5 pattern=0
+BEGIN m=2 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=0 beta=0 changed=190 padding=0
+BEGIN m=2 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=0 beta=1 changed=190 padding=0
+BEGIN m=2 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=0 beta=-1 changed=190 padding=0
+BEGIN m=2 beta=0.5 pattern=0
+BEGIN m=3 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=0 beta=0 changed=285 padding=0
+BEGIN m=3 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=0 beta=1 changed=285 padding=0
+BEGIN m=3 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=0 beta=-1 changed=285 padding=0
+BEGIN m=3 beta=0.5 pattern=0
+BEGIN m=4 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=0 beta=0 changed=380 padding=0
+BEGIN m=4 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=0 beta=1 changed=380 padding=0
+BEGIN m=4 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=0 beta=-1 changed=380 padding=0
+BEGIN m=4 beta=0.5 pattern=0
+BEGIN m=5 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=0 beta=0 changed=475 padding=0
+BEGIN m=5 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=0 beta=1 changed=475 padding=0
+BEGIN m=5 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=0 beta=-1 changed=475 padding=0
+BEGIN m=5 beta=0.5 pattern=0
+BEGIN m=6 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=0 beta=0 changed=570 padding=0
+BEGIN m=6 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=0 beta=1 changed=570 padding=0
+BEGIN m=6 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=0 beta=-1 changed=570 padding=0
+BEGIN m=6 beta=0.5 pattern=0
+BEGIN m=9 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=0 beta=0 changed=855 padding=0
+BEGIN m=9 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=0 beta=1 changed=855 padding=0
+BEGIN m=9 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=0 beta=-1 changed=855 padding=0
+BEGIN m=9 beta=0.5 pattern=0
+BEGIN m=10 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=0 beta=0 changed=950 padding=0
+BEGIN m=10 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=0 beta=1 changed=950 padding=0
+BEGIN m=10 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=0 beta=-1 changed=950 padding=0
+BEGIN m=10 beta=0.5 pattern=0
+BEGIN m=11 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=0 beta=0 changed=1045 padding=0
+BEGIN m=11 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=0 beta=1 changed=1045 padding=0
+BEGIN m=11 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=0 beta=-1 changed=1045 padding=0
+BEGIN m=11 beta=0.5 pattern=0
+BEGIN m=16 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=0 beta=0 changed=1520 padding=0
+BEGIN m=16 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=0 beta=1 changed=1520 padding=0
+BEGIN m=16 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=0 beta=-1 changed=1520 padding=0
+BEGIN m=16 beta=0.5 pattern=0
+BEGIN m=31 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=0 beta=0 changed=2945 padding=0
+BEGIN m=31 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=0 beta=1 changed=2945 padding=0
+BEGIN m=31 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=0 beta=-1 changed=2945 padding=0
+BEGIN m=31 beta=0.5 pattern=0
+BEGIN m=64 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=0 beta=0 changed=6080 padding=0
+BEGIN m=64 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=0 beta=1 changed=6080 padding=0
+BEGIN m=64 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=0 beta=-1 changed=6080 padding=0
+BEGIN m=64 beta=0.5 pattern=0
+BEGIN m=127 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=0 beta=0 changed=12065 padding=0
+BEGIN m=127 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=0 beta=1 changed=12063 padding=0
+BEGIN m=127 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=0 beta=-1 changed=12065 padding=0
+BEGIN m=127 beta=0.5 pattern=0
+BEGIN m=128 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=0 beta=0 changed=12158 padding=0
+BEGIN m=128 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=0 beta=1 changed=12159 padding=0
+BEGIN m=128 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=0 beta=-1 changed=12160 padding=0
+BEGIN m=128 beta=0.5 pattern=0
+BEGIN m=129 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=0 beta=0 changed=12254 padding=0
+BEGIN m=129 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=0 beta=1 changed=12255 padding=0
+BEGIN m=129 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=0 beta=-1 changed=12255 padding=0
+BEGIN m=129 beta=0.5 pattern=0
+BEGIN m=223 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=0 beta=0 changed=21185 padding=0
+BEGIN m=223 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=0 beta=1 changed=21185 padding=0
+BEGIN m=223 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=0 beta=-1 changed=21185 padding=0
+BEGIN m=223 beta=0.5 pattern=0
+BEGIN m=224 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=0 beta=0 changed=21280 padding=0
+BEGIN m=224 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=0 beta=1 changed=21280 padding=0
+BEGIN m=224 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=0 beta=-1 changed=21280 padding=0
+BEGIN m=224 beta=0.5 pattern=0
+BEGIN m=225 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=0 beta=0 changed=21375 padding=0
+BEGIN m=225 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=0 beta=1 changed=21375 padding=0
+BEGIN m=225 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=0 beta=-1 changed=21375 padding=0
+BEGIN m=225 beta=0.5 pattern=0
+BEGIN m=448 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=0 beta=0 changed=42559 padding=0
+BEGIN m=448 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=0 beta=1 changed=42560 padding=0
+BEGIN m=448 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=0 beta=-1 changed=42560 padding=0
+BEGIN m=448 beta=0.5 pattern=0
+BEGIN m=449 beta=0 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=0 beta=0 changed=42655 padding=0
+BEGIN m=449 beta=1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=0 beta=1 changed=42655 padding=0
+BEGIN m=449 beta=-1 pattern=0
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=0 beta=-1 changed=42655 padding=0
+BEGIN m=449 beta=0.5 pattern=0
+shape complete pack_threads=8 compute_threads=1 n=127 k=127 pattern=0 cases=80 failures=60
+BEGIN m=1 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=1 beta=0 changed=95 padding=0
+BEGIN m=1 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=1 beta=1 changed=95 padding=0
+BEGIN m=1 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=1 beta=-1 changed=95 padding=0
+BEGIN m=1 beta=0.5 pattern=1
+BEGIN m=2 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=1 beta=0 changed=190 padding=0
+BEGIN m=2 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=1 beta=1 changed=190 padding=0
+BEGIN m=2 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=1 beta=-1 changed=190 padding=0
+BEGIN m=2 beta=0.5 pattern=1
+BEGIN m=3 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=1 beta=0 changed=285 padding=0
+BEGIN m=3 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=1 beta=1 changed=285 padding=0
+BEGIN m=3 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=1 beta=-1 changed=285 padding=0
+BEGIN m=3 beta=0.5 pattern=1
+BEGIN m=4 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=1 beta=0 changed=380 padding=0
+BEGIN m=4 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=1 beta=1 changed=380 padding=0
+BEGIN m=4 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=1 beta=-1 changed=380 padding=0
+BEGIN m=4 beta=0.5 pattern=1
+BEGIN m=5 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=1 beta=0 changed=475 padding=0
+BEGIN m=5 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=1 beta=1 changed=475 padding=0
+BEGIN m=5 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=1 beta=-1 changed=475 padding=0
+BEGIN m=5 beta=0.5 pattern=1
+BEGIN m=6 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=1 beta=0 changed=570 padding=0
+BEGIN m=6 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=1 beta=1 changed=570 padding=0
+BEGIN m=6 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=1 beta=-1 changed=570 padding=0
+BEGIN m=6 beta=0.5 pattern=1
+BEGIN m=9 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=1 beta=0 changed=855 padding=0
+BEGIN m=9 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=1 beta=1 changed=855 padding=0
+BEGIN m=9 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=1 beta=-1 changed=855 padding=0
+BEGIN m=9 beta=0.5 pattern=1
+BEGIN m=10 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=1 beta=0 changed=950 padding=0
+BEGIN m=10 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=1 beta=1 changed=950 padding=0
+BEGIN m=10 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=1 beta=-1 changed=950 padding=0
+BEGIN m=10 beta=0.5 pattern=1
+BEGIN m=11 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=1 beta=0 changed=1045 padding=0
+BEGIN m=11 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=1 beta=1 changed=1045 padding=0
+BEGIN m=11 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=1 beta=-1 changed=1045 padding=0
+BEGIN m=11 beta=0.5 pattern=1
+BEGIN m=16 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=1 beta=0 changed=1520 padding=0
+BEGIN m=16 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=1 beta=1 changed=1520 padding=0
+BEGIN m=16 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=1 beta=-1 changed=1520 padding=0
+BEGIN m=16 beta=0.5 pattern=1
+BEGIN m=31 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=1 beta=0 changed=2945 padding=0
+BEGIN m=31 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=1 beta=1 changed=2945 padding=0
+BEGIN m=31 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=1 beta=-1 changed=2945 padding=0
+BEGIN m=31 beta=0.5 pattern=1
+BEGIN m=64 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=1 beta=0 changed=6080 padding=0
+BEGIN m=64 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=1 beta=1 changed=6080 padding=0
+BEGIN m=64 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=1 beta=-1 changed=6080 padding=0
+BEGIN m=64 beta=0.5 pattern=1
+BEGIN m=127 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=1 beta=0 changed=12064 padding=0
+BEGIN m=127 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=1 beta=1 changed=12065 padding=0
+BEGIN m=127 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=1 beta=-1 changed=12065 padding=0
+BEGIN m=127 beta=0.5 pattern=1
+BEGIN m=128 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=1 beta=0 changed=12160 padding=0
+BEGIN m=128 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=1 beta=1 changed=12160 padding=0
+BEGIN m=128 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=1 beta=-1 changed=12160 padding=0
+BEGIN m=128 beta=0.5 pattern=1
+BEGIN m=129 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=1 beta=0 changed=12255 padding=0
+BEGIN m=129 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=1 beta=1 changed=12255 padding=0
+BEGIN m=129 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=1 beta=-1 changed=12255 padding=0
+BEGIN m=129 beta=0.5 pattern=1
+BEGIN m=223 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=1 beta=0 changed=21185 padding=0
+BEGIN m=223 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=1 beta=1 changed=21185 padding=0
+BEGIN m=223 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=1 beta=-1 changed=21185 padding=0
+BEGIN m=223 beta=0.5 pattern=1
+BEGIN m=224 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=1 beta=0 changed=21279 padding=0
+BEGIN m=224 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=1 beta=1 changed=21280 padding=0
+BEGIN m=224 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=1 beta=-1 changed=21280 padding=0
+BEGIN m=224 beta=0.5 pattern=1
+BEGIN m=225 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=1 beta=0 changed=21375 padding=0
+BEGIN m=225 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=1 beta=1 changed=21375 padding=0
+BEGIN m=225 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=1 beta=-1 changed=21374 padding=0
+BEGIN m=225 beta=0.5 pattern=1
+BEGIN m=448 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=1 beta=0 changed=42560 padding=0
+BEGIN m=448 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=1 beta=1 changed=42560 padding=0
+BEGIN m=448 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=1 beta=-1 changed=42560 padding=0
+BEGIN m=448 beta=0.5 pattern=1
+BEGIN m=449 beta=0 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=1 beta=0 changed=42655 padding=0
+BEGIN m=449 beta=1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=1 beta=1 changed=42655 padding=0
+BEGIN m=449 beta=-1 pattern=1
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=1 beta=-1 changed=42655 padding=0
+BEGIN m=449 beta=0.5 pattern=1
+shape complete pack_threads=8 compute_threads=1 n=127 k=127 pattern=1 cases=160 failures=120
+BEGIN m=1 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=2 beta=0 changed=95 padding=0
+BEGIN m=1 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=2 beta=1 changed=95 padding=0
+BEGIN m=1 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=2 beta=-1 changed=95 padding=0
+BEGIN m=1 beta=0.5 pattern=2
+BEGIN m=2 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=2 beta=0 changed=190 padding=0
+BEGIN m=2 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=2 beta=1 changed=190 padding=0
+BEGIN m=2 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=2 beta=-1 changed=190 padding=0
+BEGIN m=2 beta=0.5 pattern=2
+BEGIN m=3 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=2 beta=0 changed=285 padding=0
+BEGIN m=3 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=2 beta=1 changed=285 padding=0
+BEGIN m=3 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=2 beta=-1 changed=285 padding=0
+BEGIN m=3 beta=0.5 pattern=2
+BEGIN m=4 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=2 beta=0 changed=380 padding=0
+BEGIN m=4 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=2 beta=1 changed=380 padding=0
+BEGIN m=4 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=2 beta=-1 changed=380 padding=0
+BEGIN m=4 beta=0.5 pattern=2
+BEGIN m=5 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=2 beta=0 changed=475 padding=0
+BEGIN m=5 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=2 beta=1 changed=475 padding=0
+BEGIN m=5 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=2 beta=-1 changed=475 padding=0
+BEGIN m=5 beta=0.5 pattern=2
+BEGIN m=6 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=2 beta=0 changed=570 padding=0
+BEGIN m=6 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=2 beta=1 changed=570 padding=0
+BEGIN m=6 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=2 beta=-1 changed=570 padding=0
+BEGIN m=6 beta=0.5 pattern=2
+BEGIN m=9 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=2 beta=0 changed=855 padding=0
+BEGIN m=9 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=2 beta=1 changed=855 padding=0
+BEGIN m=9 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=2 beta=-1 changed=855 padding=0
+BEGIN m=9 beta=0.5 pattern=2
+BEGIN m=10 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=2 beta=0 changed=950 padding=0
+BEGIN m=10 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=2 beta=1 changed=950 padding=0
+BEGIN m=10 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=2 beta=-1 changed=950 padding=0
+BEGIN m=10 beta=0.5 pattern=2
+BEGIN m=11 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=2 beta=0 changed=1045 padding=0
+BEGIN m=11 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=2 beta=1 changed=1045 padding=0
+BEGIN m=11 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=2 beta=-1 changed=1045 padding=0
+BEGIN m=11 beta=0.5 pattern=2
+BEGIN m=16 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=2 beta=0 changed=1520 padding=0
+BEGIN m=16 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=2 beta=1 changed=1520 padding=0
+BEGIN m=16 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=2 beta=-1 changed=1520 padding=0
+BEGIN m=16 beta=0.5 pattern=2
+BEGIN m=31 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=2 beta=0 changed=2945 padding=0
+BEGIN m=31 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=2 beta=1 changed=2945 padding=0
+BEGIN m=31 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=2 beta=-1 changed=2945 padding=0
+BEGIN m=31 beta=0.5 pattern=2
+BEGIN m=64 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=2 beta=0 changed=6080 padding=0
+BEGIN m=64 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=2 beta=1 changed=6080 padding=0
+BEGIN m=64 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=2 beta=-1 changed=6080 padding=0
+BEGIN m=64 beta=0.5 pattern=2
+BEGIN m=127 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=2 beta=0 changed=12065 padding=0
+BEGIN m=127 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=2 beta=1 changed=12065 padding=0
+BEGIN m=127 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=2 beta=-1 changed=12065 padding=0
+BEGIN m=127 beta=0.5 pattern=2
+BEGIN m=128 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=2 beta=0 changed=12160 padding=0
+BEGIN m=128 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=2 beta=1 changed=12160 padding=0
+BEGIN m=128 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=2 beta=-1 changed=12160 padding=0
+BEGIN m=128 beta=0.5 pattern=2
+BEGIN m=129 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=2 beta=0 changed=12255 padding=0
+BEGIN m=129 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=2 beta=1 changed=12255 padding=0
+BEGIN m=129 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=2 beta=-1 changed=12255 padding=0
+BEGIN m=129 beta=0.5 pattern=2
+BEGIN m=223 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=2 beta=0 changed=21185 padding=0
+BEGIN m=223 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=2 beta=1 changed=21185 padding=0
+BEGIN m=223 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=2 beta=-1 changed=21185 padding=0
+BEGIN m=223 beta=0.5 pattern=2
+BEGIN m=224 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=2 beta=0 changed=21280 padding=0
+BEGIN m=224 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=2 beta=1 changed=21280 padding=0
+BEGIN m=224 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=2 beta=-1 changed=21280 padding=0
+BEGIN m=224 beta=0.5 pattern=2
+BEGIN m=225 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=2 beta=0 changed=21375 padding=0
+BEGIN m=225 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=2 beta=1 changed=21375 padding=0
+BEGIN m=225 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=2 beta=-1 changed=21375 padding=0
+BEGIN m=225 beta=0.5 pattern=2
+BEGIN m=448 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=2 beta=0 changed=42560 padding=0
+BEGIN m=448 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=2 beta=1 changed=42560 padding=0
+BEGIN m=448 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=2 beta=-1 changed=42560 padding=0
+BEGIN m=448 beta=0.5 pattern=2
+BEGIN m=449 beta=0 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=2 beta=0 changed=42655 padding=0
+BEGIN m=449 beta=1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=2 beta=1 changed=42655 padding=0
+BEGIN m=449 beta=-1 pattern=2
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=2 beta=-1 changed=42655 padding=0
+BEGIN m=449 beta=0.5 pattern=2
+shape complete pack_threads=8 compute_threads=1 n=127 k=127 pattern=2 cases=240 failures=180
+BEGIN m=1 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=3 beta=0 changed=95 padding=0
+BEGIN m=1 beta=1 pattern=3
+BEGIN m=1 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=1 pattern=3 beta=-1 changed=95 padding=0
+BEGIN m=1 beta=0.5 pattern=3
+BEGIN m=2 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=3 beta=0 changed=190 padding=0
+BEGIN m=2 beta=1 pattern=3
+BEGIN m=2 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=2 pattern=3 beta=-1 changed=190 padding=0
+BEGIN m=2 beta=0.5 pattern=3
+BEGIN m=3 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=3 beta=0 changed=285 padding=0
+BEGIN m=3 beta=1 pattern=3
+BEGIN m=3 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=3 pattern=3 beta=-1 changed=285 padding=0
+BEGIN m=3 beta=0.5 pattern=3
+BEGIN m=4 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=3 beta=0 changed=380 padding=0
+BEGIN m=4 beta=1 pattern=3
+BEGIN m=4 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=4 pattern=3 beta=-1 changed=379 padding=0
+BEGIN m=4 beta=0.5 pattern=3
+BEGIN m=5 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=3 beta=0 changed=475 padding=0
+BEGIN m=5 beta=1 pattern=3
+BEGIN m=5 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=5 pattern=3 beta=-1 changed=475 padding=0
+BEGIN m=5 beta=0.5 pattern=3
+BEGIN m=6 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=3 beta=0 changed=570 padding=0
+BEGIN m=6 beta=1 pattern=3
+BEGIN m=6 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=6 pattern=3 beta=-1 changed=569 padding=0
+BEGIN m=6 beta=0.5 pattern=3
+BEGIN m=9 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=3 beta=0 changed=855 padding=0
+BEGIN m=9 beta=1 pattern=3
+BEGIN m=9 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=9 pattern=3 beta=-1 changed=855 padding=0
+BEGIN m=9 beta=0.5 pattern=3
+BEGIN m=10 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=3 beta=0 changed=950 padding=0
+BEGIN m=10 beta=1 pattern=3
+BEGIN m=10 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=10 pattern=3 beta=-1 changed=950 padding=0
+BEGIN m=10 beta=0.5 pattern=3
+BEGIN m=11 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=3 beta=0 changed=1045 padding=0
+BEGIN m=11 beta=1 pattern=3
+BEGIN m=11 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=11 pattern=3 beta=-1 changed=1045 padding=0
+BEGIN m=11 beta=0.5 pattern=3
+BEGIN m=16 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=3 beta=0 changed=1517 padding=0
+BEGIN m=16 beta=1 pattern=3
+BEGIN m=16 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=16 pattern=3 beta=-1 changed=1520 padding=0
+BEGIN m=16 beta=0.5 pattern=3
+BEGIN m=31 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=3 beta=0 changed=2943 padding=0
+BEGIN m=31 beta=1 pattern=3
+BEGIN m=31 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=31 pattern=3 beta=-1 changed=2941 padding=0
+BEGIN m=31 beta=0.5 pattern=3
+BEGIN m=64 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=3 beta=0 changed=6078 padding=0
+BEGIN m=64 beta=1 pattern=3
+BEGIN m=64 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=64 pattern=3 beta=-1 changed=6076 padding=0
+BEGIN m=64 beta=0.5 pattern=3
+BEGIN m=127 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=3 beta=0 changed=12060 padding=0
+BEGIN m=127 beta=1 pattern=3
+BEGIN m=127 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=127 pattern=3 beta=-1 changed=12057 padding=0
+BEGIN m=127 beta=0.5 pattern=3
+BEGIN m=128 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=3 beta=0 changed=12154 padding=0
+BEGIN m=128 beta=1 pattern=3
+BEGIN m=128 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=128 pattern=3 beta=-1 changed=12155 padding=0
+BEGIN m=128 beta=0.5 pattern=3
+BEGIN m=129 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=3 beta=0 changed=12250 padding=0
+BEGIN m=129 beta=1 pattern=3
+BEGIN m=129 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=129 pattern=3 beta=-1 changed=12250 padding=0
+BEGIN m=129 beta=0.5 pattern=3
+BEGIN m=223 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=3 beta=0 changed=21169 padding=0
+BEGIN m=223 beta=1 pattern=3
+BEGIN m=223 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=223 pattern=3 beta=-1 changed=21177 padding=0
+BEGIN m=223 beta=0.5 pattern=3
+BEGIN m=224 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=3 beta=0 changed=21272 padding=0
+BEGIN m=224 beta=1 pattern=3
+BEGIN m=224 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=224 pattern=3 beta=-1 changed=21269 padding=0
+BEGIN m=224 beta=0.5 pattern=3
+BEGIN m=225 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=3 beta=0 changed=21364 padding=0
+BEGIN m=225 beta=1 pattern=3
+BEGIN m=225 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=225 pattern=3 beta=-1 changed=21362 padding=0
+BEGIN m=225 beta=0.5 pattern=3
+BEGIN m=448 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=3 beta=0 changed=42537 padding=0
+BEGIN m=448 beta=1 pattern=3
+BEGIN m=448 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=448 pattern=3 beta=-1 changed=42541 padding=0
+BEGIN m=448 beta=0.5 pattern=3
+BEGIN m=449 beta=0 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=3 beta=0 changed=42633 padding=0
+BEGIN m=449 beta=1 pattern=3
+BEGIN m=449 beta=-1 pattern=3
+FAIL pack_threads=8 compute_threads=1 n=127 k=127 m=449 pattern=3 beta=-1 changed=42630 padding=0
+BEGIN m=449 beta=0.5 pattern=3
+shape complete pack_threads=8 compute_threads=1 n=127 k=127 pattern=3 cases=320 failures=220
+BEGIN m=1 beta=0 pattern=0
+BEGIN m=1 beta=1 pattern=0
+BEGIN m=1 beta=-1 pattern=0
+BEGIN m=1 beta=0.5 pattern=0
+BEGIN m=2 beta=0 pattern=0
+BEGIN m=2 beta=1 pattern=0
+BEGIN m=2 beta=-1 pattern=0
+BEGIN m=2 beta=0.5 pattern=0
+BEGIN m=3 beta=0 pattern=0
+BEGIN m=3 beta=1 pattern=0
+BEGIN m=3 beta=-1 pattern=0
+BEGIN m=3 beta=0.5 pattern=0
+BEGIN m=4 beta=0 pattern=0
+BEGIN m=4 beta=1 pattern=0
+BEGIN m=4 beta=-1 pattern=0
+BEGIN m=4 beta=0.5 pattern=0
+BEGIN m=5 beta=0 pattern=0
+BEGIN m=5 beta=1 pattern=0
+BEGIN m=5 beta=-1 pattern=0
+BEGIN m=5 beta=0.5 pattern=0
+BEGIN m=6 beta=0 pattern=0
+BEGIN m=6 beta=1 pattern=0
+BEGIN m=6 beta=-1 pattern=0
+BEGIN m=6 beta=0.5 pattern=0
+BEGIN m=9 beta=0 pattern=0
+BEGIN m=9 beta=1 pattern=0
+BEGIN m=9 beta=-1 pattern=0
+BEGIN m=9 beta=0.5 pattern=0
+BEGIN m=10 beta=0 pattern=0
+BEGIN m=10 beta=1 pattern=0
+BEGIN m=10 beta=-1 pattern=0
+BEGIN m=10 beta=0.5 pattern=0
+BEGIN m=11 beta=0 pattern=0
+BEGIN m=11 beta=1 pattern=0
+BEGIN m=11 beta=-1 pattern=0
+BEGIN m=11 beta=0.5 pattern=0
+BEGIN m=16 beta=0 pattern=0
+BEGIN m=16 beta=1 pattern=0
+BEGIN m=16 beta=-1 pattern=0
+BEGIN m=16 beta=0.5 pattern=0
+BEGIN m=31 beta=0 pattern=0
+BEGIN m=31 beta=1 pattern=0
+BEGIN m=31 beta=-1 pattern=0
+BEGIN m=31 beta=0.5 pattern=0
+BEGIN m=64 beta=0 pattern=0
+BEGIN m=64 beta=1 pattern=0
+BEGIN m=64 beta=-1 pattern=0
+BEGIN m=64 beta=0.5 pattern=0
+BEGIN m=127 beta=0 pattern=0
+BEGIN m=127 beta=1 pattern=0
+BEGIN m=127 beta=-1 pattern=0
+BEGIN m=127 beta=0.5 pattern=0
+BEGIN m=128 beta=0 pattern=0
+BEGIN m=128 beta=1 pattern=0
+BEGIN m=128 beta=-1 pattern=0
+BEGIN m=128 beta=0.5 pattern=0
+BEGIN m=129 beta=0 pattern=0
+BEGIN m=129 beta=1 pattern=0
+BEGIN m=129 beta=-1 pattern=0
+BEGIN m=129 beta=0.5 pattern=0
+BEGIN m=223 beta=0 pattern=0
+BEGIN m=223 beta=1 pattern=0
+BEGIN m=223 beta=-1 pattern=0
+BEGIN m=223 beta=0.5 pattern=0
+BEGIN m=224 beta=0 pattern=0
+BEGIN m=224 beta=1 pattern=0
+BEGIN m=224 beta=-1 pattern=0
+BEGIN m=224 beta=0.5 pattern=0
+BEGIN m=225 beta=0 pattern=0
+BEGIN m=225 beta=1 pattern=0
+BEGIN m=225 beta=-1 pattern=0
+BEGIN m=225 beta=0.5 pattern=0
+BEGIN m=448 beta=0 pattern=0
+BEGIN m=448 beta=1 pattern=0
+BEGIN m=448 beta=-1 pattern=0
+BEGIN m=448 beta=0.5 pattern=0
+BEGIN m=449 beta=0 pattern=0
+BEGIN m=449 beta=1 pattern=0
+BEGIN m=449 beta=-1 pattern=0
+BEGIN m=449 beta=0.5 pattern=0
+shape complete pack_threads=8 compute_threads=4 n=127 k=127 pattern=0 cases=400 failures=220
+BEGIN m=1 beta=0 pattern=1
+BEGIN m=1 beta=1 pattern=1
+BEGIN m=1 beta=-1 pattern=1
+BEGIN m=1 beta=0.5 pattern=1
+BEGIN m=2 beta=0 pattern=1
+BEGIN m=2 beta=1 pattern=1
+BEGIN m=2 beta=-1 pattern=1
+BEGIN m=2 beta=0.5 pattern=1
+BEGIN m=3 beta=0 pattern=1
+BEGIN m=3 beta=1 pattern=1
+BEGIN m=3 beta=-1 pattern=1
+BEGIN m=3 beta=0.5 pattern=1
+BEGIN m=4 beta=0 pattern=1
+BEGIN m=4 beta=1 pattern=1
+BEGIN m=4 beta=-1 pattern=1
+BEGIN m=4 beta=0.5 pattern=1
+BEGIN m=5 beta=0 pattern=1
+BEGIN m=5 beta=1 pattern=1
+BEGIN m=5 beta=-1 pattern=1
+BEGIN m=5 beta=0.5 pattern=1
+BEGIN m=6 beta=0 pattern=1
+BEGIN m=6 beta=1 pattern=1
+BEGIN m=6 beta=-1 pattern=1
+BEGIN m=6 beta=0.5 pattern=1
+BEGIN m=9 beta=0 pattern=1
+BEGIN m=9 beta=1 pattern=1
+BEGIN m=9 beta=-1 pattern=1
+BEGIN m=9 beta=0.5 pattern=1
+BEGIN m=10 beta=0 pattern=1
+BEGIN m=10 beta=1 pattern=1
+BEGIN m=10 beta=-1 pattern=1
+BEGIN m=10 beta=0.5 pattern=1
+BEGIN m=11 beta=0 pattern=1
+BEGIN m=11 beta=1 pattern=1
+BEGIN m=11 beta=-1 pattern=1
+BEGIN m=11 beta=0.5 pattern=1
+BEGIN m=16 beta=0 pattern=1
+BEGIN m=16 beta=1 pattern=1
+BEGIN m=16 beta=-1 pattern=1
+BEGIN m=16 beta=0.5 pattern=1
+BEGIN m=31 beta=0 pattern=1
+BEGIN m=31 beta=1 pattern=1
+BEGIN m=31 beta=-1 pattern=1
+BEGIN m=31 beta=0.5 pattern=1
+BEGIN m=64 beta=0 pattern=1
+BEGIN m=64 beta=1 pattern=1
+BEGIN m=64 beta=-1 pattern=1
+BEGIN m=64 beta=0.5 pattern=1
+BEGIN m=127 beta=0 pattern=1
+BEGIN m=127 beta=1 pattern=1
+BEGIN m=127 beta=-1 pattern=1
+BEGIN m=127 beta=0.5 pattern=1
+BEGIN m=128 beta=0 pattern=1
+BEGIN m=128 beta=1 pattern=1
+BEGIN m=128 beta=-1 pattern=1
+BEGIN m=128 beta=0.5 pattern=1
+BEGIN m=129 beta=0 pattern=1
+BEGIN m=129 beta=1 pattern=1
+BEGIN m=129 beta=-1 pattern=1
+BEGIN m=129 beta=0.5 pattern=1
+BEGIN m=223 beta=0 pattern=1
+BEGIN m=223 beta=1 pattern=1
+BEGIN m=223 beta=-1 pattern=1
+BEGIN m=223 beta=0.5 pattern=1
+BEGIN m=224 beta=0 pattern=1
+BEGIN m=224 beta=1 pattern=1
+BEGIN m=224 beta=-1 pattern=1
+BEGIN m=224 beta=0.5 pattern=1
+BEGIN m=225 beta=0 pattern=1
+BEGIN m=225 beta=1 pattern=1
+BEGIN m=225 beta=-1 pattern=1
+BEGIN m=225 beta=0.5 pattern=1
+BEGIN m=448 beta=0 pattern=1
+BEGIN m=448 beta=1 pattern=1
+BEGIN m=448 beta=-1 pattern=1
+BEGIN m=448 beta=0.5 pattern=1
+BEGIN m=449 beta=0 pattern=1
+BEGIN m=449 beta=1 pattern=1
+BEGIN m=449 beta=-1 pattern=1
+BEGIN m=449 beta=0.5 pattern=1
+shape complete pack_threads=8 compute_threads=4 n=127 k=127 pattern=1 cases=480 failures=220
+BEGIN m=1 beta=0 pattern=2
+BEGIN m=1 beta=1 pattern=2
+BEGIN m=1 beta=-1 pattern=2
+BEGIN m=1 beta=0.5 pattern=2
+BEGIN m=2 beta=0 pattern=2
+BEGIN m=2 beta=1 pattern=2
+BEGIN m=2 beta=-1 pattern=2
+BEGIN m=2 beta=0.5 pattern=2
+BEGIN m=3 beta=0 pattern=2
+BEGIN m=3 beta=1 pattern=2
+BEGIN m=3 beta=-1 pattern=2
+BEGIN m=3 beta=0.5 pattern=2
+BEGIN m=4 beta=0 pattern=2
+BEGIN m=4 beta=1 pattern=2
+BEGIN m=4 beta=-1 pattern=2
+BEGIN m=4 beta=0.5 pattern=2
+BEGIN m=5 beta=0 pattern=2
+BEGIN m=5 beta=1 pattern=2
+BEGIN m=5 beta=-1 pattern=2
+BEGIN m=5 beta=0.5 pattern=2
+BEGIN m=6 beta=0 pattern=2
+BEGIN m=6 beta=1 pattern=2
+BEGIN m=6 beta=-1 pattern=2
+BEGIN m=6 beta=0.5 pattern=2
+BEGIN m=9 beta=0 pattern=2
+BEGIN m=9 beta=1 pattern=2
+BEGIN m=9 beta=-1 pattern=2
+BEGIN m=9 beta=0.5 pattern=2
+BEGIN m=10 beta=0 pattern=2
+BEGIN m=10 beta=1 pattern=2
+BEGIN m=10 beta=-1 pattern=2
+BEGIN m=10 beta=0.5 pattern=2
+BEGIN m=11 beta=0 pattern=2
+BEGIN m=11 beta=1 pattern=2
+BEGIN m=11 beta=-1 pattern=2
+BEGIN m=11 beta=0.5 pattern=2
+BEGIN m=16 beta=0 pattern=2
+BEGIN m=16 beta=1 pattern=2
+BEGIN m=16 beta=-1 pattern=2
+BEGIN m=16 beta=0.5 pattern=2
+BEGIN m=31 beta=0 pattern=2
+BEGIN m=31 beta=1 pattern=2
+BEGIN m=31 beta=-1 pattern=2
+BEGIN m=31 beta=0.5 pattern=2
+BEGIN m=64 beta=0 pattern=2
+BEGIN m=64 beta=1 pattern=2
+BEGIN m=64 beta=-1 pattern=2
+BEGIN m=64 beta=0.5 pattern=2
+BEGIN m=127 beta=0 pattern=2
+BEGIN m=127 beta=1 pattern=2
+BEGIN m=127 beta=-1 pattern=2
+BEGIN m=127 beta=0.5 pattern=2
+BEGIN m=128 beta=0 pattern=2
+BEGIN m=128 beta=1 pattern=2
+BEGIN m=128 beta=-1 pattern=2
+BEGIN m=128 beta=0.5 pattern=2
+BEGIN m=129 beta=0 pattern=2
+BEGIN m=129 beta=1 pattern=2
+BEGIN m=129 beta=-1 pattern=2
+BEGIN m=129 beta=0.5 pattern=2
+BEGIN m=223 beta=0 pattern=2
+BEGIN m=223 beta=1 pattern=2
+BEGIN m=223 beta=-1 pattern=2
+BEGIN m=223 beta=0.5 pattern=2
+BEGIN m=224 beta=0 pattern=2
+BEGIN m=224 beta=1 pattern=2
+BEGIN m=224 beta=-1 pattern=2
+BEGIN m=224 beta=0.5 pattern=2
+BEGIN m=225 beta=0 pattern=2
+BEGIN m=225 beta=1 pattern=2
+BEGIN m=225 beta=-1 pattern=2
+BEGIN m=225 beta=0.5 pattern=2
+BEGIN m=448 beta=0 pattern=2
+BEGIN m=448 beta=1 pattern=2
+BEGIN m=448 beta=-1 pattern=2
+BEGIN m=448 beta=0.5 pattern=2
+BEGIN m=449 beta=0 pattern=2
+BEGIN m=449 beta=1 pattern=2
+BEGIN m=449 beta=-1 pattern=2
+BEGIN m=449 beta=0.5 pattern=2
+shape complete pack_threads=8 compute_threads=4 n=127 k=127 pattern=2 cases=560 failures=220
+BEGIN m=1 beta=0 pattern=3
+BEGIN m=1 beta=1 pattern=3
+BEGIN m=1 beta=-1 pattern=3
+BEGIN m=1 beta=0.5 pattern=3
+BEGIN m=2 beta=0 pattern=3
+BEGIN m=2 beta=1 pattern=3
+BEGIN m=2 beta=-1 pattern=3
+BEGIN m=2 beta=0.5 pattern=3
+BEGIN m=3 beta=0 pattern=3
+BEGIN m=3 beta=1 pattern=3
+BEGIN m=3 beta=-1 pattern=3
+BEGIN m=3 beta=0.5 pattern=3
+BEGIN m=4 beta=0 pattern=3
+BEGIN m=4 beta=1 pattern=3
+BEGIN m=4 beta=-1 pattern=3
+BEGIN m=4 beta=0.5 pattern=3
+BEGIN m=5 beta=0 pattern=3
+BEGIN m=5 beta=1 pattern=3
+BEGIN m=5 beta=-1 pattern=3
+BEGIN m=5 beta=0.5 pattern=3
+BEGIN m=6 beta=0 pattern=3
+BEGIN m=6 beta=1 pattern=3
+BEGIN m=6 beta=-1 pattern=3
+BEGIN m=6 beta=0.5 pattern=3
+BEGIN m=9 beta=0 pattern=3
+BEGIN m=9 beta=1 pattern=3
+BEGIN m=9 beta=-1 pattern=3
+BEGIN m=9 beta=0.5 pattern=3
+BEGIN m=10 beta=0 pattern=3
+BEGIN m=10 beta=1 pattern=3
+BEGIN m=10 beta=-1 pattern=3
+BEGIN m=10 beta=0.5 pattern=3
+BEGIN m=11 beta=0 pattern=3
+BEGIN m=11 beta=1 pattern=3
+BEGIN m=11 beta=-1 pattern=3
+BEGIN m=11 beta=0.5 pattern=3
+BEGIN m=16 beta=0 pattern=3
+BEGIN m=16 beta=1 pattern=3
+BEGIN m=16 beta=-1 pattern=3
+BEGIN m=16 beta=0.5 pattern=3
+BEGIN m=31 beta=0 pattern=3
+BEGIN m=31 beta=1 pattern=3
+BEGIN m=31 beta=-1 pattern=3
+BEGIN m=31 beta=0.5 pattern=3
+BEGIN m=64 beta=0 pattern=3
+BEGIN m=64 beta=1 pattern=3
+BEGIN m=64 beta=-1 pattern=3
+BEGIN m=64 beta=0.5 pattern=3
+BEGIN m=127 beta=0 pattern=3
+BEGIN m=127 beta=1 pattern=3
+BEGIN m=127 beta=-1 pattern=3
+BEGIN m=127 beta=0.5 pattern=3
+BEGIN m=128 beta=0 pattern=3
+BEGIN m=128 beta=1 pattern=3
+BEGIN m=128 beta=-1 pattern=3
+BEGIN m=128 beta=0.5 pattern=3
+BEGIN m=129 beta=0 pattern=3
+BEGIN m=129 beta=1 pattern=3
+BEGIN m=129 beta=-1 pattern=3
+BEGIN m=129 beta=0.5 pattern=3
+BEGIN m=223 beta=0 pattern=3
+BEGIN m=223 beta=1 pattern=3
+BEGIN m=223 beta=-1 pattern=3
+BEGIN m=223 beta=0.5 pattern=3
+BEGIN m=224 beta=0 pattern=3
+BEGIN m=224 beta=1 pattern=3
+BEGIN m=224 beta=-1 pattern=3
+BEGIN m=224 beta=0.5 pattern=3
+BEGIN m=225 beta=0 pattern=3
+BEGIN m=225 beta=1 pattern=3
+BEGIN m=225 beta=-1 pattern=3
+BEGIN m=225 beta=0.5 pattern=3
+BEGIN m=448 beta=0 pattern=3
+BEGIN m=448 beta=1 pattern=3
+BEGIN m=448 beta=-1 pattern=3
+BEGIN m=448 beta=0.5 pattern=3
+BEGIN m=449 beta=0 pattern=3
+BEGIN m=449 beta=1 pattern=3
+BEGIN m=449 beta=-1 pattern=3
+BEGIN m=449 beta=0.5 pattern=3
+shape complete pack_threads=8 compute_threads=4 n=127 k=127 pattern=3 cases=640 failures=220
+BEGIN m=1 beta=0 pattern=0
+BEGIN m=1 beta=1 pattern=0
+BEGIN m=1 beta=-1 pattern=0
+BEGIN m=1 beta=0.5 pattern=0
+BEGIN m=2 beta=0 pattern=0
+BEGIN m=2 beta=1 pattern=0
+BEGIN m=2 beta=-1 pattern=0
+BEGIN m=2 beta=0.5 pattern=0
+BEGIN m=3 beta=0 pattern=0
+BEGIN m=3 beta=1 pattern=0
+BEGIN m=3 beta=-1 pattern=0
+BEGIN m=3 beta=0.5 pattern=0
+BEGIN m=4 beta=0 pattern=0
+BEGIN m=4 beta=1 pattern=0
+BEGIN m=4 beta=-1 pattern=0
+BEGIN m=4 beta=0.5 pattern=0
+BEGIN m=5 beta=0 pattern=0
+BEGIN m=5 beta=1 pattern=0
+BEGIN m=5 beta=-1 pattern=0
+BEGIN m=5 beta=0.5 pattern=0
+BEGIN m=6 beta=0 pattern=0
+BEGIN m=6 beta=1 pattern=0
+BEGIN m=6 beta=-1 pattern=0
+BEGIN m=6 beta=0.5 pattern=0
+BEGIN m=9 beta=0 pattern=0
+BEGIN m=9 beta=1 pattern=0
+BEGIN m=9 beta=-1 pattern=0
+BEGIN m=9 beta=0.5 pattern=0
+BEGIN m=10 beta=0 pattern=0
+BEGIN m=10 beta=1 pattern=0
+BEGIN m=10 beta=-1 pattern=0
+BEGIN m=10 beta=0.5 pattern=0
+BEGIN m=11 beta=0 pattern=0
+BEGIN m=11 beta=1 pattern=0
+BEGIN m=11 beta=-1 pattern=0
+BEGIN m=11 beta=0.5 pattern=0
+BEGIN m=16 beta=0 pattern=0
+BEGIN m=16 beta=1 pattern=0
+BEGIN m=16 beta=-1 pattern=0
+BEGIN m=16 beta=0.5 pattern=0
+BEGIN m=31 beta=0 pattern=0
+BEGIN m=31 beta=1 pattern=0
+BEGIN m=31 beta=-1 pattern=0
+BEGIN m=31 beta=0.5 pattern=0
+BEGIN m=64 beta=0 pattern=0
+BEGIN m=64 beta=1 pattern=0
+BEGIN m=64 beta=-1 pattern=0
+BEGIN m=64 beta=0.5 pattern=0
+BEGIN m=127 beta=0 pattern=0
+BEGIN m=127 beta=1 pattern=0
+BEGIN m=127 beta=-1 pattern=0
+BEGIN m=127 beta=0.5 pattern=0
+BEGIN m=128 beta=0 pattern=0
+BEGIN m=128 beta=1 pattern=0
+BEGIN m=128 beta=-1 pattern=0
+BEGIN m=128 beta=0.5 pattern=0
+BEGIN m=129 beta=0 pattern=0
+BEGIN m=129 beta=1 pattern=0
+BEGIN m=129 beta=-1 pattern=0
+BEGIN m=129 beta=0.5 pattern=0
+BEGIN m=223 beta=0 pattern=0
+BEGIN m=223 beta=1 pattern=0
+BEGIN m=223 beta=-1 pattern=0
+BEGIN m=223 beta=0.5 pattern=0
+BEGIN m=224 beta=0 pattern=0
+BEGIN m=224 beta=1 pattern=0
+BEGIN m=224 beta=-1 pattern=0
+BEGIN m=224 beta=0.5 pattern=0
+BEGIN m=225 beta=0 pattern=0
+BEGIN m=225 beta=1 pattern=0
+BEGIN m=225 beta=-1 pattern=0
+BEGIN m=225 beta=0.5 pattern=0
+BEGIN m=448 beta=0 pattern=0
+BEGIN m=448 beta=1 pattern=0
+BEGIN m=448 beta=-1 pattern=0
+BEGIN m=448 beta=0.5 pattern=0
+BEGIN m=449 beta=0 pattern=0
+BEGIN m=449 beta=1 pattern=0
+BEGIN m=449 beta=-1 pattern=0
+BEGIN m=449 beta=0.5 pattern=0
+shape complete pack_threads=1 compute_threads=8 n=127 k=127 pattern=0 cases=720 failures=220
+BEGIN m=1 beta=0 pattern=1
+BEGIN m=1 beta=1 pattern=1
+BEGIN m=1 beta=-1 pattern=1
+BEGIN m=1 beta=0.5 pattern=1
+BEGIN m=2 beta=0 pattern=1
+BEGIN m=2 beta=1 pattern=1
+BEGIN m=2 beta=-1 pattern=1
+BEGIN m=2 beta=0.5 pattern=1
+BEGIN m=3 beta=0 pattern=1
+BEGIN m=3 beta=1 pattern=1
+BEGIN m=3 beta=-1 pattern=1
+BEGIN m=3 beta=0.5 pattern=1
+BEGIN m=4 beta=0 pattern=1
+BEGIN m=4 beta=1 pattern=1
+BEGIN m=4 beta=-1 pattern=1
+BEGIN m=4 beta=0.5 pattern=1
+BEGIN m=5 beta=0 pattern=1
+BEGIN m=5 beta=1 pattern=1
+BEGIN m=5 beta=-1 pattern=1
+BEGIN m=5 beta=0.5 pattern=1
+BEGIN m=6 beta=0 pattern=1
+BEGIN m=6 beta=1 pattern=1
+BEGIN m=6 beta=-1 pattern=1
+BEGIN m=6 beta=0.5 pattern=1
+BEGIN m=9 beta=0 pattern=1
+BEGIN m=9 beta=1 pattern=1
+BEGIN m=9 beta=-1 pattern=1
+BEGIN m=9 beta=0.5 pattern=1
+BEGIN m=10 beta=0 pattern=1
+BEGIN m=10 beta=1 pattern=1
+BEGIN m=10 beta=-1 pattern=1
+BEGIN m=10 beta=0.5 pattern=1
+BEGIN m=11 beta=0 pattern=1
+BEGIN m=11 beta=1 pattern=1
+BEGIN m=11 beta=-1 pattern=1
+BEGIN m=11 beta=0.5 pattern=1
+BEGIN m=16 beta=0 pattern=1
+BEGIN m=16 beta=1 pattern=1
+BEGIN m=16 beta=-1 pattern=1
+BEGIN m=16 beta=0.5 pattern=1
+BEGIN m=31 beta=0 pattern=1
+BEGIN m=31 beta=1 pattern=1
+BEGIN m=31 beta=-1 pattern=1
+BEGIN m=31 beta=0.5 pattern=1
+BEGIN m=64 beta=0 pattern=1
+BEGIN m=64 beta=1 pattern=1
+BEGIN m=64 beta=-1 pattern=1
+BEGIN m=64 beta=0.5 pattern=1
+BEGIN m=127 beta=0 pattern=1
+BEGIN m=127 beta=1 pattern=1
+BEGIN m=127 beta=-1 pattern=1
+BEGIN m=127 beta=0.5 pattern=1
+BEGIN m=128 beta=0 pattern=1
+BEGIN m=128 beta=1 pattern=1
+BEGIN m=128 beta=-1 pattern=1
+BEGIN m=128 beta=0.5 pattern=1
+BEGIN m=129 beta=0 pattern=1
+BEGIN m=129 beta=1 pattern=1
+BEGIN m=129 beta=-1 pattern=1
+BEGIN m=129 beta=0.5 pattern=1
+BEGIN m=223 beta=0 pattern=1
+BEGIN m=223 beta=1 pattern=1
+BEGIN m=223 beta=-1 pattern=1
+BEGIN m=223 beta=0.5 pattern=1
+BEGIN m=224 beta=0 pattern=1
+BEGIN m=224 beta=1 pattern=1
+BEGIN m=224 beta=-1 pattern=1
+BEGIN m=224 beta=0.5 pattern=1
+BEGIN m=225 beta=0 pattern=1
+BEGIN m=225 beta=1 pattern=1
+BEGIN m=225 beta=-1 pattern=1
+BEGIN m=225 beta=0.5 pattern=1
+BEGIN m=448 beta=0 pattern=1
+BEGIN m=448 beta=1 pattern=1
+BEGIN m=448 beta=-1 pattern=1
+BEGIN m=448 beta=0.5 pattern=1
+BEGIN m=449 beta=0 pattern=1
+BEGIN m=449 beta=1 pattern=1
+BEGIN m=449 beta=-1 pattern=1
+BEGIN m=449 beta=0.5 pattern=1
+shape complete pack_threads=1 compute_threads=8 n=127 k=127 pattern=1 cases=800 failures=220
+BEGIN m=1 beta=0 pattern=2
+BEGIN m=1 beta=1 pattern=2
+BEGIN m=1 beta=-1 pattern=2
+BEGIN m=1 beta=0.5 pattern=2
+BEGIN m=2 beta=0 pattern=2
+BEGIN m=2 beta=1 pattern=2
+BEGIN m=2 beta=-1 pattern=2
+BEGIN m=2 beta=0.5 pattern=2
+BEGIN m=3 beta=0 pattern=2
+BEGIN m=3 beta=1 pattern=2
+BEGIN m=3 beta=-1 pattern=2
+BEGIN m=3 beta=0.5 pattern=2
+BEGIN m=4 beta=0 pattern=2
+BEGIN m=4 beta=1 pattern=2
+BEGIN m=4 beta=-1 pattern=2
+BEGIN m=4 beta=0.5 pattern=2
+BEGIN m=5 beta=0 pattern=2
+BEGIN m=5 beta=1 pattern=2
+BEGIN m=5 beta=-1 pattern=2
+BEGIN m=5 beta=0.5 pattern=2
+BEGIN m=6 beta=0 pattern=2
+BEGIN m=6 beta=1 pattern=2
+BEGIN m=6 beta=-1 pattern=2
+BEGIN m=6 beta=0.5 pattern=2
+BEGIN m=9 beta=0 pattern=2
+BEGIN m=9 beta=1 pattern=2
+BEGIN m=9 beta=-1 pattern=2
+BEGIN m=9 beta=0.5 pattern=2
+BEGIN m=10 beta=0 pattern=2
+BEGIN m=10 beta=1 pattern=2
+BEGIN m=10 beta=-1 pattern=2
+BEGIN m=10 beta=0.5 pattern=2
+BEGIN m=11 beta=0 pattern=2
+BEGIN m=11 beta=1 pattern=2
+BEGIN m=11 beta=-1 pattern=2
+BEGIN m=11 beta=0.5 pattern=2
+BEGIN m=16 beta=0 pattern=2
+BEGIN m=16 beta=1 pattern=2
+BEGIN m=16 beta=-1 pattern=2
+BEGIN m=16 beta=0.5 pattern=2
+BEGIN m=31 beta=0 pattern=2
+BEGIN m=31 beta=1 pattern=2
+BEGIN m=31 beta=-1 pattern=2
+BEGIN m=31 beta=0.5 pattern=2
+BEGIN m=64 beta=0 pattern=2
+BEGIN m=64 beta=1 pattern=2
+BEGIN m=64 beta=-1 pattern=2
+BEGIN m=64 beta=0.5 pattern=2
+BEGIN m=127 beta=0 pattern=2
+BEGIN m=127 beta=1 pattern=2
+BEGIN m=127 beta=-1 pattern=2
+BEGIN m=127 beta=0.5 pattern=2
+BEGIN m=128 beta=0 pattern=2
+BEGIN m=128 beta=1 pattern=2
+BEGIN m=128 beta=-1 pattern=2
+BEGIN m=128 beta=0.5 pattern=2
+BEGIN m=129 beta=0 pattern=2
+BEGIN m=129 beta=1 pattern=2
+BEGIN m=129 beta=-1 pattern=2
+BEGIN m=129 beta=0.5 pattern=2
+BEGIN m=223 beta=0 pattern=2
+BEGIN m=223 beta=1 pattern=2
+BEGIN m=223 beta=-1 pattern=2
+BEGIN m=223 beta=0.5 pattern=2
+BEGIN m=224 beta=0 pattern=2
+BEGIN m=224 beta=1 pattern=2
+BEGIN m=224 beta=-1 pattern=2
+BEGIN m=224 beta=0.5 pattern=2
+BEGIN m=225 beta=0 pattern=2
+BEGIN m=225 beta=1 pattern=2
+BEGIN m=225 beta=-1 pattern=2
+BEGIN m=225 beta=0.5 pattern=2
+BEGIN m=448 beta=0 pattern=2
+BEGIN m=448 beta=1 pattern=2
+BEGIN m=448 beta=-1 pattern=2
+BEGIN m=448 beta=0.5 pattern=2
+BEGIN m=449 beta=0 pattern=2
+BEGIN m=449 beta=1 pattern=2
+BEGIN m=449 beta=-1 pattern=2
+BEGIN m=449 beta=0.5 pattern=2
+shape complete pack_threads=1 compute_threads=8 n=127 k=127 pattern=2 cases=880 failures=220
+BEGIN m=1 beta=0 pattern=3
+BEGIN m=1 beta=1 pattern=3
+BEGIN m=1 beta=-1 pattern=3
+BEGIN m=1 beta=0.5 pattern=3
+BEGIN m=2 beta=0 pattern=3
+BEGIN m=2 beta=1 pattern=3
+BEGIN m=2 beta=-1 pattern=3
+BEGIN m=2 beta=0.5 pattern=3
+BEGIN m=3 beta=0 pattern=3
+BEGIN m=3 beta=1 pattern=3
+BEGIN m=3 beta=-1 pattern=3
+BEGIN m=3 beta=0.5 pattern=3
+BEGIN m=4 beta=0 pattern=3
+BEGIN m=4 beta=1 pattern=3
+BEGIN m=4 beta=-1 pattern=3
+BEGIN m=4 beta=0.5 pattern=3
+BEGIN m=5 beta=0 pattern=3
+BEGIN m=5 beta=1 pattern=3
+BEGIN m=5 beta=-1 pattern=3
+BEGIN m=5 beta=0.5 pattern=3
+BEGIN m=6 beta=0 pattern=3
+BEGIN m=6 beta=1 pattern=3
+BEGIN m=6 beta=-1 pattern=3
+BEGIN m=6 beta=0.5 pattern=3
+BEGIN m=9 beta=0 pattern=3
+BEGIN m=9 beta=1 pattern=3
+BEGIN m=9 beta=-1 pattern=3
+BEGIN m=9 beta=0.5 pattern=3
+BEGIN m=10 beta=0 pattern=3
+BEGIN m=10 beta=1 pattern=3
+BEGIN m=10 beta=-1 pattern=3
+BEGIN m=10 beta=0.5 pattern=3
+BEGIN m=11 beta=0 pattern=3
+BEGIN m=11 beta=1 pattern=3
+BEGIN m=11 beta=-1 pattern=3
+BEGIN m=11 beta=0.5 pattern=3
+BEGIN m=16 beta=0 pattern=3
+BEGIN m=16 beta=1 pattern=3
+BEGIN m=16 beta=-1 pattern=3
+BEGIN m=16 beta=0.5 pattern=3
+BEGIN m=31 beta=0 pattern=3
+BEGIN m=31 beta=1 pattern=3
+BEGIN m=31 beta=-1 pattern=3
+BEGIN m=31 beta=0.5 pattern=3
+BEGIN m=64 beta=0 pattern=3
+BEGIN m=64 beta=1 pattern=3
+BEGIN m=64 beta=-1 pattern=3
+BEGIN m=64 beta=0.5 pattern=3
+BEGIN m=127 beta=0 pattern=3
+BEGIN m=127 beta=1 pattern=3
+BEGIN m=127 beta=-1 pattern=3
+BEGIN m=127 beta=0.5 pattern=3
+BEGIN m=128 beta=0 pattern=3
+BEGIN m=128 beta=1 pattern=3
+BEGIN m=128 beta=-1 pattern=3
+BEGIN m=128 beta=0.5 pattern=3
+BEGIN m=129 beta=0 pattern=3
+BEGIN m=129 beta=1 pattern=3
+BEGIN m=129 beta=-1 pattern=3
+BEGIN m=129 beta=0.5 pattern=3
+BEGIN m=223 beta=0 pattern=3
+BEGIN m=223 beta=1 pattern=3
+BEGIN m=223 beta=-1 pattern=3
+BEGIN m=223 beta=0.5 pattern=3
+BEGIN m=224 beta=0 pattern=3
+BEGIN m=224 beta=1 pattern=3
+BEGIN m=224 beta=-1 pattern=3
+BEGIN m=224 beta=0.5 pattern=3
+BEGIN m=225 beta=0 pattern=3
+BEGIN m=225 beta=1 pattern=3
+BEGIN m=225 beta=-1 pattern=3
+BEGIN m=225 beta=0.5 pattern=3
+BEGIN m=448 beta=0 pattern=3
+BEGIN m=448 beta=1 pattern=3
+BEGIN m=448 beta=-1 pattern=3
+BEGIN m=448 beta=0.5 pattern=3
+BEGIN m=449 beta=0 pattern=3
+BEGIN m=449 beta=1 pattern=3
+BEGIN m=449 beta=-1 pattern=3
+BEGIN m=449 beta=0.5 pattern=3
+shape complete pack_threads=1 compute_threads=8 n=127 k=127 pattern=3 cases=960 failures=220
+TOTAL cases=960 numeric=720 expected_rejections=240 failures=220

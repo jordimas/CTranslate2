@@ -103,6 +103,137 @@ check cannot make mismatched headers/libraries safe; the build must use matching
 sources. A supported production solution needs an explicit dependency decision
 and broader numerical/performance validation.
 
+## Follow-up latency experiments
+
+`tune.py` isolates PV/QK call grouping and sweeps workspace targets, writing
+results under `investigation/latency-tuning/`. `CT2_DIAG_PLAN_PV_GROUP` and
+`CT2_DIAG_PLAN_QK_GROUP` enable those changes when present; both are off by
+default. Grouped PV execution is accepted only if its generated local block
+schedule equals the full plan. These changes passed exact comparisons but did
+not produce a meaningful encoder latency improvement in the first sweep.
+
+`thread_screen.py` checks the encoder before timing reduced thread counts. Both
+4 and 6 threads changed encoder float patterns versus the 8-thread control and
+were rejected under the strict compatibility criterion.
+
+The optional **INT8 weight-packing** adapter targets decoding rather than
+attention. Build it separately:
+
+```bash
+python3 tools/onednn_attention_plan/build.py --onednn-source /tmp/oneDNN-3.1.1 --output /tmp/ct2-attn-variants/hybrid-pack --int8-pack
+```
+
+This changes generated experimental copies of `backend.cc`, `primitives.cc`
+and `model.cc`; normal CT2 sources/builds remain unchanged. Set
+`CT2_DIAG_INT8_PACK=1` to enable it. **Compact is the default packing mode.**
+It selects decoder weights, excluding embeddings and cross-attention KV
+projections, and stores only their packed representations. Larger prompt GEMMs
+execute in blocks of at most **5 queries** against that same representation;
+the complete K reduction and existing dequantization are retained. The encoder
+and cross-attention KV weights remain unpacked. Compatible layout, alpha 1 and
+unsigned-input compensation are required by the compact prototype.
+
+The generated model loader snapshots names rather than shared pointers, so
+original matrices can be released as each replacement finishes. The earlier
+shared-pointer snapshot kept originals alive throughout packing and increased
+construction peak memory. Aliases still retain storage when needed (for
+example, the embedding table shared with output projection). There is no
+global pointer cache or independent buffer lifetime.
+
+`CT2_DIAG_INT8_PACK_MODE=selective` keeps the decoder-only selection but retains
+raw fallback copies; `all` reproduces the earlier all-linear hybrid experiment.
+Those modes exist for comparison. The earlier 6.17 GiB peak-RSS all-linear
+variant is rejected by the user's memory constraint. Do not treat it as the
+default optimization.
+
+The query extent is part of the private packing plan: a plan created for one
+query did not compute all five output rows, despite returning success. A
+five-query plan is therefore **never** reused for a larger query count. Packing
+for 1500 queries gave correct small-query results but regressed several small
+GEMMs. A universal replacement for CT2's MKL packing policy is not established.
+
+Retaining both representations in the historical hybrid modes increases weight
+storage. The compact mode removes those raw fallback copies. The benchmark
+records peak RSS plus RSS after model load, warm-up and timed runs; load and
+packing are outside transcription timing.
+This private-API prototype has only been validated on the documented CPU/model
+configuration and is not included in production builds.
+
+`CT2_DIAG_INT8_PACK_VERIFY`, when present **before model loading**, retains raw
+oracle copies solely for verification, recomputes **every packed INT8 GEMM**
+(including tiled prompt calls) through the reference and aborts on any differing
+int32 output. That diagnostic allocation is not the measured compact mode. Use
+`hybrid_validate.py` with the hybrid library, this flag, and the same environment
+as the prior 8-thread tests. It checks the real encoder and full transcription.
+`hybrid_benchmark.py` runs regular attention/raw weights versus planned
+attention/historical hybrid weights with verification disabled. The new
+`memory_benchmark.py` compares compact decoder-only packing against the regular
+control, with oracle copies disabled. It retains every output and enforces a
+20% experiment ceiling on both peak and post-inference RSS ratios, substantially
+stricter than the user's prohibition on doubling memory. This ceiling is a
+test gate, not a user-approved general memory budget. Run validation and timing
+sequentially.
+
+On the measured large-v3 INT8 clip, compact packing plus planned attention took
+54.61 ± 0.31 s versus 57.87 ± 0.13 s for the regular control (5.6% less time).
+Peak RSS was 3.44 versus 3.28 GiB (+4.9%); post-inference RSS was 3.14 versus
+3.03 GiB (+3.5%). Exact encoder, per-packed-GEMM and transcription/timestamp
+checks passed. See the [memory-constrained report](../../benchmark-results/cpu-attention-epyc/investigation/memory-bounded-packing/report.md)
+for the single-CPU/clip scope, timing setup and memory definitions.
+
+## Broader conformance and application checks
+
+`packing_conformance.cc` compares the actual compact adapter with independent
+public oneDNN GEMMs across real medium/large-v3 widths, odd SIMD tails, padded
+input/output strides, query counts on both sides of five, extreme INT8 values,
+and accumulation modes. Its supported-context matrix includes 6,348 exact
+numerical comparisons and 2,116 expected unsupported-beta rejections, with
+address/undefined-behavior sanitizers, canaries and a packed-buffer immutability
+check. The prebuilt oneDNN archive/JIT kernels are not sanitizer-instrumented;
+canaries and numerical comparisons supplement that limitation. LeakSanitizer
+is disabled; a separate model unload/reload smoke test measures RSS.
+
+For standalone checks, compile each of `packing_conformance.cc`,
+`packing_guards.cc` and `packing_thread_probe.cc` together with `int8_pack.cc`,
+the project/adapter/oneDNN include directories, the matching `libdnnl.a`,
+`-fopenmp -fsanitize=address,undefined -fno-omit-frame-pointer -ldl -lpthread`.
+Run with `CT2_DIAG_INT8_PACK_MODE=compact`,
+`ASAN_OPTIONS=detect_leaks=0:halt_on_error=1` and
+`UBSAN_OPTIONS=halt_on_error=1`. The conformance executable takes an optional
+`cross-threads` argument for expected thread-context rejections. These tests
+were run sequentially before the application matrix.
+
+The broader tests found two limits that are now guarded:
+
+- Fractional beta can differ between public and private packed oneDNN drivers.
+  Compact mode accepts only the checked beta values 0, 1 and -1; other values
+  fail explicitly. Historical raw-retaining modes use the raw fallback.
+  Whisper's tested linear layers use beta 0.
+- Private packing includes thread partitions. Using an eight-thread plan in a
+  one-thread context can return incomplete output. Compact mode requires the
+  original fixed OpenMP thread context, and dynamic teams are excluded from
+  INT8 packing. The [replica pool](../../include/ctranslate2/replica_pool.h)
+  already configures matching thread counts for model loading and execution.
+  Cross-context misuse now fails immediately; raw-retaining historical modes
+  can fall back. `packing_thread_probe.cc` and `packing_guards.cc` test this.
+
+`whisper_matrix.py` compares regular and compact results on additional audio,
+beams 1/5/8, silence/noise, 75-second windowing, a long prompt, native batch two,
+medium INT8, large-v3 float32 fallback, concurrent workers and model reloads.
+It compares encoder float patterns, tokens, text, timestamps, probabilities and
+score bits. These are correctness/memory checks with single-pass elapsed times,
+not repeated performance measurements. Encoder tensors remain in `/tmp`;
+committed artifacts contain hashes and comparison results.
+
+The lifecycle test preserves ordinary unload-RSS observations separately. Both
+the regular control and compact variant retain substantial allocator RSS after
+unloading; a fixed 64 MiB untrimmed-growth test failed and is not presented as a
+pass. The ownership diagnostic then uses `mkl_free_buffers` and `malloc_trim`
+after model destruction, between four reload cycles, to check that live model
+storage is no longer retained. That explicit cleanup is test-only and does not
+change normal inference or promise immediate OS memory return on unload. See
+the [extended validation report](../../benchmark-results/cpu-attention-epyc/investigation/extended-validation/report.md).
+
 ## Upstream references
 
 - [oneDNN 3.1.1 GEMM plan and copy/compute pointers](https://github.com/uxlfoundation/oneDNN/blob/v3.1.1/src/cpu/x64/gemm/gemm_info.hpp)

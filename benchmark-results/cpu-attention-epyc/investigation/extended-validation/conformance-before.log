@@ -1,0 +1,775 @@
+CT2 hybrid INT8 packing active: mode=compact raw_copy=0
+CT2 hybrid INT8 packed compute active
+shape complete pack_threads=1 compute_threads=1 n=7 k=3 pattern=0 cases=80 failures=0
+shape complete pack_threads=1 compute_threads=1 n=7 k=3 pattern=1 cases=160 failures=0
+shape complete pack_threads=1 compute_threads=1 n=7 k=3 pattern=2 cases=240 failures=0
+shape complete pack_threads=1 compute_threads=1 n=7 k=3 pattern=3 cases=320 failures=0
+shape complete pack_threads=1 compute_threads=1 n=17 k=33 pattern=0 cases=400 failures=0
+shape complete pack_threads=1 compute_threads=1 n=17 k=33 pattern=1 cases=480 failures=0
+shape complete pack_threads=1 compute_threads=1 n=17 k=33 pattern=2 cases=560 failures=0
+shape complete pack_threads=1 compute_threads=1 n=17 k=33 pattern=3 cases=640 failures=0
+shape complete pack_threads=1 compute_threads=1 n=31 k=65 pattern=0 cases=720 failures=0
+shape complete pack_threads=1 compute_threads=1 n=31 k=65 pattern=1 cases=800 failures=0
+shape complete pack_threads=1 compute_threads=1 n=31 k=65 pattern=2 cases=880 failures=0
+shape complete pack_threads=1 compute_threads=1 n=31 k=65 pattern=3 cases=960 failures=0
+shape complete pack_threads=1 compute_threads=1 n=127 k=127 pattern=0 cases=1040 failures=0
+shape complete pack_threads=1 compute_threads=1 n=127 k=127 pattern=1 cases=1120 failures=0
+shape complete pack_threads=1 compute_threads=1 n=127 k=127 pattern=2 cases=1200 failures=0
+shape complete pack_threads=1 compute_threads=1 n=127 k=127 pattern=3 cases=1280 failures=0
+shape complete pack_threads=1 compute_threads=1 n=129 k=129 pattern=0 cases=1360 failures=0
+shape complete pack_threads=1 compute_threads=1 n=129 k=129 pattern=1 cases=1440 failures=0
+shape complete pack_threads=1 compute_threads=1 n=129 k=129 pattern=2 cases=1520 failures=0
+shape complete pack_threads=1 compute_threads=1 n=129 k=129 pattern=3 cases=1600 failures=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=1 pattern=0 beta=0.5 changed=42 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=2 pattern=0 beta=0.5 changed=118 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=3 pattern=0 beta=0.5 changed=177 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=4 pattern=0 beta=0.5 changed=227 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=5 pattern=0 beta=0.5 changed=280 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=6 pattern=0 beta=0.5 changed=339 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=9 pattern=0 beta=0.5 changed=488 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=10 pattern=0 beta=0.5 changed=584 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=11 pattern=0 beta=0.5 changed=552 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=16 pattern=0 beta=0.5 changed=868 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=31 pattern=0 beta=0.5 changed=1714 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=64 pattern=0 beta=0.5 changed=3502 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=127 pattern=0 beta=0.5 changed=6945 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=128 pattern=0 beta=0.5 changed=6959 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=129 pattern=0 beta=0.5 changed=6943 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=223 pattern=0 beta=0.5 changed=12244 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=224 pattern=0 beta=0.5 changed=12344 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=225 pattern=0 beta=0.5 changed=12361 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=448 pattern=0 beta=0.5 changed=24649 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=449 pattern=0 beta=0.5 changed=24278 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1024 k=1024 pattern=0 cases=1680 failures=20
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=1 pattern=1 beta=0.5 changed=59 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=2 pattern=1 beta=0.5 changed=96 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=3 pattern=1 beta=0.5 changed=152 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=4 pattern=1 beta=0.5 changed=198 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=5 pattern=1 beta=0.5 changed=266 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=6 pattern=1 beta=0.5 changed=299 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=9 pattern=1 beta=0.5 changed=491 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=10 pattern=1 beta=0.5 changed=499 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=11 pattern=1 beta=0.5 changed=607 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=16 pattern=1 beta=0.5 changed=791 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=31 pattern=1 beta=0.5 changed=1620 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=64 pattern=1 beta=0.5 changed=3430 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=127 pattern=1 beta=0.5 changed=6714 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=128 pattern=1 beta=0.5 changed=6748 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=129 pattern=1 beta=0.5 changed=6764 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=223 pattern=1 beta=0.5 changed=11872 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=224 pattern=1 beta=0.5 changed=12049 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=225 pattern=1 beta=0.5 changed=11792 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=448 pattern=1 beta=0.5 changed=23546 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=1024 m=449 pattern=1 beta=0.5 changed=23718 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1024 k=1024 pattern=1 cases=1760 failures=40
+shape complete pack_threads=1 compute_threads=1 n=1024 k=1024 pattern=2 cases=1840 failures=40
+shape complete pack_threads=1 compute_threads=1 n=1024 k=1024 pattern=3 cases=1920 failures=40
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=1 pattern=0 beta=0.5 changed=137 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=2 pattern=0 beta=0.5 changed=298 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=3 pattern=0 beta=0.5 changed=454 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=4 pattern=0 beta=0.5 changed=658 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=5 pattern=0 beta=0.5 changed=832 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=6 pattern=0 beta=0.5 changed=976 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=9 pattern=0 beta=0.5 changed=1594 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=10 pattern=0 beta=0.5 changed=1630 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=11 pattern=0 beta=0.5 changed=1887 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=16 pattern=0 beta=0.5 changed=2575 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=31 pattern=0 beta=0.5 changed=4919 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=64 pattern=0 beta=0.5 changed=10385 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=127 pattern=0 beta=0.5 changed=20881 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=128 pattern=0 beta=0.5 changed=20576 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=129 pattern=0 beta=0.5 changed=20715 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=223 pattern=0 beta=0.5 changed=35894 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=224 pattern=0 beta=0.5 changed=35759 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=225 pattern=0 beta=0.5 changed=36373 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=448 pattern=0 beta=0.5 changed=72566 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=449 pattern=0 beta=0.5 changed=72602 padding=0
+shape complete pack_threads=1 compute_threads=1 n=3072 k=1024 pattern=0 cases=2000 failures=60
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=1 pattern=1 beta=0.5 changed=196 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=2 pattern=1 beta=0.5 changed=373 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=3 pattern=1 beta=0.5 changed=432 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=4 pattern=1 beta=0.5 changed=704 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=5 pattern=1 beta=0.5 changed=904 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=6 pattern=1 beta=0.5 changed=1002 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=9 pattern=1 beta=0.5 changed=1459 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=10 pattern=1 beta=0.5 changed=1612 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=11 pattern=1 beta=0.5 changed=1791 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=16 pattern=1 beta=0.5 changed=2673 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=31 pattern=1 beta=0.5 changed=4993 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=64 pattern=1 beta=0.5 changed=10372 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=127 pattern=1 beta=0.5 changed=20809 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=128 pattern=1 beta=0.5 changed=21075 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=129 pattern=1 beta=0.5 changed=21123 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=223 pattern=1 beta=0.5 changed=36534 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=224 pattern=1 beta=0.5 changed=37061 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=225 pattern=1 beta=0.5 changed=36741 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=448 pattern=1 beta=0.5 changed=74147 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3072 k=1024 m=449 pattern=1 beta=0.5 changed=73642 padding=0
+shape complete pack_threads=1 compute_threads=1 n=3072 k=1024 pattern=1 cases=2080 failures=80
+shape complete pack_threads=1 compute_threads=1 n=3072 k=1024 pattern=2 cases=2160 failures=80
+shape complete pack_threads=1 compute_threads=1 n=3072 k=1024 pattern=3 cases=2240 failures=80
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=1 pattern=0 beta=0.5 changed=239 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=2 pattern=0 beta=0.5 changed=399 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=3 pattern=0 beta=0.5 changed=622 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=4 pattern=0 beta=0.5 changed=790 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=5 pattern=0 beta=0.5 changed=1032 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=6 pattern=0 beta=0.5 changed=1228 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=9 pattern=0 beta=0.5 changed=1835 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=10 pattern=0 beta=0.5 changed=2017 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=11 pattern=0 beta=0.5 changed=2438 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=16 pattern=0 beta=0.5 changed=3384 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=31 pattern=0 beta=0.5 changed=6533 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=64 pattern=0 beta=0.5 changed=13596 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=127 pattern=0 beta=0.5 changed=27160 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=128 pattern=0 beta=0.5 changed=26971 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=129 pattern=0 beta=0.5 changed=27315 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=223 pattern=0 beta=0.5 changed=47035 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=224 pattern=0 beta=0.5 changed=47301 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=225 pattern=0 beta=0.5 changed=47460 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=448 pattern=0 beta=0.5 changed=94609 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=449 pattern=0 beta=0.5 changed=94312 padding=0
+shape complete pack_threads=1 compute_threads=1 n=4096 k=1024 pattern=0 cases=2320 failures=100
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=1 pattern=1 beta=0.5 changed=180 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=2 pattern=1 beta=0.5 changed=391 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=3 pattern=1 beta=0.5 changed=658 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=4 pattern=1 beta=0.5 changed=814 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=5 pattern=1 beta=0.5 changed=1044 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=6 pattern=1 beta=0.5 changed=1290 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=9 pattern=1 beta=0.5 changed=1945 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=10 pattern=1 beta=0.5 changed=2227 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=11 pattern=1 beta=0.5 changed=2379 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=16 pattern=1 beta=0.5 changed=3351 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=31 pattern=1 beta=0.5 changed=6601 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=64 pattern=1 beta=0.5 changed=13879 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=127 pattern=1 beta=0.5 changed=27175 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=128 pattern=1 beta=0.5 changed=27800 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=129 pattern=1 beta=0.5 changed=27595 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=223 pattern=1 beta=0.5 changed=47688 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=224 pattern=1 beta=0.5 changed=47922 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=225 pattern=1 beta=0.5 changed=47571 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=448 pattern=1 beta=0.5 changed=95482 padding=0
+FAIL pack_threads=1 compute_threads=1 n=4096 k=1024 m=449 pattern=1 beta=0.5 changed=95352 padding=0
+shape complete pack_threads=1 compute_threads=1 n=4096 k=1024 pattern=1 cases=2400 failures=120
+shape complete pack_threads=1 compute_threads=1 n=4096 k=1024 pattern=2 cases=2480 failures=120
+shape complete pack_threads=1 compute_threads=1 n=4096 k=1024 pattern=3 cases=2560 failures=120
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=1 pattern=0 beta=0.5 changed=20 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=2 pattern=0 beta=0.5 changed=54 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=3 pattern=0 beta=0.5 changed=78 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=4 pattern=0 beta=0.5 changed=102 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=5 pattern=0 beta=0.5 changed=94 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=6 pattern=0 beta=0.5 changed=169 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=9 pattern=0 beta=0.5 changed=228 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=10 pattern=0 beta=0.5 changed=245 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=11 pattern=0 beta=0.5 changed=260 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=16 pattern=0 beta=0.5 changed=414 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=31 pattern=0 beta=0.5 changed=730 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=64 pattern=0 beta=0.5 changed=1473 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=127 pattern=0 beta=0.5 changed=3076 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=128 pattern=0 beta=0.5 changed=2917 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=129 pattern=0 beta=0.5 changed=3036 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=223 pattern=0 beta=0.5 changed=5206 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=224 pattern=0 beta=0.5 changed=5402 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=225 pattern=0 beta=0.5 changed=5289 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=448 pattern=0 beta=0.5 changed=10519 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=449 pattern=0 beta=0.5 changed=10614 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1024 k=4096 pattern=0 cases=2640 failures=140
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=1 pattern=1 beta=0.5 changed=24 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=2 pattern=1 beta=0.5 changed=55 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=3 pattern=1 beta=0.5 changed=71 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=4 pattern=1 beta=0.5 changed=108 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=5 pattern=1 beta=0.5 changed=124 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=6 pattern=1 beta=0.5 changed=160 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=9 pattern=1 beta=0.5 changed=205 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=10 pattern=1 beta=0.5 changed=267 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=11 pattern=1 beta=0.5 changed=261 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=16 pattern=1 beta=0.5 changed=397 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=31 pattern=1 beta=0.5 changed=773 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=64 pattern=1 beta=0.5 changed=1562 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=127 pattern=1 beta=0.5 changed=3150 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=128 pattern=1 beta=0.5 changed=3212 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=129 pattern=1 beta=0.5 changed=3182 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=223 pattern=1 beta=0.5 changed=5648 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=224 pattern=1 beta=0.5 changed=5456 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=225 pattern=1 beta=0.5 changed=5489 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=448 pattern=1 beta=0.5 changed=10676 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1024 k=4096 m=449 pattern=1 beta=0.5 changed=11015 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1024 k=4096 pattern=1 cases=2720 failures=160
+shape complete pack_threads=1 compute_threads=1 n=1024 k=4096 pattern=2 cases=2800 failures=160
+shape complete pack_threads=1 compute_threads=1 n=1024 k=4096 pattern=3 cases=2880 failures=160
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=1 pattern=0 beta=0.5 changed=93 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=2 pattern=0 beta=0.5 changed=176 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=3 pattern=0 beta=0.5 changed=275 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=4 pattern=0 beta=0.5 changed=368 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=5 pattern=0 beta=0.5 changed=386 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=6 pattern=0 beta=0.5 changed=575 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=9 pattern=0 beta=0.5 changed=831 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=10 pattern=0 beta=0.5 changed=883 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=11 pattern=0 beta=0.5 changed=1005 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=16 pattern=0 beta=0.5 changed=1430 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=31 pattern=0 beta=0.5 changed=2825 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=64 pattern=0 beta=0.5 changed=5587 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=127 pattern=0 beta=0.5 changed=11283 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=128 pattern=0 beta=0.5 changed=11306 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=129 pattern=0 beta=0.5 changed=11571 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=223 pattern=0 beta=0.5 changed=19859 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=224 pattern=0 beta=0.5 changed=19905 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=225 pattern=0 beta=0.5 changed=20074 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=448 pattern=0 beta=0.5 changed=39756 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=449 pattern=0 beta=0.5 changed=39910 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=1500 pattern=0 beta=0.5 changed=132807 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1280 k=1280 pattern=0 cases=2964 failures=181
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=1 pattern=1 beta=0.5 changed=75 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=2 pattern=1 beta=0.5 changed=170 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=3 pattern=1 beta=0.5 changed=215 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=4 pattern=1 beta=0.5 changed=303 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=5 pattern=1 beta=0.5 changed=389 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=6 pattern=1 beta=0.5 changed=460 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=9 pattern=1 beta=0.5 changed=695 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=10 pattern=1 beta=0.5 changed=782 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=11 pattern=1 beta=0.5 changed=878 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=16 pattern=1 beta=0.5 changed=1245 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=31 pattern=1 beta=0.5 changed=2444 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=64 pattern=1 beta=0.5 changed=5158 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=127 pattern=1 beta=0.5 changed=10180 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=128 pattern=1 beta=0.5 changed=10155 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=129 pattern=1 beta=0.5 changed=10405 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=223 pattern=1 beta=0.5 changed=17856 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=224 pattern=1 beta=0.5 changed=18062 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=225 pattern=1 beta=0.5 changed=17873 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=448 pattern=1 beta=0.5 changed=35673 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=1280 m=449 pattern=1 beta=0.5 changed=36031 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1280 k=1280 pattern=1 cases=3044 failures=201
+shape complete pack_threads=1 compute_threads=1 n=1280 k=1280 pattern=2 cases=3124 failures=201
+shape complete pack_threads=1 compute_threads=1 n=1280 k=1280 pattern=3 cases=3204 failures=201
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=1 pattern=0 beta=0.5 changed=277 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=2 pattern=0 beta=0.5 changed=516 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=3 pattern=0 beta=0.5 changed=783 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=4 pattern=0 beta=0.5 changed=1030 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=5 pattern=0 beta=0.5 changed=1266 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=6 pattern=0 beta=0.5 changed=1565 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=9 pattern=0 beta=0.5 changed=2250 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=10 pattern=0 beta=0.5 changed=2681 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=11 pattern=0 beta=0.5 changed=2918 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=16 pattern=0 beta=0.5 changed=4041 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=31 pattern=0 beta=0.5 changed=7914 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=64 pattern=0 beta=0.5 changed=16550 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=127 pattern=0 beta=0.5 changed=32981 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=128 pattern=0 beta=0.5 changed=33198 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=129 pattern=0 beta=0.5 changed=32578 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=223 pattern=0 beta=0.5 changed=56714 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=224 pattern=0 beta=0.5 changed=57593 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=225 pattern=0 beta=0.5 changed=57449 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=448 pattern=0 beta=0.5 changed=114251 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=449 pattern=0 beta=0.5 changed=115114 padding=0
+shape complete pack_threads=1 compute_threads=1 n=3840 k=1280 pattern=0 cases=3284 failures=221
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=1 pattern=1 beta=0.5 changed=255 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=2 pattern=1 beta=0.5 changed=490 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=3 pattern=1 beta=0.5 changed=775 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=4 pattern=1 beta=0.5 changed=1053 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=5 pattern=1 beta=0.5 changed=1299 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=6 pattern=1 beta=0.5 changed=1546 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=9 pattern=1 beta=0.5 changed=2248 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=10 pattern=1 beta=0.5 changed=2609 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=11 pattern=1 beta=0.5 changed=2906 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=16 pattern=1 beta=0.5 changed=4184 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=31 pattern=1 beta=0.5 changed=7870 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=64 pattern=1 beta=0.5 changed=16607 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=127 pattern=1 beta=0.5 changed=33374 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=128 pattern=1 beta=0.5 changed=33340 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=129 pattern=1 beta=0.5 changed=34208 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=223 pattern=1 beta=0.5 changed=58425 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=224 pattern=1 beta=0.5 changed=58748 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=225 pattern=1 beta=0.5 changed=59218 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=448 pattern=1 beta=0.5 changed=117489 padding=0
+FAIL pack_threads=1 compute_threads=1 n=3840 k=1280 m=449 pattern=1 beta=0.5 changed=117487 padding=0
+shape complete pack_threads=1 compute_threads=1 n=3840 k=1280 pattern=1 cases=3364 failures=241
+shape complete pack_threads=1 compute_threads=1 n=3840 k=1280 pattern=2 cases=3444 failures=241
+shape complete pack_threads=1 compute_threads=1 n=3840 k=1280 pattern=3 cases=3524 failures=241
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=1 pattern=0 beta=0.5 changed=369 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=2 pattern=0 beta=0.5 changed=666 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=3 pattern=0 beta=0.5 changed=1042 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=4 pattern=0 beta=0.5 changed=1421 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=5 pattern=0 beta=0.5 changed=1667 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=6 pattern=0 beta=0.5 changed=2040 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=9 pattern=0 beta=0.5 changed=3035 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=10 pattern=0 beta=0.5 changed=3434 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=11 pattern=0 beta=0.5 changed=3682 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=16 pattern=0 beta=0.5 changed=5341 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=31 pattern=0 beta=0.5 changed=10295 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=64 pattern=0 beta=0.5 changed=21955 padding=0
+shape complete pack_threads=1 compute_threads=1 n=5120 k=1280 pattern=0 cases=3572 failures=253
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=1 pattern=1 beta=0.5 changed=375 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=2 pattern=1 beta=0.5 changed=725 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=3 pattern=1 beta=0.5 changed=998 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=4 pattern=1 beta=0.5 changed=1273 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=5 pattern=1 beta=0.5 changed=1758 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=6 pattern=1 beta=0.5 changed=2048 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=9 pattern=1 beta=0.5 changed=3089 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=10 pattern=1 beta=0.5 changed=3414 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=11 pattern=1 beta=0.5 changed=3792 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=16 pattern=1 beta=0.5 changed=5445 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=31 pattern=1 beta=0.5 changed=10577 padding=0
+FAIL pack_threads=1 compute_threads=1 n=5120 k=1280 m=64 pattern=1 beta=0.5 changed=21439 padding=0
+shape complete pack_threads=1 compute_threads=1 n=5120 k=1280 pattern=1 cases=3620 failures=265
+shape complete pack_threads=1 compute_threads=1 n=5120 k=1280 pattern=2 cases=3668 failures=265
+shape complete pack_threads=1 compute_threads=1 n=5120 k=1280 pattern=3 cases=3716 failures=265
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=1 pattern=0 beta=0.5 changed=33 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=2 pattern=0 beta=0.5 changed=70 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=3 pattern=0 beta=0.5 changed=125 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=4 pattern=0 beta=0.5 changed=145 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=5 pattern=0 beta=0.5 changed=220 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=6 pattern=0 beta=0.5 changed=267 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=9 pattern=0 beta=0.5 changed=395 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=10 pattern=0 beta=0.5 changed=439 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=11 pattern=0 beta=0.5 changed=446 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=16 pattern=0 beta=0.5 changed=628 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=31 pattern=0 beta=0.5 changed=1262 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=64 pattern=0 beta=0.5 changed=2623 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=127 pattern=0 beta=0.5 changed=5213 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=128 pattern=0 beta=0.5 changed=5268 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=129 pattern=0 beta=0.5 changed=5165 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=223 pattern=0 beta=0.5 changed=9052 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=224 pattern=0 beta=0.5 changed=9291 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=225 pattern=0 beta=0.5 changed=9029 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=448 pattern=0 beta=0.5 changed=18239 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=449 pattern=0 beta=0.5 changed=18358 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=1500 pattern=0 beta=0.5 changed=61299 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1280 k=5120 pattern=0 cases=3800 failures=286
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=1 pattern=1 beta=0.5 changed=39 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=2 pattern=1 beta=0.5 changed=107 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=3 pattern=1 beta=0.5 changed=126 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=4 pattern=1 beta=0.5 changed=177 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=5 pattern=1 beta=0.5 changed=231 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=6 pattern=1 beta=0.5 changed=239 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=9 pattern=1 beta=0.5 changed=372 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=10 pattern=1 beta=0.5 changed=406 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=11 pattern=1 beta=0.5 changed=440 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=16 pattern=1 beta=0.5 changed=682 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=31 pattern=1 beta=0.5 changed=1270 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=64 pattern=1 beta=0.5 changed=2589 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=127 pattern=1 beta=0.5 changed=5191 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=128 pattern=1 beta=0.5 changed=5232 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=129 pattern=1 beta=0.5 changed=5202 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=223 pattern=1 beta=0.5 changed=8882 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=224 pattern=1 beta=0.5 changed=9129 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=225 pattern=1 beta=0.5 changed=9193 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=448 pattern=1 beta=0.5 changed=18290 padding=0
+FAIL pack_threads=1 compute_threads=1 n=1280 k=5120 m=449 pattern=1 beta=0.5 changed=18607 padding=0
+shape complete pack_threads=1 compute_threads=1 n=1280 k=5120 pattern=1 cases=3880 failures=306
+shape complete pack_threads=1 compute_threads=1 n=1280 k=5120 pattern=2 cases=3960 failures=306
+shape complete pack_threads=1 compute_threads=1 n=1280 k=5120 pattern=3 cases=4040 failures=306
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=1 pattern=0 beta=0.5 changed=3324 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=2 pattern=0 beta=0.5 changed=6879 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=3 pattern=0 beta=0.5 changed=10597 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=4 pattern=0 beta=0.5 changed=14136 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=5 pattern=0 beta=0.5 changed=17305 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=6 pattern=0 beta=0.5 changed=21461 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=9 pattern=0 beta=0.5 changed=31624 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=10 pattern=0 beta=0.5 changed=35302 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=11 pattern=0 beta=0.5 changed=38024 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=16 pattern=0 beta=0.5 changed=56358 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=31 pattern=0 beta=0.5 changed=106568 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=64 pattern=0 beta=0.5 changed=227943 padding=0
+shape complete pack_threads=1 compute_threads=1 n=51866 k=1280 pattern=0 cases=4088 failures=318
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=1 pattern=1 beta=0.5 changed=3495 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=2 pattern=1 beta=0.5 changed=6797 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=3 pattern=1 beta=0.5 changed=10478 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=4 pattern=1 beta=0.5 changed=13851 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=5 pattern=1 beta=0.5 changed=17876 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=6 pattern=1 beta=0.5 changed=21001 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=9 pattern=1 beta=0.5 changed=31068 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=10 pattern=1 beta=0.5 changed=34487 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=11 pattern=1 beta=0.5 changed=38979 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=16 pattern=1 beta=0.5 changed=56351 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=31 pattern=1 beta=0.5 changed=105908 padding=0
+FAIL pack_threads=1 compute_threads=1 n=51866 k=1280 m=64 pattern=1 beta=0.5 changed=224503 padding=0
+shape complete pack_threads=1 compute_threads=1 n=51866 k=1280 pattern=1 cases=4136 failures=330
+shape complete pack_threads=1 compute_threads=1 n=51866 k=1280 pattern=2 cases=4184 failures=330
+shape complete pack_threads=1 compute_threads=1 n=51866 k=1280 pattern=3 cases=4232 failures=330
+shape complete pack_threads=8 compute_threads=8 n=7 k=3 pattern=0 cases=4312 failures=330
+shape complete pack_threads=8 compute_threads=8 n=7 k=3 pattern=1 cases=4392 failures=330
+shape complete pack_threads=8 compute_threads=8 n=7 k=3 pattern=2 cases=4472 failures=330
+shape complete pack_threads=8 compute_threads=8 n=7 k=3 pattern=3 cases=4552 failures=330
+shape complete pack_threads=8 compute_threads=8 n=17 k=33 pattern=0 cases=4632 failures=330
+shape complete pack_threads=8 compute_threads=8 n=17 k=33 pattern=1 cases=4712 failures=330
+shape complete pack_threads=8 compute_threads=8 n=17 k=33 pattern=2 cases=4792 failures=330
+shape complete pack_threads=8 compute_threads=8 n=17 k=33 pattern=3 cases=4872 failures=330
+shape complete pack_threads=8 compute_threads=8 n=31 k=65 pattern=0 cases=4952 failures=330
+shape complete pack_threads=8 compute_threads=8 n=31 k=65 pattern=1 cases=5032 failures=330
+shape complete pack_threads=8 compute_threads=8 n=31 k=65 pattern=2 cases=5112 failures=330
+shape complete pack_threads=8 compute_threads=8 n=31 k=65 pattern=3 cases=5192 failures=330
+shape complete pack_threads=8 compute_threads=8 n=127 k=127 pattern=0 cases=5272 failures=330
+shape complete pack_threads=8 compute_threads=8 n=127 k=127 pattern=1 cases=5352 failures=330
+shape complete pack_threads=8 compute_threads=8 n=127 k=127 pattern=2 cases=5432 failures=330
+shape complete pack_threads=8 compute_threads=8 n=127 k=127 pattern=3 cases=5512 failures=330
+shape complete pack_threads=8 compute_threads=8 n=129 k=129 pattern=0 cases=5592 failures=330
+shape complete pack_threads=8 compute_threads=8 n=129 k=129 pattern=1 cases=5672 failures=330
+shape complete pack_threads=8 compute_threads=8 n=129 k=129 pattern=2 cases=5752 failures=330
+shape complete pack_threads=8 compute_threads=8 n=129 k=129 pattern=3 cases=5832 failures=330
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=1 pattern=0 beta=0.5 changed=50 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=2 pattern=0 beta=0.5 changed=115 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=3 pattern=0 beta=0.5 changed=165 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=4 pattern=0 beta=0.5 changed=204 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=5 pattern=0 beta=0.5 changed=253 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=6 pattern=0 beta=0.5 changed=322 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=9 pattern=0 beta=0.5 changed=503 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=10 pattern=0 beta=0.5 changed=558 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=11 pattern=0 beta=0.5 changed=619 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=16 pattern=0 beta=0.5 changed=899 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=31 pattern=0 beta=0.5 changed=1761 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=64 pattern=0 beta=0.5 changed=3391 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=127 pattern=0 beta=0.5 changed=7251 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=128 pattern=0 beta=0.5 changed=7142 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=129 pattern=0 beta=0.5 changed=7155 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=223 pattern=0 beta=0.5 changed=12435 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=224 pattern=0 beta=0.5 changed=12779 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=225 pattern=0 beta=0.5 changed=12740 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=448 pattern=0 beta=0.5 changed=25005 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=449 pattern=0 beta=0.5 changed=25032 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1024 k=1024 pattern=0 cases=5912 failures=350
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=1 pattern=1 beta=0.5 changed=58 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=2 pattern=1 beta=0.5 changed=112 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=3 pattern=1 beta=0.5 changed=168 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=4 pattern=1 beta=0.5 changed=199 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=5 pattern=1 beta=0.5 changed=240 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=6 pattern=1 beta=0.5 changed=329 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=9 pattern=1 beta=0.5 changed=458 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=10 pattern=1 beta=0.5 changed=466 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=11 pattern=1 beta=0.5 changed=594 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=16 pattern=1 beta=0.5 changed=776 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=31 pattern=1 beta=0.5 changed=1603 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=64 pattern=1 beta=0.5 changed=3315 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=127 pattern=1 beta=0.5 changed=6626 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=128 pattern=1 beta=0.5 changed=6598 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=129 pattern=1 beta=0.5 changed=6548 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=223 pattern=1 beta=0.5 changed=11654 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=224 pattern=1 beta=0.5 changed=11576 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=225 pattern=1 beta=0.5 changed=11606 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=448 pattern=1 beta=0.5 changed=23044 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=1024 m=449 pattern=1 beta=0.5 changed=23254 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1024 k=1024 pattern=1 cases=5992 failures=370
+shape complete pack_threads=8 compute_threads=8 n=1024 k=1024 pattern=2 cases=6072 failures=370
+shape complete pack_threads=8 compute_threads=8 n=1024 k=1024 pattern=3 cases=6152 failures=370
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=1 pattern=0 beta=0.5 changed=133 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=2 pattern=0 beta=0.5 changed=350 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=3 pattern=0 beta=0.5 changed=445 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=4 pattern=0 beta=0.5 changed=667 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=5 pattern=0 beta=0.5 changed=820 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=6 pattern=0 beta=0.5 changed=956 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=9 pattern=0 beta=0.5 changed=1435 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=10 pattern=0 beta=0.5 changed=1660 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=11 pattern=0 beta=0.5 changed=1856 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=16 pattern=0 beta=0.5 changed=2628 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=31 pattern=0 beta=0.5 changed=4882 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=64 pattern=0 beta=0.5 changed=10355 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=127 pattern=0 beta=0.5 changed=20515 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=128 pattern=0 beta=0.5 changed=20903 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=129 pattern=0 beta=0.5 changed=20746 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=223 pattern=0 beta=0.5 changed=36015 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=224 pattern=0 beta=0.5 changed=36566 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=225 pattern=0 beta=0.5 changed=36384 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=448 pattern=0 beta=0.5 changed=72267 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=449 pattern=0 beta=0.5 changed=72255 padding=0
+shape complete pack_threads=8 compute_threads=8 n=3072 k=1024 pattern=0 cases=6232 failures=390
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=1 pattern=1 beta=0.5 changed=171 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=2 pattern=1 beta=0.5 changed=315 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=3 pattern=1 beta=0.5 changed=480 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=4 pattern=1 beta=0.5 changed=666 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=5 pattern=1 beta=0.5 changed=809 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=6 pattern=1 beta=0.5 changed=989 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=9 pattern=1 beta=0.5 changed=1413 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=10 pattern=1 beta=0.5 changed=1616 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=11 pattern=1 beta=0.5 changed=1718 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=16 pattern=1 beta=0.5 changed=2622 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=31 pattern=1 beta=0.5 changed=4859 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=64 pattern=1 beta=0.5 changed=10325 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=127 pattern=1 beta=0.5 changed=20435 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=128 pattern=1 beta=0.5 changed=20672 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=129 pattern=1 beta=0.5 changed=20597 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=223 pattern=1 beta=0.5 changed=35829 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=224 pattern=1 beta=0.5 changed=35712 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=225 pattern=1 beta=0.5 changed=36067 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=448 pattern=1 beta=0.5 changed=71811 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3072 k=1024 m=449 pattern=1 beta=0.5 changed=71475 padding=0
+shape complete pack_threads=8 compute_threads=8 n=3072 k=1024 pattern=1 cases=6312 failures=410
+shape complete pack_threads=8 compute_threads=8 n=3072 k=1024 pattern=2 cases=6392 failures=410
+shape complete pack_threads=8 compute_threads=8 n=3072 k=1024 pattern=3 cases=6472 failures=410
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=1 pattern=0 beta=0.5 changed=200 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=2 pattern=0 beta=0.5 changed=414 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=3 pattern=0 beta=0.5 changed=639 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=4 pattern=0 beta=0.5 changed=912 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=5 pattern=0 beta=0.5 changed=1064 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=6 pattern=0 beta=0.5 changed=1235 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=9 pattern=0 beta=0.5 changed=1958 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=10 pattern=0 beta=0.5 changed=2217 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=11 pattern=0 beta=0.5 changed=2456 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=16 pattern=0 beta=0.5 changed=3537 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=31 pattern=0 beta=0.5 changed=6805 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=64 pattern=0 beta=0.5 changed=13421 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=127 pattern=0 beta=0.5 changed=26957 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=128 pattern=0 beta=0.5 changed=27663 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=129 pattern=0 beta=0.5 changed=27864 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=223 pattern=0 beta=0.5 changed=48151 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=224 pattern=0 beta=0.5 changed=48014 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=225 pattern=0 beta=0.5 changed=48770 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=448 pattern=0 beta=0.5 changed=95486 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=449 pattern=0 beta=0.5 changed=96641 padding=0
+shape complete pack_threads=8 compute_threads=8 n=4096 k=1024 pattern=0 cases=6552 failures=430
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=1 pattern=1 beta=0.5 changed=206 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=2 pattern=1 beta=0.5 changed=396 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=3 pattern=1 beta=0.5 changed=638 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=4 pattern=1 beta=0.5 changed=849 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=5 pattern=1 beta=0.5 changed=1049 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=6 pattern=1 beta=0.5 changed=1188 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=9 pattern=1 beta=0.5 changed=1964 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=10 pattern=1 beta=0.5 changed=2172 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=11 pattern=1 beta=0.5 changed=2321 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=16 pattern=1 beta=0.5 changed=3343 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=31 pattern=1 beta=0.5 changed=6432 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=64 pattern=1 beta=0.5 changed=13599 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=127 pattern=1 beta=0.5 changed=27105 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=128 pattern=1 beta=0.5 changed=26788 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=129 pattern=1 beta=0.5 changed=27464 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=223 pattern=1 beta=0.5 changed=47471 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=224 pattern=1 beta=0.5 changed=47362 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=225 pattern=1 beta=0.5 changed=46660 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=448 pattern=1 beta=0.5 changed=95133 padding=0
+FAIL pack_threads=8 compute_threads=8 n=4096 k=1024 m=449 pattern=1 beta=0.5 changed=95875 padding=0
+shape complete pack_threads=8 compute_threads=8 n=4096 k=1024 pattern=1 cases=6632 failures=450
+shape complete pack_threads=8 compute_threads=8 n=4096 k=1024 pattern=2 cases=6712 failures=450
+shape complete pack_threads=8 compute_threads=8 n=4096 k=1024 pattern=3 cases=6792 failures=450
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=1 pattern=0 beta=0.5 changed=26 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=2 pattern=0 beta=0.5 changed=53 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=3 pattern=0 beta=0.5 changed=86 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=4 pattern=0 beta=0.5 changed=92 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=5 pattern=0 beta=0.5 changed=129 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=6 pattern=0 beta=0.5 changed=199 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=9 pattern=0 beta=0.5 changed=206 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=10 pattern=0 beta=0.5 changed=249 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=11 pattern=0 beta=0.5 changed=272 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=16 pattern=0 beta=0.5 changed=378 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=31 pattern=0 beta=0.5 changed=759 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=64 pattern=0 beta=0.5 changed=1659 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=127 pattern=0 beta=0.5 changed=3206 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=128 pattern=0 beta=0.5 changed=3248 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=129 pattern=0 beta=0.5 changed=3378 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=223 pattern=0 beta=0.5 changed=5603 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=224 pattern=0 beta=0.5 changed=5645 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=225 pattern=0 beta=0.5 changed=5516 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=448 pattern=0 beta=0.5 changed=11094 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=449 pattern=0 beta=0.5 changed=11256 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1024 k=4096 pattern=0 cases=6872 failures=470
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=1 pattern=1 beta=0.5 changed=44 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=2 pattern=1 beta=0.5 changed=34 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=3 pattern=1 beta=0.5 changed=62 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=4 pattern=1 beta=0.5 changed=93 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=5 pattern=1 beta=0.5 changed=119 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=6 pattern=1 beta=0.5 changed=107 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=9 pattern=1 beta=0.5 changed=200 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=10 pattern=1 beta=0.5 changed=226 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=11 pattern=1 beta=0.5 changed=232 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=16 pattern=1 beta=0.5 changed=379 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=31 pattern=1 beta=0.5 changed=682 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=64 pattern=1 beta=0.5 changed=1487 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=127 pattern=1 beta=0.5 changed=2879 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=128 pattern=1 beta=0.5 changed=2896 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=129 pattern=1 beta=0.5 changed=2938 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=223 pattern=1 beta=0.5 changed=5169 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=224 pattern=1 beta=0.5 changed=5145 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=225 pattern=1 beta=0.5 changed=5122 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=448 pattern=1 beta=0.5 changed=10307 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1024 k=4096 m=449 pattern=1 beta=0.5 changed=10239 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1024 k=4096 pattern=1 cases=6952 failures=490
+shape complete pack_threads=8 compute_threads=8 n=1024 k=4096 pattern=2 cases=7032 failures=490
+shape complete pack_threads=8 compute_threads=8 n=1024 k=4096 pattern=3 cases=7112 failures=490
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=1 pattern=0 beta=0.5 changed=96 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=2 pattern=0 beta=0.5 changed=166 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=3 pattern=0 beta=0.5 changed=272 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=4 pattern=0 beta=0.5 changed=347 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=5 pattern=0 beta=0.5 changed=444 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=6 pattern=0 beta=0.5 changed=503 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=9 pattern=0 beta=0.5 changed=731 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=10 pattern=0 beta=0.5 changed=851 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=11 pattern=0 beta=0.5 changed=920 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=16 pattern=0 beta=0.5 changed=1321 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=31 pattern=0 beta=0.5 changed=2570 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=64 pattern=0 beta=0.5 changed=5455 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=127 pattern=0 beta=0.5 changed=10688 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=128 pattern=0 beta=0.5 changed=11222 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=129 pattern=0 beta=0.5 changed=11013 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=223 pattern=0 beta=0.5 changed=19078 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=224 pattern=0 beta=0.5 changed=19167 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=225 pattern=0 beta=0.5 changed=19325 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=448 pattern=0 beta=0.5 changed=37906 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=449 pattern=0 beta=0.5 changed=38514 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=1500 pattern=0 beta=0.5 changed=127445 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1280 k=1280 pattern=0 cases=7196 failures=511
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=1 pattern=1 beta=0.5 changed=85 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=2 pattern=1 beta=0.5 changed=174 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=3 pattern=1 beta=0.5 changed=246 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=4 pattern=1 beta=0.5 changed=310 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=5 pattern=1 beta=0.5 changed=444 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=6 pattern=1 beta=0.5 changed=483 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=9 pattern=1 beta=0.5 changed=746 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=10 pattern=1 beta=0.5 changed=841 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=11 pattern=1 beta=0.5 changed=881 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=16 pattern=1 beta=0.5 changed=1360 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=31 pattern=1 beta=0.5 changed=2591 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=64 pattern=1 beta=0.5 changed=5348 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=127 pattern=1 beta=0.5 changed=10582 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=128 pattern=1 beta=0.5 changed=10831 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=129 pattern=1 beta=0.5 changed=10830 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=223 pattern=1 beta=0.5 changed=18733 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=224 pattern=1 beta=0.5 changed=18924 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=225 pattern=1 beta=0.5 changed=18831 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=448 pattern=1 beta=0.5 changed=38241 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=1280 m=449 pattern=1 beta=0.5 changed=37671 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1280 k=1280 pattern=1 cases=7276 failures=531
+shape complete pack_threads=8 compute_threads=8 n=1280 k=1280 pattern=2 cases=7356 failures=531
+shape complete pack_threads=8 compute_threads=8 n=1280 k=1280 pattern=3 cases=7436 failures=531
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=1 pattern=0 beta=0.5 changed=301 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=2 pattern=0 beta=0.5 changed=481 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=3 pattern=0 beta=0.5 changed=783 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=4 pattern=0 beta=0.5 changed=1064 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=5 pattern=0 beta=0.5 changed=1304 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=6 pattern=0 beta=0.5 changed=1609 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=9 pattern=0 beta=0.5 changed=2415 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=10 pattern=0 beta=0.5 changed=2746 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=11 pattern=0 beta=0.5 changed=2816 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=16 pattern=0 beta=0.5 changed=4241 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=31 pattern=0 beta=0.5 changed=8093 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=64 pattern=0 beta=0.5 changed=16787 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=127 pattern=0 beta=0.5 changed=32663 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=128 pattern=0 beta=0.5 changed=33329 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=129 pattern=0 beta=0.5 changed=33660 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=223 pattern=0 beta=0.5 changed=56930 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=224 pattern=0 beta=0.5 changed=57712 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=225 pattern=0 beta=0.5 changed=57915 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=448 pattern=0 beta=0.5 changed=115868 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=449 pattern=0 beta=0.5 changed=115382 padding=0
+shape complete pack_threads=8 compute_threads=8 n=3840 k=1280 pattern=0 cases=7516 failures=551
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=1 pattern=1 beta=0.5 changed=237 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=2 pattern=1 beta=0.5 changed=526 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=3 pattern=1 beta=0.5 changed=791 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=4 pattern=1 beta=0.5 changed=959 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=5 pattern=1 beta=0.5 changed=1347 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=6 pattern=1 beta=0.5 changed=1513 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=9 pattern=1 beta=0.5 changed=2349 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=10 pattern=1 beta=0.5 changed=2557 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=11 pattern=1 beta=0.5 changed=2743 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=16 pattern=1 beta=0.5 changed=4055 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=31 pattern=1 beta=0.5 changed=7922 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=64 pattern=1 beta=0.5 changed=16301 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=127 pattern=1 beta=0.5 changed=32318 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=128 pattern=1 beta=0.5 changed=32324 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=129 pattern=1 beta=0.5 changed=32570 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=223 pattern=1 beta=0.5 changed=56517 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=224 pattern=1 beta=0.5 changed=56742 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=225 pattern=1 beta=0.5 changed=57438 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=448 pattern=1 beta=0.5 changed=112931 padding=0
+FAIL pack_threads=8 compute_threads=8 n=3840 k=1280 m=449 pattern=1 beta=0.5 changed=114058 padding=0
+shape complete pack_threads=8 compute_threads=8 n=3840 k=1280 pattern=1 cases=7596 failures=571
+shape complete pack_threads=8 compute_threads=8 n=3840 k=1280 pattern=2 cases=7676 failures=571
+shape complete pack_threads=8 compute_threads=8 n=3840 k=1280 pattern=3 cases=7756 failures=571
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=1 pattern=0 beta=0.5 changed=356 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=2 pattern=0 beta=0.5 changed=690 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=3 pattern=0 beta=0.5 changed=1128 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=4 pattern=0 beta=0.5 changed=1221 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=5 pattern=0 beta=0.5 changed=1700 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=6 pattern=0 beta=0.5 changed=2161 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=9 pattern=0 beta=0.5 changed=3142 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=10 pattern=0 beta=0.5 changed=3261 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=11 pattern=0 beta=0.5 changed=3606 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=16 pattern=0 beta=0.5 changed=5296 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=31 pattern=0 beta=0.5 changed=10457 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=64 pattern=0 beta=0.5 changed=22034 padding=0
+shape complete pack_threads=8 compute_threads=8 n=5120 k=1280 pattern=0 cases=7804 failures=583
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=1 pattern=1 beta=0.5 changed=365 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=2 pattern=1 beta=0.5 changed=678 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=3 pattern=1 beta=0.5 changed=1023 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=4 pattern=1 beta=0.5 changed=1334 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=5 pattern=1 beta=0.5 changed=1710 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=6 pattern=1 beta=0.5 changed=2081 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=9 pattern=1 beta=0.5 changed=3078 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=10 pattern=1 beta=0.5 changed=3366 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=11 pattern=1 beta=0.5 changed=3734 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=16 pattern=1 beta=0.5 changed=5445 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=31 pattern=1 beta=0.5 changed=10367 padding=0
+FAIL pack_threads=8 compute_threads=8 n=5120 k=1280 m=64 pattern=1 beta=0.5 changed=21702 padding=0
+shape complete pack_threads=8 compute_threads=8 n=5120 k=1280 pattern=1 cases=7852 failures=595
+shape complete pack_threads=8 compute_threads=8 n=5120 k=1280 pattern=2 cases=7900 failures=595
+shape complete pack_threads=8 compute_threads=8 n=5120 k=1280 pattern=3 cases=7948 failures=595
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=1 pattern=0 beta=0.5 changed=36 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=2 pattern=0 beta=0.5 changed=81 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=3 pattern=0 beta=0.5 changed=112 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=4 pattern=0 beta=0.5 changed=179 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=5 pattern=0 beta=0.5 changed=220 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=6 pattern=0 beta=0.5 changed=276 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=9 pattern=0 beta=0.5 changed=363 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=10 pattern=0 beta=0.5 changed=434 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=11 pattern=0 beta=0.5 changed=474 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=16 pattern=0 beta=0.5 changed=678 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=31 pattern=0 beta=0.5 changed=1342 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=64 pattern=0 beta=0.5 changed=2644 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=127 pattern=0 beta=0.5 changed=5140 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=128 pattern=0 beta=0.5 changed=5336 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=129 pattern=0 beta=0.5 changed=5426 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=223 pattern=0 beta=0.5 changed=9182 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=224 pattern=0 beta=0.5 changed=9377 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=225 pattern=0 beta=0.5 changed=9206 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=448 pattern=0 beta=0.5 changed=18244 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=449 pattern=0 beta=0.5 changed=18327 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=1500 pattern=0 beta=0.5 changed=61836 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1280 k=5120 pattern=0 cases=8032 failures=616
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=1 pattern=1 beta=0.5 changed=34 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=2 pattern=1 beta=0.5 changed=93 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=3 pattern=1 beta=0.5 changed=118 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=4 pattern=1 beta=0.5 changed=158 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=5 pattern=1 beta=0.5 changed=208 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=6 pattern=1 beta=0.5 changed=245 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=9 pattern=1 beta=0.5 changed=394 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=10 pattern=1 beta=0.5 changed=394 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=11 pattern=1 beta=0.5 changed=445 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=16 pattern=1 beta=0.5 changed=692 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=31 pattern=1 beta=0.5 changed=1341 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=64 pattern=1 beta=0.5 changed=2613 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=127 pattern=1 beta=0.5 changed=5139 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=128 pattern=1 beta=0.5 changed=5367 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=129 pattern=1 beta=0.5 changed=5334 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=223 pattern=1 beta=0.5 changed=9215 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=224 pattern=1 beta=0.5 changed=9450 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=225 pattern=1 beta=0.5 changed=9327 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=448 pattern=1 beta=0.5 changed=18378 padding=0
+FAIL pack_threads=8 compute_threads=8 n=1280 k=5120 m=449 pattern=1 beta=0.5 changed=18246 padding=0
+shape complete pack_threads=8 compute_threads=8 n=1280 k=5120 pattern=1 cases=8112 failures=636
+shape complete pack_threads=8 compute_threads=8 n=1280 k=5120 pattern=2 cases=8192 failures=636
+shape complete pack_threads=8 compute_threads=8 n=1280 k=5120 pattern=3 cases=8272 failures=636
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=1 pattern=0 beta=0.5 changed=3629 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=2 pattern=0 beta=0.5 changed=7033 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=3 pattern=0 beta=0.5 changed=10160 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=4 pattern=0 beta=0.5 changed=13625 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=5 pattern=0 beta=0.5 changed=17280 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=6 pattern=0 beta=0.5 changed=20633 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=9 pattern=0 beta=0.5 changed=31038 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=10 pattern=0 beta=0.5 changed=34340 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=11 pattern=0 beta=0.5 changed=38644 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=16 pattern=0 beta=0.5 changed=56004 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=31 pattern=0 beta=0.5 changed=107546 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=64 pattern=0 beta=0.5 changed=220983 padding=0
+shape complete pack_threads=8 compute_threads=8 n=51866 k=1280 pattern=0 cases=8320 failures=648
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=1 pattern=1 beta=0.5 changed=3058 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=2 pattern=1 beta=0.5 changed=7025 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=3 pattern=1 beta=0.5 changed=10812 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=4 pattern=1 beta=0.5 changed=14083 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=5 pattern=1 beta=0.5 changed=17648 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=6 pattern=1 beta=0.5 changed=20796 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=9 pattern=1 beta=0.5 changed=30305 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=10 pattern=1 beta=0.5 changed=34316 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=11 pattern=1 beta=0.5 changed=37769 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=16 pattern=1 beta=0.5 changed=53219 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=31 pattern=1 beta=0.5 changed=106821 padding=0
+FAIL pack_threads=8 compute_threads=8 n=51866 k=1280 m=64 pattern=1 beta=0.5 changed=222168 padding=0
+shape complete pack_threads=8 compute_threads=8 n=51866 k=1280 pattern=1 cases=8368 failures=660
+shape complete pack_threads=8 compute_threads=8 n=51866 k=1280 pattern=2 cases=8416 failures=660
+shape complete pack_threads=8 compute_threads=8 n=51866 k=1280 pattern=3 cases=8464 failures=660
+TOTAL cases=8464 failures=660

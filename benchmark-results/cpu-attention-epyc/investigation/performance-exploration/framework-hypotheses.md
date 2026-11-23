@@ -38,3 +38,24 @@ Any production use of H2 would need narrow eligibility, fallback for unvalidated
 ## Scope of the experiments
 
 The committed compatibility implementation remains unchanged. Experimental libraries are under `/tmp/ct2-attn-variants/` and are selected through `LD_LIBRARY_PATH`. The tile library has a diagnostic-only `CT2_DIAG_DNNL_BLOCK` override; this is not a production option. Input, CPU affinity, threads and compute types match the earlier EPYC checks. Local measurements do not benchmark the upstream frameworks.
+
+## Follow-up latency hypotheses
+
+- **H9, group calls while preserving boundaries:** implemented and exact across 228 randomized cases, but neither QK nor PV grouping nor the workspace sweep produced a meaningful encoder latency improvement. Rejected as the next latency gain.
+- **H10, fewer CPU threads:** 6/4-thread real encoders differed from the 8-thread reference, so they were rejected under the strict compatibility criterion before full transcription timing. This does not establish a recognition-quality regression.
+- **H11, persist decoder weight packing:** CT2 enables persistent packing for MKL, not oneDNN. Private oneDNN 3.1.1 packing produced microbenchmark gains but has query-extent-dependent metadata; a pack-for-one plan silently failed to compute all five output rows. The tested hybrid bounds packed calls to five queries and retains raw fallback weights. Full per-packed-GEMM int32 verification and encoder/transcript checks pass. Combined with planned attention it reduces total time 7.6% versus regular attention in the new run, with process peak RSS increasing from 3.23 to 6.17 GiB. The tradeoff and private dependency prevent treating this as a general production fix.
+- **H12, pack only weights actually used by small-query decoding:** avoid redundant encoder/cross-KV packed copies to reduce memory/setup costs. Not implemented or measured. A broader supported-API design still needs a dependency and numerical-contract decision.
+
+[Follow-up measurements and limitations](../latency-tuning/report.md).
+
+## Memory-constrained follow-up
+
+H12 is now implemented and extended: pack only useful decoder weights, remove persistent raw fallback copies, and process larger integer GEMMs in five-query blocks. A name-only loader snapshot also releases originals as replacements finish. Full per-packed-GEMM int32 verification, exact encoder comparison and all transcription/timestamp checks pass. On the new 60-second INT8 run, combined planned attention + compact packing reduces time 5.6%; peak RSS rises 4.9% and post-inference RSS 3.5%, replacing the rejected near-doubling. Compact is the opt-in adapter's new default; the high-memory hybrid is historical only. [Measurements and limitations](../memory-bounded-packing/report.md).
+
+## Extended-validation lessons
+
+- **Accumulation mode is part of compatibility:** private and public oneDNN INT8 GEMMs differed in 660 initial fractional-beta cases. The compact adapter now explicitly supports checked beta 0/1/-1 and rejects other modes without raw fallback. This does not invalidate the beta-0 Whisper comparisons.
+- **Thread context belongs in the plan contract:** eight-thread packing followed by one-thread compute reproduced incomplete outputs. Fixed matching contexts are now enforced; dynamic teams are excluded from INT8 packing. CT2's replica-pool initialization already configures matching load/run counts.
+- **Unloaded RSS is not equivalent to retained live model data:** ordinary and compact variants both retain allocator memory. Diagnostic cache release/heap trim removes it; four cleaned reload cycles show only 9.3 MiB growth. Ordinary untrimmed RSS plateauing is not established, and no cleanup behavior was added to production.
+
+The guarded adapter passes the [extended operator/application checks](../extended-validation/report.md), including 27 application comparisons, concurrency and reloads. New single-pass times are not performance measurements.

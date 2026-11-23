@@ -1,0 +1,2051 @@
+{"target": 256, "threads": 1, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50190/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=476/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50332/4500000 max=1.66893e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50057/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50041/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=3.0559e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49915/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=453/192000 max=5.96046e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50125/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=15/192000 max=9.53674e-07 first=93505 last=93565
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50009/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50166/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=452/192000 max=4.52856e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50012/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 3, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50010/4500000 max=1.30967e-10 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=465/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 3, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49926/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=470/192000 max=5.40167e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 3, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50037/4500000 max=0.000183105 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=1/192000 max=4.76837e-07 first=189505 last=189505
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 4, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50050/4500000 max=2.32831e-10 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=470/192000 max=2.76486e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 4, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49942/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=475/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 4, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50135/4500000 max=0.000152588 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=20/192000 max=1.90735e-06 first=189441 last=189502
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 5, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49960/4500000 max=1.74623e-10 first=261002 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.61934e-10 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 5, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49837/4500000 max=1.3113e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=4.47035e-08 first=93441 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 5, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49963/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 6, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50062/4500000 max=1.74623e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=460/192000 max=3.09228e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 6, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50077/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=470/192000 max=4.84288e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 6, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50086/4500000 max=0.000152588 first=261001 last=4169998
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 7, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49983/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=479/192000 max=3.20142e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 7, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50062/4500000 max=1.66893e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=460/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 7, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50160/4500000 max=0.000183105 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=21/192000 max=1.90735e-06 first=93441 last=93499
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 8, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49957/4500000 max=1.74623e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=2.91038e-10 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 8, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49965/4500000 max=1.43051e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=458/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 8, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49962/4500000 max=0.000152588 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=29/192000 max=1.90735e-06 first=95872 last=191929
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 9, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50008/4500000 max=1.45519e-10 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=473/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 9, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49998/4500000 max=1.19209e-06 first=261002 last=4169999
+PV same-probabilities full-vs-block changed=472/192000 max=4.47035e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 9, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50011/4500000 max=0.000167847 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=26/192000 max=1.90735e-06 first=189504 last=191933
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 10, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50126/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=462/192000 max=3.20142e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 10, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49950/4500000 max=1.66893e-06 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=451/192000 max=6.70552e-08 first=93441 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 10, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49945/4500000 max=0.000152588 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 11, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49903/4500000 max=1.74623e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=471/192000 max=3.92902e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 11, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50224/4500000 max=1.66893e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=455/192000 max=6.70552e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 11, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50040/4500000 max=0.000137329 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 12, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50072/4500000 max=1.89175e-10 first=261000 last=4169997
+PV same-probabilities full-vs-block changed=468/192000 max=3.7835e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 12, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50023/4500000 max=1.66893e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=468/192000 max=5.96046e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 12, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50222/4500000 max=0.000183105 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=16/192000 max=1.90735e-06 first=95872 last=95926
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 13, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50117/4500000 max=1.45519e-10 first=261000 last=4169997
+PV same-probabilities full-vs-block changed=475/192000 max=3.49246e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 13, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50198/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=462/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 13, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50042/4500000 max=0.00012207 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=20/192000 max=1.90735e-06 first=95937 last=95998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 14, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49948/4500000 max=1.74623e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=466/192000 max=3.20142e-10 first=93441 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 14, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49958/4500000 max=1.90735e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=455/192000 max=4.84288e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 14, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50043/4500000 max=0.000167847 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 15, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50214/4500000 max=2.03727e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=466/192000 max=3.92902e-10 first=93441 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 15, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50121/4500000 max=1.43051e-06 first=261001 last=4169998
+PV same-probabilities full-vs-block changed=461/192000 max=6.70552e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 15, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50252/4500000 max=0.000152588 first=261000 last=4169998
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 16, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49921/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=468/192000 max=2.76486e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 16, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50043/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=478/192000 max=4.47035e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 16, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49974/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 17, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50010/4500000 max=1.74623e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=460/192000 max=2.76486e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 17, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49932/4500000 max=1.66893e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=464/192000 max=5.58794e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 17, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50124/4500000 max=0.000137329 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=20/192000 max=1.90735e-06 first=93441 last=93501
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 18, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49946/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=460/192000 max=3.20142e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 18, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50088/4500000 max=1.54972e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=457/192000 max=5.40167e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 18, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50156/4500000 max=0.000183105 first=261001 last=4169998
+PV same-probabilities full-vs-block changed=16/192000 max=3.8147e-06 first=93507 last=191927
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 19, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50022/4500000 max=1.45519e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=3.34694e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 19, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50177/4500000 max=1.54972e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=458/192000 max=6.70552e-08 first=93441 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 1, "seed": 19, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50136/4500000 max=0.00012207 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=28/192000 max=1.90735e-06 first=95873 last=95934
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.45519e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=165917/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162540/192000 max=7.45058e-08 first=2 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10029/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4115/192000 max=3.8147e-06 first=697 last=191802
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9983/4500000 max=1.45519e-10 first=2001003 last=4499999
+PV same-probabilities full-vs-block changed=166015/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9998/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163009/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10049/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4020/192000 max=3.8147e-06 first=258 last=191859
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=164105/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9900/4500000 max=1.19209e-06 first=2001000 last=4499997
+PV same-probabilities full-vs-block changed=161844/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10056/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3925/192000 max=3.8147e-06 first=453 last=191737
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 3, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9986/4500000 max=1.45519e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=165325/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 3, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10051/4500000 max=1.19209e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=162800/192000 max=9.87202e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 3, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10070/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4054/192000 max=3.8147e-06 first=196 last=191803
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 4, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9981/4500000 max=1.16415e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=166495/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 4, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10026/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=162979/192000 max=8.9407e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 4, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9970/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4224/192000 max=3.8147e-06 first=196 last=191640
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 5, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10036/4500000 max=1.45519e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=164908/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 5, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.19209e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=161964/192000 max=8.9407e-08 first=1 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 5, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9923/4500000 max=0.000183105 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4018/192000 max=3.8147e-06 first=592 last=191607
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 6, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10066/4500000 max=1.16415e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=163891/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 6, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10005/4500000 max=1.19209e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=161656/192000 max=8.9407e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 6, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9961/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4083/192000 max=3.8147e-06 first=128 last=191587
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 7, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=167426/192000 max=3.63798e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 7, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10001/4500000 max=1.19209e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=163287/192000 max=1.49012e-07 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 7, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9966/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4631/192000 max=3.8147e-06 first=260 last=191229
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 8, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9981/4500000 max=1.16415e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=161762/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 8, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9882/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=161084/192000 max=7.82311e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 8, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9946/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=3878/192000 max=3.8147e-06 first=64 last=191039
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 9, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10046/4500000 max=1.45519e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=166255/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 9, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.54972e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163007/192000 max=1.04308e-07 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 9, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10075/4500000 max=0.00012207 first=2001000 last=4499995
+PV same-probabilities full-vs-block changed=4620/192000 max=3.8147e-06 first=384 last=191423
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 10, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9989/4500000 max=1.30967e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=163472/192000 max=3.7835e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 10, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10018/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=161324/192000 max=1.04308e-07 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 10, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10014/4500000 max=0.000183105 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=3830/192000 max=3.8147e-06 first=577 last=191922
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 11, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=166536/192000 max=3.7835e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 11, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9947/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=162925/192000 max=8.19564e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 11, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9960/4500000 max=0.000106812 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4149/192000 max=3.8147e-06 first=147 last=191806
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 12, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10017/4500000 max=2.03727e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=166515/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 12, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10055/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=161873/192000 max=2.08616e-07 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 12, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10001/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4353/192000 max=3.8147e-06 first=66 last=191933
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 13, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9970/4500000 max=1.16415e-10 first=2001002 last=4499999
+PV same-probabilities full-vs-block changed=166323/192000 max=3.7835e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 13, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10014/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162750/192000 max=1.19209e-07 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 13, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9924/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4726/192000 max=3.8147e-06 first=37 last=191756
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 14, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10009/4500000 max=1.45519e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=166391/192000 max=4.29281e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 14, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9996/4500000 max=1.19209e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=162812/192000 max=9.59262e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 14, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9982/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4210/192000 max=3.8147e-06 first=1 last=191741
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 15, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10006/4500000 max=1.45519e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=165052/192000 max=3.34694e-10 first=0 last=191997
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 15, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10070/4500000 max=1.66893e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=162307/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 15, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10128/4500000 max=0.000137329 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4205/192000 max=3.8147e-06 first=320 last=191795
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 16, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9955/4500000 max=1.74623e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=164231/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 16, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9990/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=162065/192000 max=6.70552e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 16, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10026/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4217/192000 max=1.90735e-06 first=3 last=191359
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 17, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10044/4500000 max=1.60071e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=163315/192000 max=4.22006e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 17, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.19209e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=161903/192000 max=8.19564e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 17, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4049/192000 max=1.90735e-06 first=895 last=191678
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 18, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10059/4500000 max=2.03727e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=166080/192000 max=3.7835e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 18, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10014/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=162176/192000 max=1.04308e-07 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 18, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10043/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3964/192000 max=3.8147e-06 first=385 last=191742
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 19, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9991/4500000 max=1.45519e-10 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=163576/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 19, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10033/4500000 max=1.43051e-06 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=161808/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 256, "threads": 8, "seed": 19, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10011/4500000 max=0.000152588 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4017/192000 max=3.8147e-06 first=128 last=191231
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50190/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=476/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50332/4500000 max=1.66893e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50057/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50041/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=3.0559e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49915/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=453/192000 max=5.96046e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50125/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=15/192000 max=9.53674e-07 first=93505 last=93565
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50009/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50166/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=452/192000 max=4.52856e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 1, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50012/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.45519e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=165917/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162540/192000 max=7.45058e-08 first=2 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10029/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4115/192000 max=3.8147e-06 first=697 last=191802
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9983/4500000 max=1.45519e-10 first=2001003 last=4499999
+PV same-probabilities full-vs-block changed=166015/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9998/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163009/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10049/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4020/192000 max=3.8147e-06 first=258 last=191859
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=164105/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9900/4500000 max=1.19209e-06 first=2001000 last=4499997
+PV same-probabilities full-vs-block changed=161844/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 96, "threads": 8, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10056/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3925/192000 max=3.8147e-06 first=453 last=191737
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50190/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=476/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50332/4500000 max=1.66893e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50057/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50041/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=3.0559e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49915/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=453/192000 max=5.96046e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50125/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=15/192000 max=9.53674e-07 first=93505 last=93565
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50009/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50166/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=452/192000 max=4.52856e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 1, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50012/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.45519e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=165917/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162540/192000 max=7.45058e-08 first=2 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10029/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4115/192000 max=3.8147e-06 first=697 last=191802
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9983/4500000 max=1.45519e-10 first=2001003 last=4499999
+PV same-probabilities full-vs-block changed=166015/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9998/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163009/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10049/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4020/192000 max=3.8147e-06 first=258 last=191859
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=164105/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9900/4500000 max=1.19209e-06 first=2001000 last=4499997
+PV same-probabilities full-vs-block changed=161844/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 128, "threads": 8, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=16; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10056/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3925/192000 max=3.8147e-06 first=453 last=191737
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50190/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=476/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50332/4500000 max=1.66893e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50057/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50041/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=3.0559e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49915/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=453/192000 max=5.96046e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50125/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=15/192000 max=9.53674e-07 first=93505 last=93565
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50009/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50166/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=452/192000 max=4.52856e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 1, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50012/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.45519e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=165917/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162540/192000 max=7.45058e-08 first=2 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10029/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4115/192000 max=3.8147e-06 first=697 last=191802
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9983/4500000 max=1.45519e-10 first=2001003 last=4499999
+PV same-probabilities full-vs-block changed=166015/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9998/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163009/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10049/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4020/192000 max=3.8147e-06 first=258 last=191859
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=164105/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9900/4500000 max=1.19209e-06 first=2001000 last=4499997
+PV same-probabilities full-vs-block changed=161844/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 192, "threads": 8, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=8; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10056/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3925/192000 max=3.8147e-06 first=453 last=191737
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50190/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=476/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50332/4500000 max=1.66893e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50057/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50041/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=3.0559e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49915/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=453/192000 max=5.96046e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50125/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=15/192000 max=9.53674e-07 first=93505 last=93565
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50009/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50166/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=452/192000 max=4.52856e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 1, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50012/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.45519e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=165917/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162540/192000 max=7.45058e-08 first=2 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10029/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4115/192000 max=3.8147e-06 first=697 last=191802
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9983/4500000 max=1.45519e-10 first=2001003 last=4499999
+PV same-probabilities full-vs-block changed=166015/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9998/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163009/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10049/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4020/192000 max=3.8147e-06 first=258 last=191859
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=164105/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9900/4500000 max=1.19209e-06 first=2001000 last=4499997
+PV same-probabilities full-vs-block changed=161844/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 320, "threads": 8, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=6; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10056/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3925/192000 max=3.8147e-06 first=453 last=191737
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50190/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=476/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50332/4500000 max=1.66893e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50057/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50041/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=3.0559e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49915/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=453/192000 max=5.96046e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50125/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=15/192000 max=9.53674e-07 first=93505 last=93565
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50009/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50166/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=452/192000 max=4.52856e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 1, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50012/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.45519e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=165917/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162540/192000 max=7.45058e-08 first=2 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10029/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4115/192000 max=3.8147e-06 first=697 last=191802
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9983/4500000 max=1.45519e-10 first=2001003 last=4499999
+PV same-probabilities full-vs-block changed=166015/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9998/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163009/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10049/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4020/192000 max=3.8147e-06 first=258 last=191859
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=164105/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9900/4500000 max=1.19209e-06 first=2001000 last=4499997
+PV same-probabilities full-vs-block changed=161844/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 512, "threads": 8, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=4; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10056/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3925/192000 max=3.8147e-06 first=453 last=191737
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50190/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=476/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50332/4500000 max=1.66893e-06 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=459/192000 max=5.21541e-08 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50057/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50041/4500000 max=1.74623e-10 first=261001 last=4169999
+PV same-probabilities full-vs-block changed=469/192000 max=3.0559e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=49915/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=453/192000 max=5.96046e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50125/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=15/192000 max=9.53674e-07 first=93505 last=93565
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50009/4500000 max=1.45519e-10 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=463/192000 max=2.91038e-10 first=93440 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50166/4500000 max=1.43051e-06 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=452/192000 max=4.52856e-08 first=93440 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 1, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=50012/4500000 max=0.000152588 first=261000 last=4169999
+PV same-probabilities full-vs-block changed=0/192000 max=0 first=-1 last=-1
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 0, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10050/4500000 max=1.45519e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=165917/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 0, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9999/4500000 max=1.43051e-06 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=162540/192000 max=7.45058e-08 first=2 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 0, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10029/4500000 max=0.00012207 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=4115/192000 max=3.8147e-06 first=697 last=191802
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 1, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9983/4500000 max=1.45519e-10 first=2001003 last=4499999
+PV same-probabilities full-vs-block changed=166015/192000 max=4.07454e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 1, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9998/4500000 max=1.43051e-06 first=2001000 last=4499998
+PV same-probabilities full-vs-block changed=163009/192000 max=7.45058e-08 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 1, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10049/4500000 max=0.00012207 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=4020/192000 max=3.8147e-06 first=258 last=191859
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 2, "amplitude": 0.01}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9973/4500000 max=1.16415e-10 first=2001001 last=4499999
+PV same-probabilities full-vs-block changed=164105/192000 max=3.49246e-10 first=0 last=191999
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 2, "amplitude": 1}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=9900/4500000 max=1.19209e-06 first=2001000 last=4499997
+PV same-probabilities full-vs-block changed=161844/192000 max=8.9407e-08 first=0 last=191998
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1
+
+{"target": 1500, "threads": 8, "seed": 2, "amplitude": 10}
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=1; group QK=1 PV=1
+planned stage verification: QK changed=0; final changed=0
+attention changed=0/192000 max=0 first=-1 last=-1
+QK full-vs-block changed=10056/4500000 max=0.000152588 first=2001000 last=4499999
+PV same-probabilities full-vs-block changed=3925/192000 max=3.8147e-06 first=453 last=191737
+quantized changed=0/192000
+quantization-scales changed=0/1500 max=0 first=-1 last=-1

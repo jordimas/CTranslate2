@@ -1,0 +1,2 @@
+CT2 hybrid INT8 packing active: mode=compact raw_copy=0
+PASS guard_and_fallback_checks=18

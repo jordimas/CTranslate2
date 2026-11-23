@@ -1,0 +1,302 @@
+{
+  "group": "lifecycle_int8",
+  "variant": "compact",
+  "config": {
+    "model": "medium",
+    "compute": "int8_float32",
+    "threads": 8,
+    "workers": 1
+  },
+  "rows": [
+    {
+      "case": "reload0_encoder",
+      "encoder": {
+        "shape": [
+          1,
+          1500,
+          1024
+        ],
+        "changed_float_patterns": 0,
+        "sha256": "d2032f1155190c800c5cb83094e343c80894b30b7417c3c4e86907877e892b98"
+      }
+    },
+    {
+      "case": "reload0_jfk",
+      "beam": 5,
+      "seconds": 3.5233070740068797,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 11.0,
+          "text": " And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50364,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50914
+          ],
+          "avg_logprob": -0.17673141997435998,
+          "no_speech_prob": 0.10473952442407608,
+          "compression_ratio": 1.35,
+          "score_bits": [
+            "bfc69f229a7b9612",
+            "3fbad035a0000000",
+            "3ff599999999999a"
+          ]
+        }
+      ],
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "case": "reload1_encoder",
+      "encoder": {
+        "shape": [
+          1,
+          1500,
+          1024
+        ],
+        "changed_float_patterns": 0,
+        "sha256": "d2032f1155190c800c5cb83094e343c80894b30b7417c3c4e86907877e892b98"
+      }
+    },
+    {
+      "case": "reload1_jfk",
+      "beam": 5,
+      "seconds": 3.4951314350037137,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 11.0,
+          "text": " And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50364,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50914
+          ],
+          "avg_logprob": -0.17673141997435998,
+          "no_speech_prob": 0.10473952442407608,
+          "compression_ratio": 1.35,
+          "score_bits": [
+            "bfc69f229a7b9612",
+            "3fbad035a0000000",
+            "3ff599999999999a"
+          ]
+        }
+      ],
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "case": "reload2_encoder",
+      "encoder": {
+        "shape": [
+          1,
+          1500,
+          1024
+        ],
+        "changed_float_patterns": 0,
+        "sha256": "d2032f1155190c800c5cb83094e343c80894b30b7417c3c4e86907877e892b98"
+      }
+    },
+    {
+      "case": "reload2_jfk",
+      "beam": 5,
+      "seconds": 3.377855147002265,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 11.0,
+          "text": " And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50364,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50914
+          ],
+          "avg_logprob": -0.17673141997435998,
+          "no_speech_prob": 0.10473952442407608,
+          "compression_ratio": 1.35,
+          "score_bits": [
+            "bfc69f229a7b9612",
+            "3fbad035a0000000",
+            "3ff599999999999a"
+          ]
+        }
+      ],
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "case": "reload3_encoder",
+      "encoder": {
+        "shape": [
+          1,
+          1500,
+          1024
+        ],
+        "changed_float_patterns": 0,
+        "sha256": "d2032f1155190c800c5cb83094e343c80894b30b7417c3c4e86907877e892b98"
+      }
+    },
+    {
+      "case": "reload3_jfk",
+      "beam": 5,
+      "seconds": 3.2794113279960584,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 11.0,
+          "text": " And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50364,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50914
+          ],
+          "avg_logprob": -0.17673141997435998,
+          "no_speech_prob": 0.10473952442407608,
+          "compression_ratio": 1.35,
+          "score_bits": [
+            "bfc69f229a7b9612",
+            "3fbad035a0000000",
+            "3ff599999999999a"
+          ]
+        }
+      ],
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    }
+  ],
+  "lifecycle": [
+    {
+      "cycle": 0,
+      "alive_rss_kib": 1450324,
+      "unloaded_rss_kib": 1048532,
+      "after_cleanup_rss_kib": 169580
+    },
+    {
+      "cycle": 1,
+      "alive_rss_kib": 1740536,
+      "unloaded_rss_kib": 1641612,
+      "after_cleanup_rss_kib": 169528
+    },
+    {
+      "cycle": 2,
+      "alive_rss_kib": 1863820,
+      "unloaded_rss_kib": 1763232,
+      "after_cleanup_rss_kib": 164160
+    },
+    {
+      "cycle": 3,
+      "alive_rss_kib": 2128152,
+      "unloaded_rss_kib": 2021980,
+      "after_cleanup_rss_kib": 179108
+    }
+  ],
+  "cleanup": {
+    "before_kib": 2021980,
+    "after_kib": 179108,
+    "diagnostic_only": true,
+    "between_every_cycle": true
+  },
+  "peak_rss_kib": 2143104,
+  "post_run_rss_kib": 179108
+}

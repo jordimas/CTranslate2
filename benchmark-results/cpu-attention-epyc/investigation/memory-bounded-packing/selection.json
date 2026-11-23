@@ -1,0 +1,12 @@
+{
+  "selected_stored_weights": 192,
+  "selected_aliases": [
+    "decoder/projection/weight"
+  ],
+  "selected_total": 193,
+  "excluded_decoder_cross_kv": 32,
+  "encoder_weights_selected": 0,
+  "raw_fallback_copies_in_measured_compact_mode": false,
+  "stored_selected_int8_raw_equivalent_bytes": 734003200,
+  "note": "Projection aliases embeddings; the embedding lookup still needs its shared original storage."
+}

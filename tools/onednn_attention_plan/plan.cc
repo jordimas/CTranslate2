@@ -55,6 +55,8 @@ struct Plan {
   Info qk;
   std::vector<Tile> blocks = pv_blocks(t);
   std::vector<Tile> tiles;
+  bool group_pv = std::getenv("CT2_DIAG_PLAN_PV_GROUP") != nullptr;
+  bool group_qk = std::getenv("CT2_DIAG_PLAN_QK_GROUP") != nullptr;
   explicit Plan(D target)
     : qk("T", "N", nullptr, &t, &t, &depth, &alpha,
          nullptr, &depth, nullptr, nullptr, &depth, nullptr, &zero,
@@ -69,6 +71,18 @@ struct Plan {
       else
         tiles.back().size += block.size;
     }
+    // A grouped no-copy driver call is legal only when it regenerates exactly
+    // the already chosen global column boundaries, including the final tail.
+    size_t index = 0;
+    for (const auto& tile : tiles) {
+      for (const auto& local : pv_blocks(tile.size)) {
+        if (index >= blocks.size() || blocks[index].begin != tile.begin + local.begin
+            || blocks[index].size != local.size)
+          throw std::runtime_error("grouped PV call changes the full-shape schedule");
+        ++index;
+      }
+    }
+    if (index != blocks.size()) throw std::runtime_error("incomplete PV schedule");
   }
 };
 }
@@ -93,8 +107,10 @@ bool planned_attention(const StorageView& queries, const StorageView& keys,
   }());
   static const bool logged = [] {
     std::fprintf(stderr, "CT2 planned SGEMM prototype: full=1500, depth=64, "
-                         "QK um=%ld un=%ld; PV blocks=%zu; outer tiles=%zu\n",
-                 long(plan.qk.um), long(plan.qk.un), plan.blocks.size(), plan.tiles.size());
+                         "QK um=%ld un=%ld; PV blocks=%zu; outer tiles=%zu; "
+                         "group QK=%d PV=%d\n",
+                 long(plan.qk.um), long(plan.qk.un), plan.blocks.size(), plan.tiles.size(),
+                 plan.group_qk, plan.group_pv);
     return true;
   }();
   (void)logged;
@@ -130,8 +146,9 @@ bool planned_attention(const StorageView& queries, const StorageView& keys,
         const D nq = tile.size;
         plan.qk.copyB(&k, &nq, q + tile.begin * k, &ld, &one,
                       packed_queries.data<float>(), nullptr, nullptr, nullptr);
-        for (D m0 = 0; m0 < t; m0 += plan.qk.um) {
-          const D m = std::min(plan.qk.um, t - m0);
+        const D call_m = plan.group_qk ? t : plan.qk.um;
+        for (D m0 = 0; m0 < t; m0 += call_m) {
+          const D m = std::min(call_m, t - m0);
           plan.qk.kernel[x64::do_beta0][0][0](
             &m, &nq, &k, &plan.alpha, packed_keys.data<float>() + m0 * k,
             packed_queries.data<float>(), scores.data<float>() + m0,
@@ -146,6 +163,13 @@ bool planned_attention(const StorageView& queries, const StorageView& keys,
         }
         CPU_ISA_DISPATCH((cpu::softmax<ISA>(scores.data<float>(), nullptr,
                                           scores.data<float>(), nq, t, false)));
+        if (plan.group_pv) {
+          const auto status = x64::avx_gemm_f32::sgemm_nocopy_driver(
+            "N", "N", k, nq, t, &one, v, k, scores.data<float>(),
+            t, &zero, out + tile.begin * k, k, nullptr);
+          if (status != dnnl_success) std::abort();
+          continue;
+        }
         // Execute precisely the full-shape PV schedule, including its tail.
         // This driver is explicitly no-copy; generic SGEMM cannot reselect it.
         while (pv_index < plan.blocks.size()

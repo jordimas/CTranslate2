@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-23",
+  "base_revision": "e828c1c880df5e544a947e1aca7d5c9da8a106ee",
+  "cpu": "AMD EPYC 7B13",
+  "onednn": "3.1.1",
+  "effective_isa": "AVX2",
+  "affinity": "0-7",
+  "threads": 8,
+  "model": "large-v3",
+  "compute": "int8_float32",
+  "temperature": 0.0,
+  "beam": 5,
+  "seconds": 60,
+  "language": "en",
+  "warmups": 1,
+  "timed_runs": 3,
+  "order": [
+    "compact",
+    "regular"
+  ],
+  "mode": "compact",
+  "raw_copies_disabled_for_measurement": true,
+  "raw_oracle_enabled_only_for_numerical_validation": true,
+  "generated_loader_snapshots": "variable names, not shared_ptr owners",
+  "selected_weights": {
+    "selected_stored_weights": 192,
+    "selected_aliases": [
+      "decoder/projection/weight"
+    ],
+    "selected_total": 193,
+    "excluded_decoder_cross_kv": 32,
+    "encoder_weights_selected": 0,
+    "raw_fallback_copies_in_measured_compact_mode": false,
+    "stored_selected_int8_raw_equivalent_bytes": 734003200,
+    "note": "Projection aliases embeddings; the embedding lookup still needs its shared original storage."
+  },
+  "measured_library": {
+    "sha256": "3391f3492ef5e78eba015cfa493cf7d3b2f3c32fca662eb6edf8b951607dc50b",
+    "snapshot": "/tmp/ct2-attn-variants/memory-pack-measured/libctranslate2.so.4.9.0",
+    "mode": "compact",
+    "note": "Timing used explicit compact mode; the final build also makes compact the default and rejects unknown mode names."
+  },
+  "rebuilt_default_library_sha256": "f7fef4a03694fb6a6510e14892ccf496b8ca51c16b0c6eb7ed2ddf806cc18b50",
+  "normal_build_library_sha256": "21261973734aa2d869b2d7ba92a7572cb65a6bff6993eee1a7af4f2446b49b5e",
+  "normal_sources_unchanged": true,
+  "current_source_sha256": {
+    "tools/onednn_attention_plan/benchmark.py": "4048dbb456b8a181a9bd9a34549746d2ba272b263c3c30e8df4e09af2936932f",
+    "tools/onednn_attention_plan/README.md": "7bbad0807e8379bef011e0b8825a93e2a97fe7b53c8489c2570a03e48d51225e",
+    "tools/onednn_attention_plan/plan.h": "7e6d2f6d954ee729ab2eb2a401e10ce0cdcd7ad093d4250bd3059ec00d5a8442",
+    "tools/onednn_attention_plan/hybrid_validate.py": "d9e7bc068fe30a101dbacc10d07f595bc140b3f878993446bfe39492a445035a",
+    "tools/onednn_attention_plan/validate.py": "59690aef6d5eb1a0e49c982edc7d2b018ddd94306b190219c536f9027583196c",
+    "tools/onednn_attention_plan/hybrid_benchmark.py": "9d517e2d7dedca9fb96008705bda803dd8da3961536c278eb1290d47fd75acbe",
+    "tools/onednn_attention_plan/thread_screen.py": "68ea50c9347e4f4b5c76d89b36353f3bf3d1944bae25f8e36f01441c40349deb",
+    "tools/onednn_attention_plan/int8_pack.h": "7118014eb349127067b3eac224df77c4286fe47c106208d7e3116cf638bffb97",
+    "tools/onednn_attention_plan/memory_benchmark.py": "e34af90b82cad88c5eabff6da71616d96684746e9e47b6754630fbf23e0164c6",
+    "tools/onednn_attention_plan/int8_pack.cc": "578a7fe5ccd0908658e2c2c12026e9b55a76ac0a49eaf6f335bea7c57191a614",
+    "tools/onednn_attention_plan/transcribe.py": "7446f04ad09b10acaa98af42b9859b89807f8f7a3be9a74f28370f6d36c28422",
+    "tools/onednn_attention_plan/tune.py": "5907a596e40deb9ce75934e8f0015a41cd6878747777d731f7e9406d055f51f2",
+    "tools/onednn_attention_plan/pack_probe.cc": "3a3f4b4ea15dac2e4487fb4e3c63b09c3c74005daf7bd2956e874b9b0c083b11",
+    "tools/onednn_attention_plan/build.py": "240d582841d84fb98825ebd8292431e0f756bc48ac62c4de928723f30c8d0584",
+    "tools/onednn_attention_plan/plan.cc": "b82c46e3f8b0204b12b9931649f38ca8a0711b05111d96dbf14d3b2031f66ccc",
+    "tools/onednn_attention_plan/memory_smoke.py": "8df3cb46a09fc587532688a0f4fbb2363477a460a585ac5d7b06b72ef913e655"
+  }
+}

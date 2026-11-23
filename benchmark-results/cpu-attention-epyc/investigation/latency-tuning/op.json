@@ -1,0 +1,74 @@
+[
+  {
+    "variant": "original",
+    "repeat": 0,
+    "regular": 35.2482,
+    "fused": 24.9349
+  },
+  {
+    "variant": "pv",
+    "repeat": 0,
+    "regular": 33.1279,
+    "fused": 24.8463
+  },
+  {
+    "variant": "qk",
+    "repeat": 0,
+    "regular": 34.7695,
+    "fused": 24.7081
+  },
+  {
+    "variant": "both",
+    "repeat": 0,
+    "regular": 32.4938,
+    "fused": 24.7818
+  },
+  {
+    "variant": "both",
+    "repeat": 1,
+    "regular": 36.4354,
+    "fused": 24.7253
+  },
+  {
+    "variant": "qk",
+    "repeat": 1,
+    "regular": 34.5401,
+    "fused": 24.5769
+  },
+  {
+    "variant": "pv",
+    "repeat": 1,
+    "regular": 33.1885,
+    "fused": 24.7449
+  },
+  {
+    "variant": "original",
+    "repeat": 1,
+    "regular": 35.5463,
+    "fused": 24.56
+  },
+  {
+    "variant": "original",
+    "repeat": 2,
+    "regular": 36.0224,
+    "fused": 24.5569
+  },
+  {
+    "variant": "pv",
+    "repeat": 2,
+    "regular": 34.11,
+    "fused": 24.5871
+  },
+  {
+    "variant": "qk",
+    "repeat": 2,
+    "regular": 35.4052,
+    "fused": 24.54
+  },
+  {
+    "variant": "both",
+    "repeat": 2,
+    "regular": 32.3819,
+    "fused": 24.5318
+  }
+]

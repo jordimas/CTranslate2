@@ -366,6 +366,57 @@ Fresh comparisons, eight physical cores, one encoder warm-up and three timed run
 
 All eight outputs per compute type have identical text and segment timestamps. The 0.5% float32 difference is within timing variability and is treated as flat. This is one CPU and one clip, not corpus-level accuracy or a general speedup. Detailed evidence, source/API limitations and reproduction commands are in [the planned execution report](benchmark-results/cpu-attention-epyc/investigation/planned-attention/report.md).
 
+
+#### Further latency investigation: hybrid oneDNN INT8 weight packing (2026-11-23)
+
+The original prototype/results were committed and pushed as `e828c1c8`. Follow-up experiments rejected PV/QK call grouping and workspace tuning as meaningful encoder latency improvements. Grouped execution passed another 228 exact numerical cases and both regressions, but operator means stayed around 24.6–24.7 ms. Reducing threads from 8 to 6/4 changed the real encoder output and was rejected under the strict compatibility criterion before transcription timing.
+
+A larger candidate targets decoding: persistent INT8 weight packing using oneDNN 3.1.1's private API. **The packing plan depends on query extent:** packing for one query and computing five returned success but left the fifth row unwritten; packing for five and computing sixteen left later rows unwritten. Packing for 1500 preserved the tested outputs but regressed several small-query GEMMs. Blindly adopting MKL's pack-for-one policy is therefore rejected.
+
+Implemented an optional isolated hybrid adapter: keep a five-query packed representation and a raw copy in one model-owned allocation; use packed compute only for compatible calls with at most five queries, and the raw reference for larger/unsupported calls. The production kernel/backend sources remain unchanged. The real first-window encoder matches bit-for-bit. A full-transcription diagnostic run recomputed **every packed INT8 GEMM** through the raw reference and found no int32 differences; final text/timestamps also match.
+
+Full large-v3 **int8_float32**, same 60-second English clip, eight physical cores, temperature 0, beam 5, one warm-up and three timed runs, verification disabled. The same library provides both controls. Mean ± sample SD; load/audio decode excluded:
+
+| Configuration | Transcription mean ± SD, s | Process peak RSS, GiB | Model load, s |
+|---|---|---|---|
+| regular | 58.18 ± 0.13 | 3.23 | 3.17 |
+| hybrid | 53.77 ± 0.45 | 6.17 | 3.45 |
+
+Combined planned attention + hybrid packing reduces transcription time by **7.6% (1.082x)** versus the fresh regular control. All eight warm-up/timed outputs have identical text and segment timestamps. This comparison does not isolate packing from attention fusion. Peak RSS rises by **2.93 GiB**; the memory and private-API costs remain material. One CPU and clip do not establish corpus-level accuracy or a general speedup. Float32 was not rerun for this INT8-only change.
+
+Detailed results, rejected alternatives, query-extent controls, memory definitions, and reproduction commands: [further latency investigation](benchmark-results/cpu-attention-epyc/investigation/latency-tuning/report.md).
+
+
+#### Memory constraint: compact decoder packing (2026-11-23)
+
+**The user rejects doubling memory.** The previous all-linear hybrid's 6.17 GiB peak is rejected as the default experimental path. Implemented compact packing: select only useful decoder weights (193 matrices/aliases), exclude encoder and cross-attention KV weights, store no raw fallback copies, and execute larger prompt INT8 GEMMs in validated five-query blocks. The generated loading loop snapshots names instead of shared pointers, releasing replaced originals when aliases permit.
+
+Numerical validation: the first-window encoder matches all 1,920,000 float patterns; every packed INT8 GEMM in a full transcription, including tiled prompt calls, matches a regular raw-weight int32 oracle. The oracle copies are present only in diagnostic verification, not in measured compact mode (`raw_copy=0`). All eight benchmark warm-up/timed transcripts and segment timestamps also match.
+
+Fresh large-v3 int8_float32 comparison, same CPU/clip/temperature 0/beam 5/eight cores, one warm-up and three timed runs per configuration:
+
+| Configuration | Time mean ± SD, s | Peak RSS, GiB | Post-inference RSS, GiB |
+|---|---|---|---|
+| regular | 57.87 ± 0.13 | 3.28 | 3.03 |
+| compact | 54.61 ± 0.31 | 3.44 | 3.14 |
+
+Total time falls **5.6% (1.060x)**. Peak RSS rises **4.9% (+0.16 GiB)** and RSS after inference **3.5% (+0.11 GiB)**, replacing the near-doubling with a small measured increase. Both pass the experiment's 20% rejection gate; that gate is not a user-approved general memory allowance. Load/packing/audio decoding are excluded from transcription time. Process peak and post-inference RSS are measured separately; neither is a universal memory bound.
+
+Compact becomes the default only in the opt-in experimental packing adapter; production sources/builds remain unchanged. The earlier hybrid mode remains explicitly selectable solely for reproduction. One CPU and clip do not establish corpus-level accuracy, general latency improvements or compatibility with other oneDNN versions/ISAs. Details, configuration-default checks, source/API limitations and evidence: [compact packing report](benchmark-results/cpu-attention-epyc/investigation/memory-bounded-packing/report.md).
+
+
+#### Extended validation before committing compact packing (2026-11-23)
+
+Full CPU suite with the guarded experimental library enabled: **371 passed, 18 skipped**. Standalone ASan/UBSan adapter checks pass **6,348 exact numerical cases**, **2,116 expected unsupported-beta rejections**, **576 mixed-thread-context rejections**, and **18 additional guard/raw-fallback checks**. Canaries, padded output strides, input preservation and packed-buffer immutability also pass. The prebuilt oneDNN archive/JIT are not sanitizer-instrumented; LeakSanitizer is disabled.
+
+The broader tests discovered two private-API limitations that are now guarded. Fractional beta caused 660 mismatches in the initial sweep; compact mode now accepts checked beta values 0, 1 and -1 only, with explicit rejection otherwise. A narrowed mixed-thread comparison reproduced incomplete outputs when an eight-thread packing plan ran in a one-thread context. Compact mode now records/enforces the original fixed OpenMP context and excludes dynamic teams. Historical raw-retaining modes use their raw fallback. Whisper's tested linears use beta 0, and CT2's normal replica pool already configures matching load/run thread counts.
+
+**27 application comparisons** match encoder float patterns, tokens/text/timestamps and score/probability bits: JFK speech, beams 1/5/8, silence/noise, 75-second windowing, long-prompt prefill, native batch two, medium INT8, large-v3 float32 without INT8 packing, two concurrent four-thread workers, and four medium-model reload cycles. This includes encoder probes; it is not 27 independent recordings. All active-memory comparisons pass the experiment gate; new single-pass elapsed times are not performance claims.
+
+Unload testing initially failed a 64 MiB untrimmed-RSS growth gate for both ordinary and compact allocators. Those failed observations are preserved. After model destruction, explicit diagnostic `mkl_free_buffers` plus `malloc_trim` releases the retained memory; cleaned compact RSS grows about 9.3 MiB across four reload cycles and ends around 175 MiB. That demonstrates releasable allocator retention in this test, not a universal leak-free bound or an ordinary-unload RSS plateau. Cleanup is test-only and was not inserted into normal inference/unload.
+
+Detailed results, negative controls, limitations, source/library hashes and reproduction: [extended validation report](benchmark-results/cpu-attention-epyc/investigation/extended-validation/report.md). These results confirm the documented current CPU/library/model configurations, not arbitrary oneDNN versions, ISAs, GEMM modes or thread-context changes. Production sources/builds remain unchanged.
+
 ## Conclusion
 
 (Fill in after all machines have run.)

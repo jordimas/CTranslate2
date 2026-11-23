@@ -1,0 +1,11 @@
+limit=63 n=1280 k=1280 queries=1 bytes=1843200 packs=1 changed=0 regular_ms=0.0256733 packed_ms=0.0154232 speedup=1.66458
+limit=63 n=1280 k=1280 queries=5 bytes=1843200 packs=1 changed=0 regular_ms=0.024822 packed_ms=0.0194267 speedup=1.27772
+limit=63 n=1280 k=1280 queries=16 bytes=1843200 packs=1 changed=10240 regular_ms=0.04823 packed_ms=0.0253922 speedup=1.8994
+row=8 changed=1280 ref0=61138 packed0=0
+row=9 changed=1280 ref0=-94977 packed0=0
+row=10 changed=1280 ref0=59002 packed0=0
+row=11 changed=1280 ref0=-122880 packed0=0
+row=12 changed=1280 ref0=-136939 packed0=0
+row=13 changed=1280 ref0=-98190 packed0=0
+row=14 changed=1280 ref0=-186890 packed0=0
+row=15 changed=1280 ref0=70303 packed0=0

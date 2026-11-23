@@ -11,9 +11,17 @@ root = Path(__file__).resolve().parents[2]
 out = root / "benchmark-results/cpu-attention-epyc/investigation/planned-attention"
 
 if len(sys.argv) > 1 and sys.argv[1] == "worker":
+    import resource
     from faster_whisper import WhisperModel, decode_audio
+    def rss_kib():
+        for line in Path('/proc/self/status').read_text().splitlines():
+            if line.startswith('VmRSS:'): return int(line.split()[1])
+        raise RuntimeError('Cannot read current RSS')
+    load_begin = time.perf_counter()
     model = WhisperModel("/tmp/ct2-cpu-plan-models/large-v3", device="cpu",
                          compute_type=sys.argv[2], cpu_threads=8)
+    model_load_seconds = time.perf_counter() - load_begin
+    rss_after_load_kib = rss_kib()
     audio = decode_audio(str(root / "english_60s.mp3"))[:60 * 16000]
     def run():
         begin = time.perf_counter()
@@ -22,12 +30,16 @@ if len(sys.argv) > 1 and sys.argv[1] == "worker":
         return dict(seconds=time.perf_counter() - begin,
                     text=" ".join(s["text"].strip() for s in segments), segments=segments)
     warmup = run()
+    rss_after_warmup_kib = rss_kib()
     print("warm-up", warmup["seconds"], file=sys.stderr, flush=True)
     runs = []
     for i in range(3):
         runs.append(run())
         print("timed", i, runs[-1]["seconds"], file=sys.stderr, flush=True)
-    print(json.dumps(dict(warmup=warmup, runs=runs)))
+    print(json.dumps(dict(warmup=warmup, runs=runs, model_load_seconds=model_load_seconds,
+                         rss_after_load_kib=rss_after_load_kib,
+                         rss_after_warmup_kib=rss_after_warmup_kib,rss_after_runs_kib=rss_kib(),
+                         peak_rss_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)))
 else:
     env = dict(os.environ, PYTHONPATH=str(root / ".cache/cpu-plan/branch-python"),
                LD_LIBRARY_PATH="/tmp/ct2-attn-variants/planned", CT2_USE_MKL="0",

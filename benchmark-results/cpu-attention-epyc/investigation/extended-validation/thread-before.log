@@ -1,0 +1,4 @@
+CT2 hybrid INT8 packing active: mode=compact raw_copy=0
+BEGIN packed with 8 threads, compute with 1
+CT2 hybrid INT8 packed compute active
+UNEXPECTED compute returned

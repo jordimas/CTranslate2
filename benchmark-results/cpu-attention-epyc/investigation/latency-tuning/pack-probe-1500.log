@@ -1,0 +1,16 @@
+limit=63 n=1280 k=1280 queries=1 bytes=1679360 packs=1 changed=0 regular_ms=0.028872 packed_ms=0.0386735 speedup=0.746558
+limit=63 n=1280 k=1280 queries=5 bytes=1679360 packs=1 changed=0 regular_ms=0.03218 packed_ms=0.0633345 speedup=0.508096
+limit=63 n=1280 k=1280 queries=16 bytes=1679360 packs=1 changed=0 regular_ms=0.0578876 packed_ms=0.156099 speedup=0.37084
+limit=63 n=1280 k=1280 queries=1500 bytes=1679360 packs=1 changed=0 regular_ms=3.51442 packed_ms=3.3447 speedup=1.05074
+limit=63 n=5120 k=1280 queries=1 bytes=6692864 packs=1 changed=0 regular_ms=0.133919 packed_ms=0.094558 speedup=1.41627
+limit=63 n=5120 k=1280 queries=5 bytes=6692864 packs=1 changed=0 regular_ms=0.119615 packed_ms=0.123248 speedup=0.970521
+limit=63 n=5120 k=1280 queries=16 bytes=6692864 packs=1 changed=0 regular_ms=0.206012 packed_ms=0.318731 speedup=0.646349
+limit=63 n=5120 k=1280 queries=1500 bytes=6692864 packs=1 changed=0 regular_ms=14.2523 packed_ms=13.9028 speedup=1.02514
+limit=127 n=1280 k=1280 queries=1 bytes=1679360 packs=1 changed=0 regular_ms=0.0184798 packed_ms=0.0362668 speedup=0.509551
+limit=127 n=1280 k=1280 queries=5 bytes=1679360 packs=1 changed=0 regular_ms=0.0317355 packed_ms=0.0606309 speedup=0.523421
+limit=127 n=1280 k=1280 queries=16 bytes=1679360 packs=1 changed=0 regular_ms=0.0574667 packed_ms=0.161021 speedup=0.356888
+limit=127 n=1280 k=1280 queries=1500 bytes=1679360 packs=1 changed=0 regular_ms=3.52385 packed_ms=3.47654 speedup=1.01361
+limit=127 n=5120 k=1280 queries=1 bytes=6692864 packs=1 changed=0 regular_ms=0.0857632 packed_ms=0.0802687 speedup=1.06845
+limit=127 n=5120 k=1280 queries=5 bytes=6692864 packs=1 changed=0 regular_ms=0.106924 packed_ms=0.127393 speedup=0.839321
+limit=127 n=5120 k=1280 queries=16 bytes=6692864 packs=1 changed=0 regular_ms=0.192184 packed_ms=0.305289 speedup=0.629514
+limit=127 n=5120 k=1280 queries=1500 bytes=6692864 packs=1 changed=0 regular_ms=13.788 packed_ms=13.8406 speedup=0.996201

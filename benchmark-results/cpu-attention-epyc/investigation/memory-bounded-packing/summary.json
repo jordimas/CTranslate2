@@ -1,0 +1,50 @@
+{
+  "compute": "int8_float32",
+  "time_reduction_percent": 5.633730954469051,
+  "speedup": 1.0597006855463451,
+  "peak_rss_increase_percent": 4.873311813292314,
+  "post_run_rss_increase_percent": 3.4848120682994477,
+  "peak_rss_increase_gib": 0.15975570678710938,
+  "post_run_rss_increase_gib": 0.10564041137695312,
+  "values_in_gib": [
+    {
+      "variant": "regular",
+      "mean": 57.8737270206669,
+      "stdev": 0.13272126324050132,
+      "times": [
+        58.02441820999957,
+        57.82254871400073,
+        57.77421413800039
+      ],
+      "model_load_seconds": 2.9850979770053527,
+      "rss_after_load_kib": 1.6931724548339844,
+      "rss_after_warmup_kib": 2.9686050415039062,
+      "rss_after_runs_kib": 3.031452178955078,
+      "peak_rss_kib": 3.2781753540039062
+    },
+    {
+      "variant": "compact",
+      "mean": 54.61327694699867,
+      "stdev": 0.3124983315085062,
+      "times": [
+        54.82471534599608,
+        54.760787997998705,
+        54.25432749700121
+      ],
+      "model_load_seconds": 3.045977674999449,
+      "rss_after_load_kib": 1.82135009765625,
+      "rss_after_warmup_kib": 3.1370697021484375,
+      "rss_after_runs_kib": 3.1370925903320312,
+      "peak_rss_kib": 3.4379310607910156
+    }
+  ],
+  "all_texts_identical": true,
+  "all_segments_identical": true,
+  "outputs_compared": 8,
+  "per_packed_gemm_exact_verification_passed": true,
+  "encoder_changed_float_patterns": 0,
+  "raw_fallback_copies_in_measured_mode": false,
+  "memory_gate_passed": true,
+  "default_smoke_passed": true,
+  "focused_regression_tests_passed": 2
+}

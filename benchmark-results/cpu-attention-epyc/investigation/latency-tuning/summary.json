@@ -1,0 +1,50 @@
+{
+  "compute": "int8_float32",
+  "time_reduction_percent": 7.593300169200711,
+  "speedup": 1.0821726150063187,
+  "peak_rss_increase_gib": 2.9324684143066406,
+  "full_transcription": [
+    {
+      "variant": "regular",
+      "mean": 58.1841112939995,
+      "stdev": 0.1306907144646613,
+      "times": [
+        58.12677217499731,
+        58.33367019100115,
+        58.09189151600003
+      ],
+      "peak_rss_gib": 3.2337570190429688,
+      "model_load_seconds": 3.1664208600050188
+    },
+    {
+      "variant": "hybrid",
+      "mean": 53.766017072664305,
+      "stdev": 0.4474914531693495,
+      "times": [
+        53.24936698599777,
+        54.03163023099478,
+        54.01705400100036
+      ],
+      "peak_rss_gib": 6.166225433349609,
+      "model_load_seconds": 3.450435346996528
+    }
+  ],
+  "all_texts_identical": true,
+  "all_segments_identical": true,
+  "outputs_compared": 8,
+  "per_packed_gemm_exact_verification_passed": true,
+  "encoder_changed_float_patterns": 0,
+  "grouping_randomized_exact_cases": 228,
+  "thread_candidates_rejected": [
+    {
+      "threads": 6,
+      "encoder_changed_bits": 1920000,
+      "rejected": "encoder differs from 8-thread baseline"
+    },
+    {
+      "threads": 4,
+      "encoder_changed_bits": 1919998,
+      "rejected": "encoder differs from 8-thread baseline"
+    }
+  ]
+}

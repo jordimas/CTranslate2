@@ -1,0 +1,15 @@
+Note: Google Test filter = OpTest.FusedAttentionCPU*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from OpTest
+[ RUN      ] OpTest.FusedAttentionCPUMatchesMaterializedPath
+[       OK ] OpTest.FusedAttentionCPUMatchesMaterializedPath (31 ms)
+[ RUN      ] OpTest.FusedAttentionCPUPreservesOneDNNGemmResults
+CT2 planned SGEMM prototype: full=1500, depth=64, QK um=24 un=4; PV blocks=31; outer tiles=7; group QK=0 PV=0
+planned stage verification: QK changed=0; final changed=0
+[       OK ] OpTest.FusedAttentionCPUPreservesOneDNNGemmResults (80 ms)
+[----------] 2 tests from OpTest (111 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (111 ms total)
+[  PASSED  ] 2 tests.

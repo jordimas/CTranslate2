@@ -1,0 +1,819 @@
+{
+  "group": "large_int8",
+  "variant": "regular",
+  "config": {
+    "model": "large-v3",
+    "compute": "int8_float32",
+    "threads": 8,
+    "workers": 1
+  },
+  "rows": [
+    {
+      "case": "jfk_encoder",
+      "encoder": {
+        "shape": [
+          1,
+          1500,
+          1280
+        ],
+        "changed_float_patterns": 0,
+        "sha256": "453f482facf537be96f22f93da5decd5f69f50413ee5b87ec2a0befa08d3b39d"
+      }
+    },
+    {
+      "case": "silence_encoder",
+      "encoder": {
+        "shape": [
+          1,
+          1500,
+          1280
+        ],
+        "changed_float_patterns": 0,
+        "sha256": "9ec4141321a6bbf104a5e9ea5c7728cd66ce424429a36ffafbb2d6cde0e0d556"
+      }
+    },
+    {
+      "case": "noise_encoder",
+      "encoder": {
+        "shape": [
+          1,
+          1500,
+          1280
+        ],
+        "changed_float_patterns": 0,
+        "sha256": "154d354f30f32788c2f15c9cc98023a86a2dcbff21f401c0483bbbb91dfb1b38"
+      }
+    },
+    {
+      "case": "jfk_beam1",
+      "beam": 1,
+      "seconds": 5.027466964995256,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 10.38,
+          "text": " And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50884
+          ],
+          "avg_logprob": -0.14141360776765005,
+          "no_speech_prob": 0.2424875646829605,
+          "compression_ratio": 1.3544303797468353,
+          "score_bits": [
+            "bfc219d752492492",
+            "3fcf09d520000000",
+            "3ff5abbf309b8b57"
+          ]
+        }
+      ],
+      "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "case": "jfk_beam5",
+      "beam": 5,
+      "seconds": 6.086114667006768,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 10.38,
+          "text": " And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50884
+          ],
+          "avg_logprob": -0.11400149711247148,
+          "no_speech_prob": 0.2424875646829605,
+          "compression_ratio": 1.35,
+          "score_bits": [
+            "bfbd2f33bdcb08d4",
+            "3fcf09d520000000",
+            "3ff599999999999a"
+          ]
+        }
+      ],
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "case": "jfk_beam8",
+      "beam": 8,
+      "seconds": 6.190259465991403,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 10.38,
+          "text": " And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50884
+          ],
+          "avg_logprob": -0.11400149711247148,
+          "no_speech_prob": 0.2424875646829605,
+          "compression_ratio": 1.35,
+          "score_bits": [
+            "bfbd2f33bdcb08d4",
+            "3fcf09d520000000",
+            "3ff599999999999a"
+          ]
+        }
+      ],
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "case": "silence",
+      "beam": 5,
+      "seconds": 3.9892613720003283,
+      "audio_seconds": 3.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 29.98,
+          "text": " Thank you.",
+          "tokens": [
+            50365,
+            1044,
+            291,
+            13,
+            51864
+          ],
+          "avg_logprob": -0.27155672510464984,
+          "no_speech_prob": 0.8693459033966064,
+          "compression_ratio": 0.5555555555555556,
+          "score_bits": [
+            "bfd1612f75555555",
+            "3febd1ae80000000",
+            "3fe1c71c71c71c72"
+          ]
+        }
+      ],
+      "text": "Thank you."
+    },
+    {
+      "case": "noise",
+      "beam": 5,
+      "seconds": 3.9181617540016305,
+      "audio_seconds": 2.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 29.98,
+          "text": " Thank you.",
+          "tokens": [
+            50365,
+            1044,
+            291,
+            13,
+            51864
+          ],
+          "avg_logprob": -0.29387662808100384,
+          "no_speech_prob": 0.8600735068321228,
+          "compression_ratio": 0.5555555555555556,
+          "score_bits": [
+            "bfd2cedfeaaaaaab",
+            "3feb85b8e0000000",
+            "3fe1c71c71c71c72"
+          ]
+        }
+      ],
+      "text": "Thank you."
+    },
+    {
+      "case": "multi_window_75s",
+      "beam": 5,
+      "seconds": 33.722136789991055,
+      "audio_seconds": 75.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 7.58,
+          "text": " On a quiet Saturday morning, I decided to explore a part of the city I had never visited before.",
+          "tokens": [
+            50365,
+            1282,
+            257,
+            5677,
+            8803,
+            2446,
+            11,
+            286,
+            3047,
+            281,
+            6839,
+            257,
+            644,
+            295,
+            264,
+            2307,
+            286,
+            632,
+            1128,
+            11220,
+            949,
+            13,
+            50744
+          ],
+          "avg_logprob": -0.10665181967796701,
+          "no_speech_prob": 0.006876442581415176,
+          "compression_ratio": 1.4505494505494505,
+          "score_bits": [
+            "bfbb4d889d9364d9",
+            "3f7c2a7900000000",
+            "3ff7357357357357"
+          ]
+        },
+        {
+          "start": 8.32,
+          "end": 15.8,
+          "text": " I took a small notebook, a bottle of water, and my camera, then walked toward the river.",
+          "tokens": [
+            50781,
+            286,
+            1890,
+            257,
+            1359,
+            21060,
+            11,
+            257,
+            7817,
+            295,
+            1281,
+            11,
+            293,
+            452,
+            2799,
+            11,
+            550,
+            7628,
+            7361,
+            264,
+            6810,
+            13,
+            51155
+          ],
+          "avg_logprob": -0.10665181967796701,
+          "no_speech_prob": 0.006876442581415176,
+          "compression_ratio": 1.4505494505494505,
+          "score_bits": [
+            "bfbb4d889d9364d9",
+            "3f7c2a7900000000",
+            "3ff7357357357357"
+          ]
+        },
+        {
+          "start": 16.580000000000002,
+          "end": 22.02,
+          "text": " The streets were almost empty, but a little bakery was already open.",
+          "tokens": [
+            51194,
+            440,
+            8481,
+            645,
+            1920,
+            6707,
+            11,
+            457,
+            257,
+            707,
+            37519,
+            390,
+            1217,
+            1269,
+            13,
+            51466
+          ],
+          "avg_logprob": -0.10665181967796701,
+          "no_speech_prob": 0.006876442581415176,
+          "compression_ratio": 1.4505494505494505,
+          "score_bits": [
+            "bfbb4d889d9364d9",
+            "3f7c2a7900000000",
+            "3ff7357357357357"
+          ]
+        },
+        {
+          "start": 22.02,
+          "end": 28.82,
+          "text": " The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll.",
+          "tokens": [
+            50365,
+            440,
+            4316,
+            295,
+            4451,
+            5961,
+            19699,
+            292,
+            807,
+            264,
+            41992,
+            11,
+            293,
+            286,
+            5936,
+            281,
+            2256,
+            257,
+            4561,
+            3373,
+            13,
+            50705
+          ],
+          "avg_logprob": -0.15418012771341535,
+          "no_speech_prob": 0.00025717419339343905,
+          "compression_ratio": 1.551440329218107,
+          "score_bits": [
+            "bfc3bc2ca71c71c7",
+            "3f30daaac0000000",
+            "3ff8d2b3183afef2"
+          ]
+        },
+        {
+          "start": 29.74,
+          "end": 35.2,
+          "text": " Farther along, I found a park with tall trees and a narrow wooden bridge.",
+          "tokens": [
+            50751,
+            9067,
+            616,
+            2051,
+            11,
+            286,
+            1352,
+            257,
+            3884,
+            365,
+            6764,
+            5852,
+            293,
+            257,
+            9432,
+            14744,
+            7283,
+            13,
+            51024
+          ],
+          "avg_logprob": -0.15418012771341535,
+          "no_speech_prob": 0.00025717419339343905,
+          "compression_ratio": 1.551440329218107,
+          "score_bits": [
+            "bfc3bc2ca71c71c7",
+            "3f30daaac0000000",
+            "3ff8d2b3183afef2"
+          ]
+        },
+        {
+          "start": 35.92,
+          "end": 41.44,
+          "text": " A few people were walking their dogs, while others sat reading in the sunshine.",
+          "tokens": [
+            51060,
+            316,
+            1326,
+            561,
+            645,
+            4494,
+            641,
+            7197,
+            11,
+            1339,
+            2357,
+            3227,
+            3760,
+            294,
+            264,
+            25219,
+            13,
+            51336
+          ],
+          "avg_logprob": -0.15418012771341535,
+          "no_speech_prob": 0.00025717419339343905,
+          "compression_ratio": 1.551440329218107,
+          "score_bits": [
+            "bfc3bc2ca71c71c7",
+            "3f30daaac0000000",
+            "3ff8d2b3183afef2"
+          ]
+        },
+        {
+          "start": 42.44,
+          "end": 45.8,
+          "text": " I paused beside the water and listened to the birds.",
+          "tokens": [
+            51386,
+            286,
+            46860,
+            15726,
+            264,
+            1281,
+            293,
+            13207,
+            281,
+            264,
+            9009,
+            13,
+            51554
+          ],
+          "avg_logprob": -0.15418012771341535,
+          "no_speech_prob": 0.00025717419339343905,
+          "compression_ratio": 1.551440329218107,
+          "score_bits": [
+            "bfc3bc2ca71c71c7",
+            "3f30daaac0000000",
+            "3ff8d2b3183afef2"
+          ]
+        },
+        {
+          "start": 46.56,
+          "end": 49.28,
+          "text": " Nothing extraordinary happened that morning.",
+          "tokens": [
+            51592,
+            6693,
+            10581,
+            2011,
+            300,
+            2446,
+            13,
+            51728
+          ],
+          "avg_logprob": -0.15418012771341535,
+          "no_speech_prob": 0.00025717419339343905,
+          "compression_ratio": 1.551440329218107,
+          "score_bits": [
+            "bfc3bc2ca71c71c7",
+            "3f30daaac0000000",
+            "3ff8d2b3183afef2"
+          ]
+        },
+        {
+          "start": 49.54,
+          "end": 51.879999999999995,
+          "text": " Yet I returned home feeling relieved.",
+          "tokens": [
+            51741,
+            10890,
+            286,
+            8752,
+            1280,
+            2633,
+            27972,
+            13,
+            51858
+          ],
+          "avg_logprob": -0.15418012771341535,
+          "no_speech_prob": 0.00025717419339343905,
+          "compression_ratio": 1.551440329218107,
+          "score_bits": [
+            "bfc3bc2ca71c71c7",
+            "3f30daaac0000000",
+            "3ff8d2b3183afef2"
+          ]
+        },
+        {
+          "start": 52.02,
+          "end": 52.74,
+          "text": " Refreshed.",
+          "tokens": [
+            50365,
+            16957,
+            3644,
+            292,
+            13,
+            50401
+          ],
+          "avg_logprob": -0.17487601548025053,
+          "no_speech_prob": 0.0012265985133126378,
+          "compression_ratio": 1.4583333333333333,
+          "score_bits": [
+            "bfc6625657abd5eb",
+            "3f5418ba20000000",
+            "3ff7555555555555"
+          ]
+        },
+        {
+          "start": 53.46,
+          "end": 59.68000000000001,
+          "text": " Sometimes, a simple change of scenery is all we need to notice the world around us.",
+          "tokens": [
+            50437,
+            4803,
+            11,
+            257,
+            2199,
+            1319,
+            295,
+            25805,
+            307,
+            439,
+            321,
+            643,
+            281,
+            3449,
+            264,
+            1002,
+            926,
+            505,
+            13,
+            50748
+          ],
+          "avg_logprob": -0.17487601548025053,
+          "no_speech_prob": 0.0012265985133126378,
+          "compression_ratio": 1.4583333333333333,
+          "score_bits": [
+            "bfc6625657abd5eb",
+            "3f5418ba20000000",
+            "3ff7555555555555"
+          ]
+        },
+        {
+          "start": 60.32000000000001,
+          "end": 67.52000000000001,
+          "text": " On a quiet Saturday morning, I decided to explore a part of the city I had never visited before.",
+          "tokens": [
+            50780,
+            1282,
+            257,
+            5677,
+            8803,
+            2446,
+            11,
+            286,
+            3047,
+            281,
+            6839,
+            257,
+            644,
+            295,
+            264,
+            2307,
+            286,
+            632,
+            1128,
+            11220,
+            949,
+            13,
+            51140
+          ],
+          "avg_logprob": -0.17487601548025053,
+          "no_speech_prob": 0.0012265985133126378,
+          "compression_ratio": 1.4583333333333333,
+          "score_bits": [
+            "bfc6625657abd5eb",
+            "3f5418ba20000000",
+            "3ff7555555555555"
+          ]
+        },
+        {
+          "start": 68.28,
+          "end": 75.10000000000001,
+          "text": " I took a small notebook, a bottle of water, and my camera, then walked toward the river.",
+          "tokens": [
+            51178,
+            286,
+            1890,
+            257,
+            1359,
+            21060,
+            11,
+            257,
+            7817,
+            295,
+            1281,
+            11,
+            293,
+            452,
+            2799,
+            11,
+            550,
+            7628,
+            7361,
+            264,
+            6810,
+            13,
+            51519
+          ],
+          "avg_logprob": -0.17487601548025053,
+          "no_speech_prob": 0.0012265985133126378,
+          "compression_ratio": 1.4583333333333333,
+          "score_bits": [
+            "bfc6625657abd5eb",
+            "3f5418ba20000000",
+            "3ff7555555555555"
+          ]
+        }
+      ],
+      "text": "On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river. The streets were almost empty, but a little bakery was already open. The smell of fresh bread drifted through the doorway, and I stopped to buy a warm roll. Farther along, I found a park with tall trees and a narrow wooden bridge. A few people were walking their dogs, while others sat reading in the sunshine. I paused beside the water and listened to the birds. Nothing extraordinary happened that morning. Yet I returned home feeling relieved. Refreshed. Sometimes, a simple change of scenery is all we need to notice the world around us. On a quiet Saturday morning, I decided to explore a part of the city I had never visited before. I took a small notebook, a bottle of water, and my camera, then walked toward the river."
+    },
+    {
+      "case": "long_initial_prompt",
+      "beam": 5,
+      "seconds": 6.57701409899164,
+      "audio_seconds": 11.0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 11.0,
+          "text": " And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50915
+          ],
+          "avg_logprob": -0.1704451053270272,
+          "no_speech_prob": 0.01726851426064968,
+          "compression_ratio": 1.3544303797468353,
+          "score_bits": [
+            "bfc5d1252c924925",
+            "3f91aed660000000",
+            "3ff5abbf309b8b57"
+          ]
+        }
+      ],
+      "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "case": "native_batch2",
+      "encoder_changed_float_patterns": 0,
+      "results": [
+        {
+          "tokens": [
+            [
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13
+            ]
+          ],
+          "scores": [
+            -0.09193387627601624
+          ],
+          "score_bits": [
+            "bfb788fa80000000"
+          ],
+          "no_speech_prob": 0.0843440368771553,
+          "no_speech_bits": "3fb5979220000000"
+        },
+        {
+          "tokens": [
+            [
+              322,
+              257,
+              5677,
+              3227,
+              8486,
+              2446,
+              741,
+              3047,
+              281,
+              6839,
+              257,
+              644,
+              295,
+              264,
+              2307,
+              741,
+              632
+            ]
+          ],
+          "scores": [
+            -0.07263116538524628
+          ],
+          "score_bits": [
+            "bfb297f4c0000000"
+          ],
+          "no_speech_prob": 0.021077066659927368,
+          "no_speech_bits": "3f95953a00000000"
+        }
+      ]
+    }
+  ],
+  "lifecycle": [],
+  "peak_rss_kib": 3124672,
+  "post_run_rss_kib": 2842488
+}

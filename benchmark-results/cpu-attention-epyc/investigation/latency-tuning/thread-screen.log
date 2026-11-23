@@ -1,0 +1,4 @@
+Starting threads 6
+Rejected {'threads': 6, 'encoder_changed_bits': 1920000, 'rejected': 'encoder differs from 8-thread baseline'}
+Starting threads 4
+Rejected {'threads': 4, 'encoder_changed_bits': 1919998, 'rejected': 'encoder differs from 8-thread baseline'}

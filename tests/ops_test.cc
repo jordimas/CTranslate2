@@ -3,7 +3,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <random>
 #include <set>
+#include "cpu/backend.h"
 #include "test_utils.h"
 #include "ctranslate2/layers/attention.h"
 #include "ctranslate2/ops/ops.h"
@@ -1593,6 +1595,91 @@ TEST_P(OpDeviceFPTest, Conv1DGroupNoBias) {
                             output);
     EXPECT_EQ(output.dtype(), dtype);
     expect_storage_eq(output.to_float32(), expected, error);
+}
+
+TEST(OpTest, FusedAttentionCPUMatchesMaterializedPath) {
+  // Sizes that are not multiples of the block of queries.
+  constexpr dim_t batch = 2, heads = 3, queries = 600, keys = 300, depth = 16;
+  constexpr float scale = 0.25f;
+
+  const auto make = [](dim_t length, float freq) {
+    std::vector<float> data(batch * heads * length * depth);
+    for (size_t i = 0; i < data.size(); ++i)
+      data[i] = std::sin(freq * static_cast<float>(i));
+    return StorageView({batch, heads, length, depth}, data);
+  };
+  const StorageView q = make(queries, 0.07f);
+  const StorageView k = make(keys, 0.05f);
+  const StorageView v = make(keys, 0.11f);
+
+  // Lengths cover empty, partial and full rows.
+  std::vector<int32_t> lengths_data(batch * heads * queries);
+  for (size_t i = 0; i < lengths_data.size(); ++i)
+    lengths_data[i] = (i * 37) % (keys + 1);
+  const StorageView lengths({batch * heads * queries}, lengths_data);
+
+  for (const StorageView* mask : {static_cast<const StorageView*>(nullptr), &lengths}) {
+    StorageView scores, probs, expected, actual;
+    ops::MatMul(false, true, scale)(q, k, scores);
+    ops::SoftMax()(scores, mask, probs);
+    ops::MatMul()(probs, v, expected);
+
+    ASSERT_TRUE(ops::FusedAttention()(q, k, v, mask, scale, false, actual));
+    expect_storage_eq(actual, expected, 1e-5f);
+  }
+
+  // Short query lengths are left to the regular path.
+  StorageView output;
+  EXPECT_FALSE(ops::FusedAttention()(make(8, 0.07f), k, v, nullptr, scale, false, output));
+
+  // So many keys that a block of queries does not fit the cache: left to the regular path.
+  const StorageView many_keys = make(10000, 0.05f);
+  EXPECT_FALSE(ops::FusedAttention()(q, many_keys, many_keys, nullptr, scale, false, output));
+}
+
+TEST(OpTest, FusedAttentionCPUPreservesOneDNNGemmResults) {
+  if (cpu::get_gemm_backend(ComputeType::FLOAT32) != cpu::GemmBackend::DNNL)
+    GTEST_SKIP() << "Requires the oneDNN float32 GEMM backend";
+
+  // Query blocking changes oneDNN rounding for these model-sized matrices.
+  // Approximate float comparisons miss differences that flip int8 activations.
+  std::mt19937 random(123);
+  std::normal_distribution<float> distribution;
+  for (const auto& dims : {Shape{512, 512, 128, 2}, Shape{600, 300, 16, 2},
+                          Shape{1500, 1500, 64, 2}, Shape{512, 512, 64, 1}}) {
+    const dim_t queries = dims[0], keys = dims[1], depth = dims[2], heads = dims[3];
+    const auto make = [&](dim_t length) {
+      std::vector<float> data(heads * length * depth);
+      for (auto& value : data)
+        value = distribution(random);
+      return StorageView({1, heads, length, depth}, data);
+    };
+    const auto q = make(queries), k = make(keys), v = make(keys);
+    std::vector<int32_t> lengths_data(heads * queries);
+    for (size_t i = 0; i < lengths_data.size(); ++i)
+      lengths_data[i] = (i * 37) % (keys * 2 / 3 + 1);
+    const StorageView lengths({heads * queries}, lengths_data);
+    const float scale = 1.f / std::sqrt(float(depth));
+
+    for (const StorageView* mask : {static_cast<const StorageView*>(nullptr), &lengths}) {
+      SCOPED_TRACE(::testing::Message() << "queries=" << queries << " keys=" << keys
+                   << " depth=" << depth << " masked=" << bool(mask));
+      StorageView scores, probs, expected, actual;
+      ops::MatMul(false, true, scale)(q, k, scores);
+      ops::SoftMax()(scores, mask, probs);
+      ops::MatMul()(probs, v, expected);
+      ASSERT_TRUE(ops::FusedAttention()(q, k, v, mask, scale, false, actual));
+      ASSERT_EQ(actual.shape(), expected.shape());
+      EXPECT_EQ(std::memcmp(actual.data<float>(), expected.data<float>(),
+                            expected.size() * sizeof(float)), 0);
+    }
+  }
+
+  // A whole head would require more than the per-worker scratch limit.
+  const StorageView long_queries({1, 1, 4097, 1}, std::vector<float>(4097));
+  const StorageView long_keys({1, 1, 4096, 1}, std::vector<float>(4096));
+  StorageView output;
+  EXPECT_FALSE(ops::FusedAttention()(long_queries, long_keys, long_keys, nullptr, 1.f, false, output));
 }
 
 TEST_P(OpDeviceFPTest, Conv1DGroupNoBiasQuantized) {

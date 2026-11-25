@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Silero VAD v6 in CTranslate2 — architecture, gaps and deliverables</title>
+<style>
+  :root { --bg:#fafafa; --fg:#1d2330; --mut:#5b6475; --ok:#1a7f4b; --no:#b3261e; --part:#a15c00; --line:#d9dde5; --card:#fff; }
+  body { font:15px/1.55 system-ui,sans-serif; background:var(--bg); color:var(--fg); max-width:1050px; margin:2rem auto; padding:0 1rem; }
+  h1 { margin-bottom:.2rem } h2 { margin-top:2.2rem; border-bottom:2px solid var(--line); padding-bottom:.3rem }
+  h3 { margin-bottom:.3rem }
+  .sub { color:var(--mut); margin-top:0 }
+  table { border-collapse:collapse; width:100%; background:var(--card); margin:1rem 0 }
+  th,td { border:1px solid var(--line); padding:.45rem .6rem; text-align:left; vertical-align:top }
+  th { background:#eef1f6 }
+  code { background:#eef1f6; padding:1px 4px; border-radius:3px; font-size:.92em }
+  .ok { color:var(--ok); font-weight:600 } .no { color:var(--no); font-weight:600 } .part { color:var(--part); font-weight:600 }
+  pre { background:#1d2330; color:#e8ecf4; padding:1rem; border-radius:6px; overflow-x:auto; font-size:13px }
+  .note { background:#fff8e6; border-left:4px solid #e0a800; padding:.6rem .9rem; margin:1rem 0 }
+  .done { background:#eaf6ee; border-left:4px solid var(--ok); padding:.6rem .9rem; margin:1rem 0 }
+</style>
+</head>
+<body>
+
+<h1>Silero VAD v6 in CTranslate2</h1>
+<p class="sub">Branch <code>silero-vad</code> · target: Silero VAD <b>v6 only</b> (the version bundled by faster-whisper as <code>silero_vad_v6.onnx</code>). Older versions (v3/v4/v5) and the 8 kHz model are out of scope.</p>
+
+<div class="note">Architecture details below were read from the actual <code>silero_vad_v6.onnx</code> (opset 18, via the <code>onnx</code> package and shape inference) and ONNX Runtime. "Existing" columns come from reading <code>include/ctranslate2/ops/</code> and <code>layers/</code> on this branch. Nothing in CTranslate2 has been built or run yet.</div>
+
+<h2>1. Model architecture (v6, as exported)</h2>
+<p>Inputs: <code>input</code> [batch, 576], <code>h</code> [1, batch, 128], <code>c</code> [1, batch, 128]. Outputs: <code>speech_probs</code> (one probability per batch row), <code>hn</code>, <code>cn</code>. The 576 samples are a 512-sample chunk (32 ms at 16 kHz) with the previous 64 samples prepended as context; <b>the context is managed by the caller</b> (see faster-whisper's <code>vad.py</code>), not inside the graph. About 309k parameters, 1.2 MB in fp32.</p>
+<pre>
+ input [B, 576]   (64 context + 512 new samples)
+   │
+   ▼  [1] Pad, mode=reflect, 128 left + 128 right            -> [B, 832]
+   ▼      Unsqueeze                                          -> [B, 1, 832]
+   ▼  [2] Conv1d  1 → 258, k=256, stride=128, no bias        -> [B, 258, 5]
+   │        weight = encoder.feature_extractor.forward_basis_buffer [258,1,256]  (constant)
+   ▼  [3] Slice time [1:]  (drops first frame)               -> [B, 258, 4]
+   │        real = ch 0..128, imag = ch 129..257
+   │        magnitude = sqrt(real² + imag²)                  -> [B, 129, 4]
+   ▼  [4] encoder (4 × Conv1d k=3 pad=1 + ReLU)
+   │        129→128 s1  [B,128,4]
+   │        128→ 64 s2  [B, 64,2]
+   │         64→ 64 s2  [B, 64,1]
+   │         64→128 s1  [B,128,1]
+   ▼      Transpose                                          -> [B, 1, 128]
+   ▼  [5] LSTM, 1 layer, hidden 128, input 128, (h, c) in/out
+   ▼  [6] ReLU → Transpose → Conv1d 128→1 k=1 → Sigmoid      -> [B, 1]
+</pre>
+<p>Weights: <code>conv_layers.{0..3}.{weight,bias}</code> ([128,129,3], [64,128,3], [64,64,3], [128,64,3]), <code>decoder.conv1d.{weight,bias}</code> ([1,128,1]), LSTM <code>W</code> [1,512,128], <code>R</code> [1,512,128], <code>B</code> [1,1024] (input bias ‖ recurrent bias), and the STFT basis.</p>
+
+<div class="done">
+<b>Resolved question: does the ONNX export fold the STFT into a constant?</b> Yes — but in the simple way. The STFT is exported as a plain <code>Conv</code> node whose weight is the initializer <code>encoder.feature_extractor.forward_basis_buffer</code>, shape [258, 1, 256], fp32, values in [-1, 1]. It is already the windowed DFT basis (real rows then imaginary rows), so the converter receives it as an ordinary conv weight and needs no FFT or window code. The magnitude is exported as <code>Slice → Pow(2) → Add → Sqrt</code>. Two details the converter and layer must reproduce: the real part is channels 0–128 and the imaginary part 129–257, and <b>the first of the 5 STFT frames is dropped</b> by the Slice (so 4 frames feed the encoder). The weight can be taken from the ONNX file or the PyTorch buffer of the same name.
+</div>
+
+<h2>2. Stage-by-stage coverage</h2>
+<table>
+<tr><th>Stage</th><th>Needs</th><th>Existing in CTranslate2</th><th>Status</th></tr>
+<tr><td>[1] Reflect pad (128/128)</td><td>1-D reflect padding</td><td><code>Conv1D</code> only zero-pads; no pad op</td><td class="no">Missing</td></tr>
+<tr><td>[2] STFT conv</td><td>Conv1d, stride 128, k=256, no bias</td><td><code>ops::Conv1D</code>. Kernels: CPU <code>conv1d_cpu.cc</code>, CUDA <code>conv1d_gpu.cu</code> + cuDNN, MPS <code>conv1d_mps.mm</code></td><td class="ok">Exists</td></tr>
+<tr><td>[3] Frame drop + magnitude</td><td><code>Slide</code> on time axis, channel split, square/add/<code>sqrt</code></td><td><code>Slide</code>, <code>Split</code>, <code>Mul</code>, <code>Add</code> exist. No <code>sqrt</code>/<code>square</code>/<code>abs</code> primitive</td><td class="no"><code>sqrt</code> missing</td></tr>
+<tr><td>[4] Encoder convs + ReLU</td><td>Conv1d k=3, pad 1, strides 1/2/2/1, fused ReLU</td><td><code>Conv1D</code> with <code>ActivationType</code> fusion</td><td class="ok">Exists</td></tr>
+<tr><td>[5] LSTM cell (one step)</td><td>2 gemms, 4-gate split, sigmoid/tanh, state update</td><td><code>Gemm</code>, <code>Split</code>, <code>Sigmoid</code>, <code>Tanh</code>, <code>Mul</code>, <code>Add</code>; no LSTM/GRU op or layer</td><td class="part">Composable, no fused op</td></tr>
+<tr><td>[6] Decoder</td><td>ReLU, 1×1 conv (or Gemm), sigmoid</td><td><code>ReLU</code>, <code>Conv1D</code>, <code>Gemm</code>, <code>Sigmoid</code></td><td class="ok">Exists</td></tr>
+<tr><td>Streaming state</td><td>Persistent 64-sample context + (h, c) per stream</td><td>KV caches exist for decoders; no streaming-state API for an encoder-only model</td><td class="no">Missing</td></tr>
+<tr><td>Model plumbing</td><td>Spec, converter, model class, Python API</td><td>Templates: <code>wav2vec2_spec.py</code>, <code>models/wav2vec2.h</code>, <code>layers/wav2vec2.h</code></td><td class="no">Missing for VAD</td></tr>
+</table>
+
+<h2>3. Existing building blocks to reuse</h2>
+<p><b>Ops:</b> <code>Conv1D</code>, <code>Gemm</code>, <code>MatMul</code>, <code>ReLU</code>, <code>Sigmoid</code>, <code>Tanh</code>, <code>Add</code>, <code>Sub</code>, <code>Mul</code>, <code>Concat</code>, <code>Split</code>, <code>Slide</code>, <code>Transpose</code>, <code>Squeeze</code>, <code>Unsqueeze</code>, <code>Tile</code>, <code>Gather</code>.</p>
+<table>
+<tr><th>Area</th><th>CPU</th><th>CUDA / ROCm</th><th>MPS</th></tr>
+<tr><td>Conv1D</td><td><code>conv1d_cpu.cc</code></td><td><code>conv1d_gpu.cu</code>, <code>conv1d_cudnn_gpu.cu</code></td><td><code>conv1d_mps.mm</code></td></tr>
+<tr><td>Gemm</td><td>MKL / oneDNN / OpenBLAS / Ruy / Accelerate</td><td>cuBLAS</td><td><code>gemm_mps.mm</code></td></tr>
+<tr><td>Elementwise primitives</td><td><code>src/cpu/primitives.cc</code></td><td><code>src/cuda/primitives.cu</code></td><td>via MPS ops</td></tr>
+<tr><td>Concat/Split/Slide</td><td><code>concat_split_slide_cpu.cc</code></td><td><code>concat_split_slide_gpu.cu</code></td><td><code>concat_mps.mm</code>, <code>split_mps.mm</code>, <code>slide_mps.mm</code></td></tr>
+</table>
+
+<h2>4. What is missing — summary</h2>
+<table>
+<tr><th>#</th><th>Item</th><th>Kind</th><th>Priority</th></tr>
+<tr><td>1</td><td><code>sqrt</code> primitive</td><td>Primitive</td><td>Required</td></tr>
+<tr><td>2</td><td>Reflect <code>Pad1D</code> op</td><td>Op + kernels</td><td>Required (host-side pad acceptable at first)</td></tr>
+<tr><td>3</td><td>Fused <code>LSTMCell</code> op</td><td>Op + kernels</td><td>Required (start composed, fuse later)</td></tr>
+<tr><td>4</td><td>Fused <code>stft_magnitude</code> (258 → 129 channels, drops frame 0)</td><td>Op</td><td>Optimization</td></tr>
+<tr><td>5</td><td><code>SileroVADEncoder</code> layer</td><td>Layer</td><td>Required</td></tr>
+<tr><td>6</td><td><code>SileroVADModel</code> + streaming state</td><td>Model</td><td>Required</td></tr>
+<tr><td>7</td><td><code>SileroVADSpec</code> + converter</td><td>Python</td><td>Required</td></tr>
+<tr><td>8</td><td>Python bindings</td><td>Bindings</td><td>Required</td></tr>
+<tr><td>9</td><td>Tests</td><td>Tests</td><td>Required</td></tr>
+<tr><td>10</td><td>GPU / MPS kernels for 1–3</td><td>Kernels</td><td>Optional (model is tiny)</td></tr>
+<tr><td>11</td><td>Speech-segment post-processing</td><td>Python</td><td>Nice to have</td></tr>
+</table>
+
+<h2>5. Artifacts to implement, grouped by PR</h2>
+
+<h2 style="font-size:1.15em;border:none;margin-top:2rem;background:#eef1f6;padding:.4rem .6rem">PR 1 — CPU ops: <code>sqrt</code>, <code>Pad1D</code>, <code>LSTMCell</code></h2>
+<p>General-purpose ops, useful beyond VAD. No model code. Reviewable and mergeable on its own. <i>Includes the C++ unit tests from A9 for these three ops (<code>tests/primitives_test.cc</code>, <code>tests/ops_test.cc</code>). Depends on: nothing.</i></p>
+<h3>A1. <code>sqrt</code> primitive</h3>
+<ul>
+<li><b>Files:</b> declaration in <code>include/ctranslate2/primitives.h</code>; CPU implementation in <code>src/cpu/primitives.cc</code> (vectorized via <code>vec.h</code> where available); CUDA in <code>src/cuda/primitives.cu</code>.</li>
+<li><b>Contract:</b> <code>Primitives&lt;D&gt;::sqrt(const T* x, T* y, dim_t size)</code> for float (and half on GPU), same shape as the existing <code>exp</code>/<code>log</code>.</li>
+<li><b>Test:</b> a case in <code>tests/primitives_test.cc</code>.</li>
+</ul>
+
+<h3>A2. <code>ops::Pad1D</code> (reflect)</h3>
+<ul>
+<li><b>Files:</b> <code>include/ctranslate2/ops/pad.h</code>, <code>src/ops/pad.cc</code> (dispatch), <code>src/ops/pad_cpu.cc</code>, optional <code>pad_gpu.cu</code>; register in <code>ops/ops.h</code>.</li>
+<li><b>Contract:</b> <code>Pad1D(left, right, mode)</code>, input [batch, length] or [batch, channels, length], output length + left + right. Reflect mode excludes the edge sample (PyTorch/ONNX semantics: index <code>-i → i</code>). Requires <code>left, right &lt; length</code>.</li>
+<li><b>Test:</b> <code>tests/ops_test.cc</code> against hand-computed examples, including 128/128 on length 576.</li>
+</ul>
+
+<h3>A3. <code>ops::LSTMCell</code></h3>
+<ul>
+<li><b>Files:</b> <code>include/ctranslate2/ops/lstm_cell.h</code>, <code>src/ops/lstm_cell.cc</code>, CPU loop, optional <code>lstm_cell_gpu.cu</code>.</li>
+<li><b>Contract:</b> <code>(x[B,I], h[B,H], c[B,H], W_ih[4H,I], W_hh[4H,H], bias[4H]) → (h', c')</code>. Computes <code>gates = x·W_ihᵀ + h·W_hhᵀ + bias</code>, splits into 4 gates, applies sigmoid to input/forget/output, tanh to cell, then <code>c' = f·c + i·g</code>, <code>h' = o·tanh(c')</code>.</li>
+<li><b>Gate order:</b> pick CTranslate2's convention (PyTorch order: i, f, g, o) and convert in the converter; the ONNX file uses i, o, f, c.</li>
+<li><b>Implementation:</b> gemms via the existing <code>Gemm</code>, then one fused elementwise pass for gates and state update. A composed reference (from existing ops) lives only in the unit test, to check the fused result.</li>
+</ul>
+
+
+<h2 style="font-size:1.15em;border:none;margin-top:2rem;background:#eef1f6;padding:.4rem .6rem">PR 2 — Python spec and converter</h2>
+<p>Defines the model format and produces a CT2 model directory from the official ONNX file. <i>Includes the converter test from A9 (expected variables, gate reorder, bias sum, STFT basis shape) using a tiny random-weight model with the same topology. Depends on: nothing at runtime; PR 3 consumes its output.</i></p>
+<h3>A7. Python spec and converter</h3>
+<ul>
+<li><b>Files:</b> <code>python/ctranslate2/specs/silero_vad_spec.py</code> (export in <code>specs/__init__.py</code>), converter <code>python/ctranslate2/converters/silero_vad.py</code> (export in <code>converters/__init__.py</code>) with CLI entry <code>ct2-silero-vad-converter</code>.</li>
+<li><b>Spec:</b> <code>LayerSpec</code> tree matching the layer, with variables for the STFT basis, 4 conv blocks, LSTM (<code>weight_ih</code>, <code>weight_hh</code>, <code>bias</code>), and decoder conv. Revision and config fields (<code>sample_rate=16000</code>, <code>chunk_size=512</code>, <code>context_size=64</code>).</li>
+<li><b>Converter input:</b> the official ONNX file (read with the <code>onnx</code> package) or the PyTorch checkpoint. Steps: read initializers by name, <b>reorder LSTM gates</b> from ONNX i,o,f,c to the chosen order, <b>sum the two bias halves</b> (<code>B[:512] + B[512:]</code>), squeeze the leading dimension of W/R, and store the STFT basis as a normal conv weight. Quantization is not applicable (keep fp32; allow fp16 only for GPU).</li>
+<li><b>Output:</b> a CT2 model directory (<code>model.bin</code>, <code>config.json</code>).</li>
+</ul>
+
+
+<h2 style="font-size:1.15em;border:none;margin-top:2rem;background:#eef1f6;padding:.4rem .6rem">PR 3 — Layer, model and Python bindings (the feature)</h2>
+<p>Wires PR 1 ops into the encoder layer and exposes it. After this PR, VAD works end to end on CPU. <i>Includes the end-to-end tests from A9: match ONNX Runtime to ~1e-5 on silence, noise, speech, multi-chunk streaming, batch 1 and &gt;1. Depends on: PR 1 and PR 2.</i></p>
+<h3>A5. Layer <code>layers::SileroVADEncoder</code></h3>
+<ul>
+<li><b>Files:</b> <code>include/ctranslate2/layers/silero_vad.h</code>, <code>src/layers/silero_vad.cc</code> (add to <code>CMakeLists.txt</code>).</li>
+<li><b>Owns:</b> the STFT conv weight, four encoder conv weight/bias pairs, LSTM weights, decoder conv. Looks them up by scope name from the model variables.</li>
+<li><b>Forward:</b> <code>(audio[B,576], StreamState&amp;) → probs[B]</code> running stages [1]–[6] exactly as in section 1.</li>
+<li><b>State:</b> a <code>StreamState</code> struct with <code>h</code>, <code>c</code> [B,128] and a <code>context</code> [B,64] buffer. The layer builds the 576-sample input from the stored context plus 512 new samples and updates the context to the last 64 samples.</li>
+</ul>
+
+<h3>A6. Model <code>models::SileroVADModel</code> and replica</h3>
+<ul>
+<li><b>Files:</b> <code>include/ctranslate2/models/silero_vad.h</code>, <code>src/models/silero_vad.cc</code>; register in the model factory (spec name <code>SileroVADSpec</code>).</li>
+<li><b>API:</b> <code>SileroVAD</code> class (like <code>Wav2Vec2</code>) built on <code>ReplicaPool</code>, with <code>compute_type</code> and device selection. Methods: <code>predict(chunk_batch, state)</code> and a convenience <code>predict_audio(samples)</code> that chunks a full waveform in 512-sample steps, carrying state, and returns one probability per chunk.</li>
+<li><b>Decision:</b> state is held by the caller (explicit, thread-safe, supports many streams) rather than inside the model.</li>
+</ul>
+
+<h3>A8. Python bindings</h3>
+<ul>
+<li><b>Files:</b> <code>python/cpp/silero_vad.cc</code>, registered in <code>python/cpp/module.cc</code> and <code>python/CMakeLists.txt</code>.</li>
+<li><b>API:</b> <code>ctranslate2.models.SileroVAD(model_path, device="cpu", ...)</code> with <code>__call__(audio_chunks, state=None)</code> returning probabilities and the new state, plus <code>predict_audio(waveform)</code>. NumPy in/out and GIL released during compute.</li>
+</ul>
+
+
+<h2 style="font-size:1.15em;border:none;margin-top:2rem;background:#eef1f6;padding:.4rem .6rem">PR 4 — Post-processing helper</h2>
+<p>Pure-Python speech-segment extraction. No C++ changes. <i>Unit tests on synthetic probability sequences (hysteresis, min durations, padding, max length). Depends on: PR 3 for the API, though it can be developed in parallel.</i></p>
+<h3>A11. Post-processing helper (Python)</h3>
+<ul>
+<li>Turns per-chunk probabilities into speech segments: threshold (with a lower negative threshold for hysteresis), minimum speech duration, minimum silence duration, speech padding, max segment length. Mirrors faster-whisper's <code>get_speech_timestamps</code>; lives in <code>python/ctranslate2/</code> as a pure-Python utility so it does not affect the C++ core.</li>
+</ul>
+
+
+<h2 style="font-size:1.15em;border:none;margin-top:2rem;background:#eef1f6;padding:.4rem .6rem">PR 5 — Performance and other backends (optional)</h2>
+<p>Only if profiling or GPU co-location shows a need. <i>Each kernel gets a test comparing against the CPU result. Depends on: PR 1 and PR 3.</i></p>
+<h3>A4. Optional fused <code>stft_magnitude</code></h3>
+<ul>
+<li>Input: STFT conv output [B, 258, 5]. Output: [B, 129, 4], <code>sqrt(re² + im²)</code>, frame 0 dropped. Replaces Slide + Split + Mul + Mul + Add + sqrt (6 launches) with one. Skip until numerics are correct.</li>
+</ul>
+
+<h3>A10. Optional GPU / MPS kernels</h3>
+<ul>
+<li><code>sqrt</code> in <code>src/cuda/primitives.cu</code>; <code>pad_gpu.cu</code>; <code>lstm_cell_gpu.cu</code>; MPS variants as <code>.mm</code> files. Only worthwhile to avoid host copies when running next to Whisper on GPU.</li>
+</ul>
+
+
+<h2>6. Merge order</h2>
+<ol>
+<li><b>PR 1</b> and <b>PR 2</b> in parallel (independent).</li>
+<li><b>PR 3</b> after both. First milestone: single-chunk match with ONNX Runtime, then multi-chunk streaming.</li>
+<li><b>PR 4</b> once the PR 3 API is stable.</li>
+<li><b>PR 5</b> last, and only if needed.</li>
+</ol>
+
+<h2>7. Remaining risks and open questions</h2>
+<ul>
+<li>Batched streams need per-stream state; the exported graph already takes <code>h</code>, <code>c</code> as [1, B, 128], so the layer should too. Check that the ONNX output really is one probability per row for B &gt; 1 (the Reshape flattens it).</li>
+<li>Per-chunk latency is dominated by kernel launches, not FLOPs; the fused CPU path is the performance target.</li>
+<li>Reflect padding with 128 on each side of a 576-sample row only works because <code>128 &lt; 576</code>; the op should validate this.</li>
+<li>Licensing: the Silero VAD weights are MIT-licensed; the converter should fetch or accept the file rather than ship it in the repo.</li>
+</ul>
+
+</body>
+</html>

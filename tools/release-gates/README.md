@@ -7,8 +7,16 @@ regressions. Tasks and thresholds are defined in `tasks.py` and `run_gate.py`.
 | --- | --- | --- |
 | Whisper tiny | 20 LibriSpeech dummy clean samples | WER increase >0.01 (1 percentage point) |
 | opus-mt-en-de | 500 WMT14 sentences | BLEU decrease >1 point |
+| Whisper small | Same 20 samples, larger weights | WER increase >0.01 (1 percentage point) |
 | T5Gemma 2 270M | 20 SQuAD prompts, up to 64 output tokens | Throughput only |
+| Qwen2.5 0.5B Instruct | 10 prompts decoded one at a time, up to 64 new tokens | Throughput only |
 | All tasks | Median throughput | Confirmed drop >10% |
+
+Every task also reports `model_rss_mb` (growth of peak RSS while loading and running the
+model) and Qwen reports `p95_latency_ms`. These are informational: they are printed, added to
+the GitHub step summary, and never fail the gate. They expose costs that throughput hides, such
+as extra memory from allocator changes. `--baseline-wheel` compares against a local wheel or pip
+spec instead of the latest PyPI release.
 
 T5Gemma uses pinned model/dataset revisions, seed 42, and at most 512 input tokens.
 Invalid metrics and runtime errors fail immediately.

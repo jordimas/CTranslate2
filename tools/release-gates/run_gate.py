@@ -29,6 +29,10 @@ RULES = {
         "wer":         (0.01,  False, False),   # +1 WER percentage point
         "rtf_inverse": (0.10,  True,  True),   # >10% throughput drop
     },
+    "whisper_small_wer": {
+        "wer":         (0.01,  False, False),
+        "rtf_inverse": (0.10,  True,  True),
+    },
     "opus_bleu": {
         "bleu":           (1.0,  True, False),  # -1 BLEU point
         "tokens_per_sec": (0.10, True, True),
@@ -36,7 +40,17 @@ RULES = {
     "t5gemma_generation": {
         "tokens_per_sec": (0.10, True, True),
     },
+    "qwen_generation": {
+        "tokens_per_sec": (0.10, True, True),
+    },
 }
+
+# Reported next to the judged metrics but never fail the gate: memory growth
+# (lower is better) and tail latency (lower is better). They expose costs that
+# throughput alone hides, such as extra RSS from allocator changes.
+INFO_METRICS = ("model_rss_mb", "p95_latency_ms")
+INFO_ROWS = []
+SUMMARY_ROWS = []  # judged metrics, same layout as INFO_ROWS  # (task, compute_type, metric, baseline median, candidate median)
 
 
 MetricResult = namedtuple("MetricResult", "baseline candidate failed performance")
@@ -158,11 +172,37 @@ def measure_round(base_py, cand_py, task, limit, device, model_dirs, confirmatio
         print(f"[gate] {task}: {label} measurements={results}")
     results = judge(task, medians["baseline"], medians["candidate"])
     for metric, result in results.items():
+        SUMMARY_ROWS.append((task, compute_type, metric, result.baseline, result.candidate))
         print(f"  {task}.{metric} median: {result.baseline:.4f} -> {result.candidate:.4f} "
               f"({result.candidate - result.baseline:+.4f}) {'FAIL' if result.failed else 'ok'}")
+    for metric in INFO_METRICS:
+        values = {label: [r[metric] for r in samples[label]
+                          if isinstance(r.get(metric), (int, float)) and not isinstance(r.get(metric), bool)]
+                  for label in samples}
+        if values["baseline"] and values["candidate"]:
+            base_med = statistics.median(values["baseline"])
+            cand_med = statistics.median(values["candidate"])
+            INFO_ROWS.append((task, compute_type, metric, base_med, cand_med))
+            print(f"  {task}.{metric} median (informational): {base_med:.2f} -> {cand_med:.2f}")
     performance_failures = {metric for metric, result in results.items()
                             if result.performance and result.failed}
     return quality_failed, performance_failures
+
+
+def write_step_summary(candidate, baseline):
+    """Append all measurements to the GitHub step summary (and stdout) as markdown."""
+    lines = [f"### Release gate: {candidate} vs {baseline}", "",
+             "| Task | Compute | Metric | Baseline | Candidate | Change |",
+             "| --- | --- | --- | ---: | ---: | ---: |"]
+    for task, compute, metric, base, cand in SUMMARY_ROWS + INFO_ROWS:
+        change = f"{(cand / base - 1) * 100:+.1f}%" if base else "n/a"
+        lines.append(f"| {task} | {compute} | {metric} | {base:.2f} | {cand:.2f} | {change} |")
+    text = "\n".join(lines) + "\n"
+    print(text)
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(text)
 
 
 def evaluate_task(base_py, cand_py, task, limit, device, model_dirs, compute_type="default"):
@@ -186,6 +226,8 @@ def main():
                    help="pip spec or wheel path (defaults to PyPI = self-test)")
     candidate.add_argument("--candidate-wheel-pattern",
                            help="glob matching exactly one candidate wheel")
+    p.add_argument("--baseline-wheel",
+                   help="pip spec or wheel path for the baseline (default: latest PyPI release)")
     p.add_argument("--limit", type=int, default=50, help="0 = full task set")
     p.add_argument("--bleu-limit", type=int, default=500,
                    help="number of translation sentences (default: 500; overrides --limit)")
@@ -199,7 +241,7 @@ def main():
             p.error(f"Expected exactly one candidate wheel, found {len(wheels)}: {wheels}")
         args.candidate_wheel = str(pathlib.Path(wheels[0]).resolve())
 
-    baseline_spec = f"ctranslate2=={latest_version()}"
+    baseline_spec = args.baseline_wheel or f"ctranslate2=={latest_version()}"
     print(f"[gate] baseline={baseline_spec} candidate={args.candidate_wheel}")
 
     with tempfile.TemporaryDirectory(prefix="release-gate-") as tmp:
@@ -221,6 +263,7 @@ def main():
                 failed |= evaluate_task(base_py, cand_py, task, task_limit,
                                         args.device, model_dirs, compute_type=compute_type)
 
+    write_step_summary(args.candidate_wheel, baseline_spec)
     sys.exit(1 if failed else 0)
 
 

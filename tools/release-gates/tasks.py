@@ -1,9 +1,31 @@
 """Release-gate tasks returning metrics."""
 
+import sys
 import time
 
 CPU_THREADS = 2
 SQUAD_REVISION = "7b6d24c440a36b6815f21b70d25016731768db1f"
+
+
+def peak_rss_mb():
+    """Peak resident set size of this process in MiB, or None where unsupported."""
+    try:
+        import resource
+    except ImportError:  # Windows
+        return None
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak / (1024 * 1024 if sys.platform == "darwin" else 1024)
+
+
+def rss_growth_mb(before):
+    """Growth of the peak RSS since `before` (from peak_rss_mb), None if unsupported."""
+    after = peak_rss_mb()
+    return None if before is None or after is None else after - before
+
+
+def percentile(values, q):
+    values = sorted(values)
+    return values[min(len(values) - 1, int(q * len(values)))]
 
 
 def run_and_measure(infer, inputs, warmup_size=1, **kwargs):
@@ -33,20 +55,26 @@ def _load_librispeech(limit):
     return out
 
 
+WHISPER_SIZES = {"whisper_wer": "tiny", "whisper_small_wer": "small"}
+
+
 def load_task_model(task, device, compute_type, model_dir=None):
-    if task == "whisper_wer":
+    if task in WHISPER_SIZES:
         from faster_whisper import WhisperModel
-        return WhisperModel("tiny", device=device, compute_type=compute_type,
+        return WhisperModel(WHISPER_SIZES[task], device=device, compute_type=compute_type,
                             cpu_threads=CPU_THREADS, num_workers=1)
     if not model_dir:
         raise ValueError(f"{task}: --model-dir is required")
     import ctranslate2
+    if task == "qwen_generation":
+        return ctranslate2.Generator(model_dir, device=device, compute_type=compute_type,
+                                     intra_threads=CPU_THREADS, inter_threads=1)
     return ctranslate2.Translator(model_dir, device=device, compute_type=compute_type,
                                  intra_threads=CPU_THREADS, inter_threads=1)
 
 
 def effective_compute_type(task, model):
-    return (model.model if task == "whisper_wer" else model).compute_type
+    return (model.model if task in WHISPER_SIZES else model).compute_type
 
 
 def resolve_compute_types(task, device="cpu", model_dir=None):
@@ -58,11 +86,12 @@ def resolve_compute_types(task, device="cpu", model_dir=None):
     return resolved
 
 
-def run_whisper_wer(limit=300, device="cpu", compute_type="default"):
+def run_whisper_wer(limit=300, device="cpu", compute_type="default", task="whisper_wer"):
     import jiwer
 
     samples = _load_librispeech(limit)
-    model = load_task_model("whisper_wer", device, compute_type)
+    rss_before = peak_rss_mb()
+    model = load_task_model(task, device, compute_type)
 
     def transcribe(batch):
         for audio, _, _ in batch:
@@ -76,7 +105,13 @@ def run_whisper_wer(limit=300, device="cpu", compute_type="default"):
 
     return {"wer": jiwer.wer(refs, hyps),
             "rtf_inverse": audio_sec / elapsed,
-            "compute_type": effective_compute_type("whisper_wer", model)}
+            "model_rss_mb": rss_growth_mb(rss_before),
+            "compute_type": effective_compute_type(task, model)}
+
+
+def run_whisper_small_wer(**kwargs):
+    # Larger weights than tiny: stresses memory bandwidth and the TLB.
+    return run_whisper_wer(task="whisper_small_wer", **kwargs)
 
 
 OPUS_MODEL = "Helsinki-NLP/opus-mt-en-de"
@@ -107,6 +142,7 @@ def run_opus_bleu(limit=500, device="cpu", *, model_dir, compute_type="default")
     refs = [open(p, encoding="utf-8").read().splitlines()[:limit]
             for p in ref_paths]
 
+    rss_before = peak_rss_mb()
     translator = load_task_model("opus_bleu", device, compute_type, model_dir)
     tokenized = [tokenizer.convert_ids_to_tokens(tokenizer.encode(s))
                  for s in sources]
@@ -120,6 +156,7 @@ def run_opus_bleu(limit=500, device="cpu", *, model_dir, compute_type="default")
             for r in results]
     return {"bleu": sacrebleu.corpus_bleu(hyps, refs).score,
             "tokens_per_sec": total_tokens / elapsed,
+            "model_rss_mb": rss_growth_mb(rss_before),
             "compute_type": translator.compute_type}
 
 
@@ -136,19 +173,76 @@ def run_t5gemma_generation(limit=50, device="cpu", *, model_dir, compute_type="d
     tokenizer = transformers.AutoTokenizer.from_pretrained(T5GEMMA_MODEL, revision=T5GEMMA_REVISION)
     inputs = [tokenizer.convert_ids_to_tokens(tokenizer.encode(p, truncation=True, max_length=512))
               for p in prompts]
+    rss_before = peak_rss_mb()
     translator = load_task_model("t5gemma_generation", device, compute_type, model_dir)
     results, elapsed = run_and_measure(
         translator.translate_batch, inputs, warmup_size=8,
         sampling_topk=1, max_decoding_length=64, max_batch_size=8)
     return {"tokens_per_sec": sum(len(r.hypotheses[0]) for r in results) / elapsed,
+            "model_rss_mb": rss_growth_mb(rss_before),
             "compute_type": translator.compute_type}
 
 
-TASKS = {"whisper_wer": run_whisper_wer, "opus_bleu": run_opus_bleu,
-         "t5gemma_generation": run_t5gemma_generation}
+# Decoder-only LLM decoded one request at a time: the memory-bound, latency-sensitive
+# case that the small encoder-decoder tasks above do not exercise.
+QWEN_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+QWEN_REVISION = "7ae557604adf67be50417f59c2c2f167def9a775"
+QWEN_PROMPTS = [
+    "Explain in two sentences why the sky is blue.",
+    "Write a short Python function that reverses a string.",
+    "List three differences between TCP and UDP.",
+    "What is the capital of Australia and why was it chosen?",
+    "Summarize the plot of Romeo and Juliet in three sentences.",
+    "Give a recipe for a simple tomato sauce.",
+    "Describe how a binary search works.",
+    "Why do cats purr? Answer briefly.",
+    "Translate 'good morning, how are you?' into Spanish and French.",
+    "What causes the seasons on Earth?",
+]
+QWEN_MAX_NEW_TOKENS = 64
+
+
+def convert_qwen_generation(out_dir):
+    from ctranslate2.converters.transformers import TransformersConverter
+    TransformersConverter(QWEN_MODEL, revision=QWEN_REVISION).convert(
+        out_dir, force=True, quantization="float32")
+
+
+def run_qwen_generation(limit=10, device="cpu", *, model_dir, compute_type="default"):
+    import transformers
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(QWEN_MODEL, revision=QWEN_REVISION)
+    prompts = QWEN_PROMPTS[:max(1, limit or len(QWEN_PROMPTS))]
+    inputs = [tokenizer.convert_ids_to_tokens(tokenizer.encode(p)) for p in prompts]
+    rss_before = peak_rss_mb()
+    generator = load_task_model("qwen_generation", device, compute_type, model_dir)
+
+    def generate(tokens):
+        start = time.perf_counter()
+        result = generator.generate_batch(
+            [tokens], max_length=QWEN_MAX_NEW_TOKENS, sampling_topk=1,
+            include_prompt_in_result=False)[0]
+        return len(result.sequences_ids[0]), time.perf_counter() - start
+
+    generate(inputs[0])  # warm-up
+    measured = [generate(tokens) for tokens in inputs]
+    total_tokens = sum(n for n, _ in measured)
+    if total_tokens == 0:
+        raise ValueError("qwen_generation produced no tokens")
+    latencies_ms = [1000 * t for _, t in measured]
+    return {"tokens_per_sec": total_tokens / sum(t for _, t in measured),
+            "p95_latency_ms": percentile(latencies_ms, 0.95),
+            "model_rss_mb": rss_growth_mb(rss_before),
+            "compute_type": generator.compute_type}
+
+
+TASKS = {"whisper_wer": run_whisper_wer, "whisper_small_wer": run_whisper_small_wer,
+         "opus_bleu": run_opus_bleu, "t5gemma_generation": run_t5gemma_generation,
+         "qwen_generation": run_qwen_generation}
 
 CONVERTERS = {"opus_bleu": convert_opus_bleu,
-              "t5gemma_generation": convert_t5gemma_generation}
+              "t5gemma_generation": convert_t5gemma_generation,
+              "qwen_generation": convert_qwen_generation}
 
 
 if __name__ == "__main__":

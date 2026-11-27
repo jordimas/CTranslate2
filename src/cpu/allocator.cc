@@ -1,9 +1,15 @@
 #include "ctranslate2/allocator.h"
 
+#include <algorithm>
+
 #ifdef _WIN32
 #  include <malloc.h>
 #else
 #  include <cstdlib>
+#endif
+
+#ifdef __linux__
+#  include <sys/mman.h>
 #endif
 
 #ifdef CT2_WITH_MKL
@@ -12,6 +18,39 @@
 
 namespace ctranslate2 {
   namespace cpu {
+
+    // Large buffers (weights, KV cache) are walked in full on every decoding step. Backing
+    // them with transparent huge pages cuts TLB misses. Disable with CT2_CPU_HUGEPAGES=0.
+    constexpr size_t huge_page_size = size_t(2) << 20;
+    constexpr size_t huge_page_threshold = size_t(4) << 20;
+
+    static bool huge_pages_enabled() {
+#ifdef __linux__
+      static const bool enabled = []() {
+        const char* env = std::getenv("CT2_CPU_HUGEPAGES");
+        return !(env && env[0] == '0');
+      }();
+      return enabled;
+#else
+      return false;
+#endif
+    }
+
+    static size_t effective_alignment(size_t size, size_t alignment) {
+      return (size >= huge_page_threshold && huge_pages_enabled()
+              ? std::max(alignment, huge_page_size)
+              : alignment);
+    }
+
+    static void advise_huge_pages(void* ptr, size_t size) {
+#ifdef __linux__
+      if (ptr && size >= huge_page_threshold && huge_pages_enabled())
+        madvise(ptr, size, MADV_HUGEPAGE);  // Best effort, failure is harmless.
+#else
+      (void)ptr;
+      (void)size;
+#endif
+    }
 
     class AlignedAllocator : public Allocator {
     public:
@@ -25,8 +64,9 @@ namespace ctranslate2 {
 #ifdef _WIN32
         ptr = _aligned_malloc(size, _alignment);
 #else
-        if (posix_memalign(&ptr, _alignment, size) != 0)
+        if (posix_memalign(&ptr, effective_alignment(size, _alignment), size) != 0)
           ptr = nullptr;
+        advise_huge_pages(ptr, size);
 #endif
         if (!ptr)
           throw std::runtime_error("aligned_alloc: failed to allocate memory");
@@ -54,7 +94,8 @@ namespace ctranslate2 {
       }
 
       void* allocate(size_t size, int) override {
-        void* ptr = mkl_malloc(size, _alignment);
+        void* ptr = mkl_malloc(size, effective_alignment(size, _alignment));
+        advise_huge_pages(ptr, size);
         if (!ptr)
           throw std::runtime_error("mkl_malloc: failed to allocate memory");
         return ptr;

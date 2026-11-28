@@ -351,8 +351,10 @@ namespace ctranslate2 {
 
       StorageView context(dtype, device);
       if (_encoder_attention) {
+        // The memory can be null when the cross-attention keys and values are already cached.
+        const StorageView empty_memory(dtype, device);
         (*_encoder_attention)(output,
-                              *memory,
+                              memory ? *memory : empty_memory,
                               memory_lengths,
                               context,
                               cached_attn_keys,

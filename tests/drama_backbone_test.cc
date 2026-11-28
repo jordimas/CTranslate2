@@ -202,7 +202,7 @@ TEST(DramaBackboneTest, CandidateHeadGathersInt8ScalesAndCompensation) {
 
 TEST(DramaBackboneTest, CandidateHeadValidatesUniqueInRangeIds) {
   TinyBackboneModel model;
-  for (const std::vector<int32_t> ids : {std::vector<int32_t>{0, 0}, {-1}, {3}}) {
+  for (const std::vector<int32_t>& ids : {std::vector<int32_t>{0, 0}, {-1}, {3}}) {
     auto cfg = config();
     cfg.lm_candidates = ids;
     EXPECT_THROW((layers::DramaBackbone(model, "backbone", cfg)), std::invalid_argument);

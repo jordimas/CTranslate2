@@ -81,6 +81,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       CT2_VERBOSE: 1
+      CT2_USE_MKL: 1
 
     steps:
       - uses: actions/checkout@v5
@@ -88,8 +89,6 @@ jobs:
           submodules: recursive
 
       - name: Install MKL
-        env:
-          CT2_USE_MKL: 1
         run: |
           python/tools/install_mkl.sh "$MKL_VERSION"
 
@@ -98,8 +97,6 @@ jobs:
           sudo apt install -y clang
 
       - name: Configure with MKL and Clang
-        env:
-          CT2_USE_MKL: 1
         run: |
           cmake -DCMAKE_INSTALL_PREFIX=$PWD/install -DBUILD_TESTS=ON -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DENABLE_ADDRESS_SANITIZER=ON -DCMAKE_BUILD_TYPE=Debug .
 
@@ -115,8 +112,6 @@ jobs:
           tar xf transliteration-aren-all.tar.gz
 
       - name: Test AddressSanitizer
-        env:
-          CT2_USE_MKL: 1
         run: |
           ASAN_OPTIONS=detect_leaks=1:print_stats=1 tests/ctranslate2_test tests/data
 
@@ -220,6 +215,48 @@ jobs:
       - name: Test
         run: |
           tests/ctranslate2_test tests/data
+
+  build-and-test-cpp-arm64-sanitizers:
+    runs-on: ubuntu-22.04-arm
+    env:
+      CT2_VERBOSE: 1
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y clang libopenblas-dev
+
+      - name: Configure with OpenBLAS, Ruy and Clang
+        run: |
+          cmake -DCMAKE_INSTALL_PREFIX=$PWD/install \
+            -DCMAKE_C_COMPILER=/usr/bin/clang \
+            -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+            -DOPENMP_RUNTIME=COMP \
+            -DWITH_MKL=OFF \
+            -DWITH_OPENBLAS=ON \
+            -DWITH_RUY=ON \
+            -DBUILD_TESTS=ON \
+            -DENABLE_ADDRESS_SANITIZER=ON \
+            -DENABLE_UNDEFINED_SANITIZER=ON \
+            -DCMAKE_BUILD_TYPE=Debug \
+            .
+
+      - name: Build
+        run: |
+          make -j $(nproc) install
+
+      - name: Download test data
+        run: |
+          wget https://opennmt-models.s3.amazonaws.com/transliteration-aren-all.tar.gz
+          tar xf transliteration-aren-all.tar.gz -C tests/data/models/
+
+      - name: Test AddressSanitizer and UndefinedBehaviorSanitizer
+        run: |
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 tests/ctranslate2_test tests/data
 
   build-and-test-mps:
     runs-on: macos-15
@@ -623,6 +660,7 @@ jobs:
       - build-and-test-cpp-x86_64-address_sanitizer
       - build-and-test-cpp-x86_64-thread_sanitizer
       - build-and-test-cpp-arm64
+      - build-and-test-cpp-arm64-sanitizers
       - build-python-wheels
       - test-python-wheels
       - test-python314-native-finalizer
@@ -653,6 +691,7 @@ jobs:
       - build-and-test-cpp-x86_64-address_sanitizer
       - build-and-test-cpp-x86_64-thread_sanitizer
       - build-and-test-cpp-arm64
+      - build-and-test-cpp-arm64-sanitizers
       - build-python-wheels
       - test-python-wheels
       - test-legacy-converters

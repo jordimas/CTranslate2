@@ -26,6 +26,7 @@ option(WITH_TENSOR_PARALLEL "Compile with NCCL and MPI backend" OFF)
 option(WITH_FLASH_ATTN "Compile with Flash Attention 2" OFF)
 option(ENABLE_ADDRESS_SANITIZER "ASAN" OFF)
 option(ENABLE_THREAD_SANITIZER "TSAN" OFF)
+option(ENABLE_UNDEFINED_SANITIZER "UBSAN" OFF)
 
 MESSAGE(STATUS "Compiler Id: ${CMAKE_CXX_COMPILER_ID}")
 MESSAGE(STATUS "Compiler Version: ${CMAKE_CXX_COMPILER_VERSION}")
@@ -98,13 +99,22 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Warnings that usually indicate real bugs: they fail the build.
+    include(CheckCXXCompilerFlag)
     foreach(_warning
         non-virtual-dtor
         duplicated-cond
         duplicated-branches
         logical-op
-        format=2)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W${_warning} -Werror=${_warning}")
+        format=2
+        return-type
+        format
+        bool-operation
+        range-loop-construct)
+      string(MAKE_C_IDENTIFIER "CT2_HAS_WERROR_${_warning}" _check_var)
+      check_cxx_compiler_flag("-Werror=${_warning}" ${_check_var})
+      if(${_check_var})
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W${_warning} -Werror=${_warning}")
+      endif()
     endforeach()
   endif()
 endif()
@@ -561,6 +571,18 @@ ELSEIF (ENABLE_THREAD_SANITIZER AND (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_
   add_link_options(-fsanitize=thread)
 ELSEIF (ENABLE_ADDRESS_SANITIZER OR ENABLE_THREAD_SANITIZER)
   MESSAGE(FATAL_ERROR "SANITIZER requires Debug build type")
+ENDIF ()
+
+# UBSan can be combined with ASan; any undefined behavior aborts the program.
+IF (ENABLE_UNDEFINED_SANITIZER)
+  IF (NOT (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "DEBUG"))
+    MESSAGE(FATAL_ERROR "SANITIZER requires Debug build type")
+  ENDIF ()
+  MESSAGE (STATUS "ENABLE_UNDEFINED_SANITIZER: TRUE")
+  set(UBSAN_FLAGS " -fsanitize=undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer")
+  string(APPEND CMAKE_C_FLAGS ${UBSAN_FLAGS})
+  string(APPEND CMAKE_CXX_FLAGS ${UBSAN_FLAGS})
+  add_link_options(-fsanitize=undefined)
 ENDIF ()
 
 if (WITH_CUDA)

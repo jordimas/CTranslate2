@@ -44,15 +44,14 @@ namespace ctranslate2 {
       OTHERS,
     };
 
-    [[noreturn]]
-    static inline void report_stream_error(const std::streampos position,
+    static std::runtime_error stream_error(const std::streampos position,
                                            const size_t read_size,
                                            const std::string& read_type) {
-      throw std::runtime_error("File " + binary_file + " is incomplete: "
-                               + "failed to read a " + read_type + " of size "
-                               + std::to_string(read_size)
-                               + " at position "
-                               + std::to_string(position));
+      return std::runtime_error("File " + binary_file + " is incomplete: "
+                                + "failed to read a " + read_type + " of size "
+                                + std::to_string(read_size)
+                                + " at position "
+                                + std::to_string(position));
     }
 
     template <typename T>
@@ -62,7 +61,7 @@ namespace ctranslate2 {
       T val;
       in.read(reinterpret_cast<char*>(&val), read_size);
       if (!in)
-        report_stream_error(position, read_size, "value");
+        throw stream_error(position, read_size, "value");
       return val;
     }
 
@@ -77,7 +76,7 @@ namespace ctranslate2 {
       if (!in) {
         if (dst != data)
           delete [] dst;
-        report_stream_error(position, read_size, "buffer");
+        throw stream_error(position, read_size, "buffer");
       }
       return dst;
     }

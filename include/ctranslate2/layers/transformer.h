@@ -138,6 +138,8 @@ namespace ctranslate2 {
     public:
       TransformerEncoder(const models::Model& model, const std::string& scope);
 
+      using Encoder::operator();
+
       void operator()(const std::vector<StorageView>& ids,
                       const StorageView* lengths,
                       StorageView& output) override;

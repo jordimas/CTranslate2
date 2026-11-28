@@ -112,7 +112,7 @@ namespace ctranslate2 {
         gpu_residual = residual->to(Device::CUDA).to(float_type);
       StorageView result(float_type, Device::CUDA);
       const ops::Gemm gemm(1, 0, false, true, false, false,
-                           weight_type == DataType::INT8 ? nullptr : nullptr);
+                           nullptr);
       if (weight_type == DataType::INT8) {
         StorageView quantized(DataType::INT8, Device::CUDA),
             scales(DataType::FLOAT32, Device::CUDA);

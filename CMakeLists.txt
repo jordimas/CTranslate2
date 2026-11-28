@@ -96,6 +96,18 @@ if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /d2FH4-")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Warnings that usually indicate real bugs: they fail the build.
+    foreach(_warning
+        non-virtual-dtor
+        overloaded-virtual
+        duplicated-cond
+        duplicated-branches
+        logical-op
+        format=2)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W${_warning} -Werror=${_warning}")
+    endforeach()
+  endif()
 endif()
 
 if(WIN32)

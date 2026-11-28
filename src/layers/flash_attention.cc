@@ -83,7 +83,7 @@ namespace ctranslate2 {
           tmp = std::move(*cached_values);
           concat_op({&tmp, &empty_storage}, *cached_values);
 
-          if (!prefilling && _sliding_window > 0 && (offset / (_sliding_window - 1)) >= 1) {
+          if (!prefilling && _sliding_window > 0 && offset >= _sliding_window - 1) {
             // only for generation
             const ops::Slide slide_op(_cache_time_dim, 1, cached_keys->shape()[_cache_time_dim] - 1);
             slide_op(*cached_keys, tmp);

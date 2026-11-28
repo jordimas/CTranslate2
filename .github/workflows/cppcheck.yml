@@ -1,0 +1,34 @@
+name: Cppcheck
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cppcheck:
+    name: Cppcheck (${{ matrix.config }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - config: conditional exploration
+            flags: --force
+          - config: CPU x86
+            flags: -DCT2_X86_BUILD -DCT2_WITH_CPU_DISPATCH -DCT2_WITH_MKL -DCT2_WITH_DNNL
+          - config: CUDA
+            flags: -DCT2_WITH_CUDA -DCT2_WITH_CUDNN -DCT2_WITH_FLASH_ATTN -DCT2_WITH_TENSOR_PARALLEL
+          - config: ROCm
+            flags: -DCT2_WITH_CUDA -DCT2_USE_HIP -D__HIP_PLATFORM_AMD__
+          - config: MPS
+            flags: -D__APPLE__ -D__aarch64__ -DCT2_ARM64_BUILD -DCT2_WITH_MPS -DCT2_WITH_ACCELERATE
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update && sudo apt-get install -y cppcheck
+      - run: python3 tools/check_cppcheck.py ${{ matrix.flags }}

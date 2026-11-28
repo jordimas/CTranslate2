@@ -36,6 +36,9 @@
 #elif defined(__GNUC__)
 #  define CT2_FFAST_MATH_BEGIN _Pragma("GCC push_options") _Pragma("GCC optimize(\"-ffast-math\")")
 #  define CT2_FFAST_MATH_END _Pragma("GCC pop_options")
+#else
+#  define CT2_FFAST_MATH_BEGIN
+#  define CT2_FFAST_MATH_END
 #endif
 
 #include "cpu/parallel.h"

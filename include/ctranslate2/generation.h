@@ -93,14 +93,14 @@ namespace ctranslate2 {
   };
 
   struct GenerationStepResult {
-    size_t step;
-    size_t batch_id;
-    size_t token_id;
-    size_t hypothesis_id;
+    size_t step = 0;
+    size_t batch_id = 0;
+    size_t token_id = 0;
+    size_t hypothesis_id = 0;
     std::string token;
     std::optional<float> score;
     std::optional<StorageView> logits;
-    bool is_last;
+    bool is_last = false;
 
     GenerationStepResult() = default;
     GenerationStepResult(const DecodingStepResult& result, const Vocabulary& vocabulary)

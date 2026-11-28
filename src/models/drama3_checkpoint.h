@@ -14,7 +14,7 @@ namespace ctranslate2 {
       void release_pages(const StorageView& weight) const;
 
     private:
-      size_t _size;
+      size_t _size = 0;
       std::shared_ptr<void> _mapping;
     };
 

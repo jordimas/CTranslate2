@@ -58,7 +58,7 @@ namespace ctranslate2 {
     }
 
   private:
-    uint16_t _bits;
+    uint16_t _bits = 0;
 
     // Converts the 32 bits of a normal float or zero to the bits of a bfloat16.
     static constexpr uint16_t convert_bits_of_normal_or_zero(const uint32_t bits) {

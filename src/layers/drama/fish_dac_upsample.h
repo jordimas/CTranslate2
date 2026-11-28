@@ -21,14 +21,14 @@ namespace ctranslate2 {
       struct Block {
         Block(const models::Model& model, const std::string& scope);
         Dense pw1, pw2;
-        const StorageView* transpose_weight;
-        const StorageView* transpose_bias;
-        const StorageView* depthwise_weight;
-        const StorageView* depthwise_bias;
-        const StorageView* norm_weight;
-        const StorageView* norm_bias;
-        const StorageView* gamma;
-        dim_t channels;
+        const StorageView* transpose_weight = nullptr;
+        const StorageView* transpose_bias = nullptr;
+        const StorageView* depthwise_weight = nullptr;
+        const StorageView* depthwise_bias = nullptr;
+        const StorageView* norm_weight = nullptr;
+        const StorageView* norm_bias = nullptr;
+        const StorageView* gamma = nullptr;
+        dim_t channels = 0;
       };
 
       void forward_block(const Block& block, const StorageView& input, StorageView& output) const;

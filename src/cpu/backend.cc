@@ -17,11 +17,13 @@ namespace ctranslate2 {
 #endif
       } else {
         const bool use_mkl = string_to_bool(use_mkl_env);
-#ifndef CT2_WITH_MKL
+#ifdef CT2_WITH_MKL
+        return use_mkl;
+#else
         if (use_mkl)
           throw std::invalid_argument("This CTranslate2 binary was not compiled with Intel MKL");
+        return false;
 #endif
-        return use_mkl;
       }
     }
 

@@ -102,17 +102,9 @@ jobs:
       - name: Check first-party C++
         shell: bash
         run: |
-          cppcheck --quiet --enable=warning --std=c++17 --inline-suppr \
-            --template='{file}:{line}: [{id}] {message}' --output-file=cppcheck.txt \
+          cppcheck --quiet --std=c++17 --enable=warning --error-exitcode=1 \
+            --inline-suppr --suppressions-list=tools/cppcheck-suppressions.txt \
             -Iinclude -Isrc ${{ matrix.flags }} src include/ctranslate2 cli python/cpp tests tools examples
-          awk '
-            /^(src|include\/ctranslate2|cli|python\/cpp|tests|tools|examples)\// &&
-            /:[0-9]+: \[(zerodiv|zerodivcond|nullPointer|nullPointerRedundantCheck|arrayIndexOutOfBounds|bufferAccessOutOfBounds|deallocuse|doubleFree)\]/ {
-              print
-              failed = 1
-            }
-            END { exit failed }
-          ' cppcheck.txt
 
   build-and-test-cpp-x86_64-address_sanitizer:
     runs-on: ubuntu-22.04

@@ -44,6 +44,7 @@ namespace ctranslate2 {
       OTHERS,
     };
 
+    [[noreturn]]
     static inline void report_stream_error(const std::streampos position,
                                            const size_t read_size,
                                            const std::string& read_type) {

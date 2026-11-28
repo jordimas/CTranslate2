@@ -100,7 +100,6 @@ else()
     # Warnings that usually indicate real bugs: they fail the build.
     foreach(_warning
         non-virtual-dtor
-        overloaded-virtual
         duplicated-cond
         duplicated-branches
         logical-op

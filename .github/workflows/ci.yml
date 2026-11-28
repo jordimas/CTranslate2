@@ -77,11 +77,21 @@ jobs:
         run: |
           tests/ctranslate2_test tests/data
           
-  build-and-test-cpp-x86_64-address_sanitizer:
+  build-and-test-cpp-x86_64-sanitizers:
     runs-on: ubuntu-22.04
     env:
       CT2_VERBOSE: 1
       CT2_USE_MKL: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: AddressSanitizer
+            cmake_option: ENABLE_ADDRESS_SANITIZER
+            runtime_options: ASAN_OPTIONS=detect_leaks=1:print_stats=1
+          - sanitizer: ThreadSanitizer
+            cmake_option: ENABLE_THREAD_SANITIZER
+            runtime_options: TSAN_OPTIONS=ignore_noninstrumented_modules=1:halt_on_error=1
 
     steps:
       - uses: actions/checkout@v5
@@ -98,7 +108,7 @@ jobs:
 
       - name: Configure with MKL and Clang
         run: |
-          cmake -DCMAKE_INSTALL_PREFIX=$PWD/install -DBUILD_TESTS=ON -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DENABLE_ADDRESS_SANITIZER=ON -DCMAKE_BUILD_TYPE=Debug .
+          cmake -DCMAKE_INSTALL_PREFIX=$PWD/install -DBUILD_TESTS=ON -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -D${{ matrix.cmake_option }}=ON -DCMAKE_BUILD_TYPE=Debug .
 
       - name: Build
         run: |
@@ -111,52 +121,9 @@ jobs:
           wget https://opennmt-models.s3.amazonaws.com/transliteration-aren-all.tar.gz
           tar xf transliteration-aren-all.tar.gz
 
-      - name: Test AddressSanitizer
+      - name: Test ${{ matrix.sanitizer }}
         run: |
-          ASAN_OPTIONS=detect_leaks=1:print_stats=1 tests/ctranslate2_test tests/data
-
-  build-and-test-cpp-x86_64-thread_sanitizer:
-    runs-on: ubuntu-22.04
-    env:
-      CT2_VERBOSE: 1
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
-      - name: Install MKL
-        env:
-          CT2_USE_MKL: 1
-        run: |
-          python/tools/install_mkl.sh "$MKL_VERSION"
-
-      - name: Install Clang
-        run: |
-          sudo apt install -y clang
-
-      - name: Configure with MKL and Clang
-        env:
-          CT2_USE_MKL: 1
-        run: |
-          cmake -DCMAKE_INSTALL_PREFIX=$PWD/install -DBUILD_TESTS=ON -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DENABLE_THREAD_SANITIZER=ON -DCMAKE_BUILD_TYPE=Debug .
-
-      - name: Build
-        run: |
-          make -j $(nproc) install
-
-      - name: Download test data
-        working-directory: tests/data/models
-        run: |
-          wget https://opennmt-models.s3.amazonaws.com/pi_lm_step_5000.pt
-          wget https://opennmt-models.s3.amazonaws.com/transliteration-aren-all.tar.gz
-          tar xf transliteration-aren-all.tar.gz
-
-      - name: Test ThreadSanitizer
-        env:
-          CT2_USE_MKL: 1
-        run: |
-          TSAN_OPTIONS="ignore_noninstrumented_modules=1:halt_on_error=1" tests/ctranslate2_test tests/data
+          ${{ matrix.runtime_options }} tests/ctranslate2_test tests/data
 
   build-and-test-cpp-arm64:
     runs-on: ${{ matrix.os }}
@@ -657,8 +624,7 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     needs:
       - build-and-test-cpp-x86_64
-      - build-and-test-cpp-x86_64-address_sanitizer
-      - build-and-test-cpp-x86_64-thread_sanitizer
+      - build-and-test-cpp-x86_64-sanitizers
       - build-and-test-cpp-arm64
       - build-and-test-cpp-arm64-sanitizers
       - build-python-wheels
@@ -688,8 +654,7 @@ jobs:
   build-and-push-docker-images:
     needs:
       - build-and-test-cpp-x86_64
-      - build-and-test-cpp-x86_64-address_sanitizer
-      - build-and-test-cpp-x86_64-thread_sanitizer
+      - build-and-test-cpp-x86_64-sanitizers
       - build-and-test-cpp-arm64
       - build-and-test-cpp-arm64-sanitizers
       - build-python-wheels

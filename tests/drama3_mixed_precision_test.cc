@@ -30,7 +30,7 @@ namespace {
     for (T v : values) {
       if constexpr (sizeof(T) == 4) {
         uint32_t bits;
-        std::memcpy(&bits, &v, 4);
+        std::memcpy(&bits, &v, sizeof(v));
         integer(bytes, bits, 4);
       } else
         bytes.push_back(char(v));

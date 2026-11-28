@@ -31,4 +31,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: sudo apt-get update && sudo apt-get install -y cppcheck
-      - run: python3 tools/check_cppcheck.py ${{ matrix.flags }}
+      - name: Check first-party C++
+        shell: bash
+        run: |
+          cppcheck --quiet --enable=warning --std=c++17 --inline-suppr \
+            --template='{file}:{line}: [{id}] {message}' --output-file=cppcheck.txt \
+            -Iinclude -Isrc ${{ matrix.flags }} src include/ctranslate2 cli python/cpp tests tools examples
+          awk '
+            /^(src|include\/ctranslate2|cli|python\/cpp|tests|tools|examples)\// &&
+            /:[0-9]+: \[(zerodiv|zerodivcond|nullPointer|nullPointerRedundantCheck|arrayIndexOutOfBounds|bufferAccessOutOfBounds|deallocuse|doubleFree)\]/ {
+              print
+              failed = 1
+            }
+            END { exit failed }
+          ' cppcheck.txt

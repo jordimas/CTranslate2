@@ -77,6 +77,43 @@ jobs:
         run: |
           tests/ctranslate2_test tests/data
           
+  cppcheck:
+    name: Cppcheck (${{ matrix.config }})
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - config: conditional exploration
+            flags: --force
+          - config: CPU x86
+            flags: -DCT2_X86_BUILD -DCT2_WITH_CPU_DISPATCH -DCT2_WITH_MKL -DCT2_WITH_DNNL
+          - config: CUDA
+            flags: -DCT2_WITH_CUDA -DCT2_WITH_CUDNN -DCT2_WITH_FLASH_ATTN -DCT2_WITH_TENSOR_PARALLEL
+          - config: ROCm
+            flags: -DCT2_WITH_CUDA -DCT2_USE_HIP -D__HIP_PLATFORM_AMD__
+          - config: MPS
+            flags: -D__APPLE__ -D__aarch64__ -DCT2_ARM64_BUILD -DCT2_WITH_MPS -DCT2_WITH_ACCELERATE
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update && sudo apt-get install -y cppcheck
+      - name: Check first-party C++
+        shell: bash
+        run: |
+          cppcheck --quiet --enable=warning --std=c++17 --inline-suppr \
+            --template='{file}:{line}: [{id}] {message}' --output-file=cppcheck.txt \
+            -Iinclude -Isrc ${{ matrix.flags }} src include/ctranslate2 cli python/cpp tests tools examples
+          awk '
+            /^(src|include\/ctranslate2|cli|python\/cpp|tests|tools|examples)\// &&
+            /:[0-9]+: \[(zerodiv|zerodivcond|nullPointer|nullPointerRedundantCheck|arrayIndexOutOfBounds|bufferAccessOutOfBounds|deallocuse|doubleFree)\]/ {
+              print
+              failed = 1
+            }
+            END { exit failed }
+          ' cppcheck.txt
+
   build-and-test-cpp-x86_64-address_sanitizer:
     runs-on: ubuntu-22.04
     env:
